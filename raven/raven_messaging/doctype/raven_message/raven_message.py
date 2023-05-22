@@ -4,8 +4,6 @@ import frappe
 from frappe.model.document import Document
 from pypika import Order
 from datetime import timedelta
-from itertools import groupby
-from datetime import datetime
 
 
 class RavenMessage(Document):
@@ -82,11 +80,10 @@ def get_messages(channel_id, start_after, limit):
                      raven_message.file,
                      raven_message.message_type,
                      raven_message.message_reactions)
-             .where((raven_message.channel_id == channel_id) & (raven_message.creation < start_after))
-             .orderby(raven_message.creation, order=Order.desc).limit(limit))
+             .where(raven_message.channel_id == channel_id)
+             .orderby(raven_message.creation, order=Order.desc).limit(limit).offset(start_after))
 
     return query.run(as_dict=True)
-
 
 def parse_messages(messages):
     message_list = []
@@ -128,8 +125,7 @@ def parse_messages(messages):
         last_message = message
     return message_list
 
-
 @frappe.whitelist()
-def get_messages_by_date(channel_id, start_after=datetime.now(), limit=100):
+def get_messages_by_date(channel_id, start_after, limit):
     messages = get_messages(channel_id, start_after, limit)
     return parse_messages(messages)

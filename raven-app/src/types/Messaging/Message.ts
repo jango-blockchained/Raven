@@ -5,10 +5,10 @@ export type Message = {
     text: string | null,
     file: string | null,
     message_type: 'Text' | 'File' | 'Image',
-    message_reactions: string | null,
+    message_reactions?: string | null,
 }
 
 export type MessagesWithDate = {
     block_type: string,
-    data: Message[]
-}
+    data: any,
+}[]
