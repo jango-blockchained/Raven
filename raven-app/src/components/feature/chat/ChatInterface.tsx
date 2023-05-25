@@ -1,6 +1,6 @@
 import { Avatar, AvatarBadge, Box, Button, ButtonGroup, Center, HStack, Stack, Text, useColorMode, useDisclosure, useToast } from "@chakra-ui/react"
-import { useFrappeCreateDoc, useFrappeGetCall } from "frappe-react-sdk"
-import { useContext } from "react"
+import { useFrappeCreateDoc, useFrappeGetCall, useFrappeGetDocCount } from "frappe-react-sdk"
+import { useContext, useEffect, useMemo, useRef, useState } from "react"
 import { BiGlobe, BiHash, BiLockAlt } from "react-icons/bi"
 import { HiOutlineSearch } from "react-icons/hi"
 import { useFrappeEventListener } from "../../../hooks/useFrappeEventListener"
@@ -26,44 +26,101 @@ export const ChatInterface = () => {
     const userData = useContext(UserDataContext)
     const user = userData?.name
     const peer = Object.keys(channelMembers).filter((member) => member !== user)[0]
+    const [oldestMessage, setOldestMessage] = useState<string | null>(null)
     const { data: channelList, error: channelListError } = useFrappeGetCall<{ message: ChannelData[] }>("raven.raven_channel_management.doctype.raven_channel.raven_channel.get_channel_list")
 
-    const { data, error, mutate } = useFrappeGetCall<{ message: MessagesWithDate }>("raven.raven_messaging.doctype.raven_message.raven_message.get_messages_by_date", {
+    const { data, error, mutate, isLoading } = useFrappeGetCall<{ message: MessagesWithDate }>("raven.raven_messaging.doctype.raven_message.raven_message.get_messages_by_date", {
         channel_id: channelData?.name ?? null,
-        start_after: 0,
-        limit: 20
+        start_after: oldestMessage ?? null,
+        limit: 15
+    }, undefined, {
+        revalidateOnFocus: false,
     })
 
+    const isItemLoaded = (index: number) => {
+        return index < parsedMessages.length
+    }
+
+    // use the code of loadMoreMessages to make loadMoreItems function for react-window-infinite-loader
+    const loadMoreItems = async (startIndex: number, stopIndex: number) => {
+        if (stopIndex > parsedMessages.length) {
+            loadMoreMessages()
+        }
+    }
+    if (channelData) {
+        const { data: itemCount } = useFrappeGetDocCount("Raven Message", [["channel_id", "=", channelData.name]])
+    }
+
+    // const Item = ({ index, style }) => {
+    //     let content;
+    //     if (!isItemLoaded(index)) {
+    //         content = "Loading...";
+    //     } else {
+    //         content = items[index].name;
+    //     }
+
+    //     return <div style={style}>{content}</div>;
+    // }
+
+    const [parsedMessages, setParsedMessages] = useState<{ block_type: string; data: any; }[]>([])
+    const prevDataRef = useRef<MessagesWithDate>();
+
+    useEffect(() => {
+        if (data && data.message !== prevDataRef.current) {
+            setParsedMessages(prevParsedMessages => [...prevParsedMessages, ...data.message])
+            prevDataRef.current = data.message
+        }
+    }, [data])
+
+    const element = document.getElementById('scrollable-stack')
+
+    const handelInfiniteScroll = async () => {
+        var scrollHeight = element?.scrollHeight
+        var innerHeight = element?.clientHeight
+        var scrollTop = element?.scrollTop
+        console.log(scrollHeight, innerHeight, scrollTop)
+        try {
+            if (scrollHeight && innerHeight && scrollTop &&
+                scrollHeight - innerHeight + scrollTop <= 100
+            ) {
+                loadMoreMessages()
+            }
+        } catch (error) {
+            console.log(error)
+        }
+    }
+
+
+    useEffect(() => {
+        if (element !== null) {
+            element.addEventListener("scroll", handelInfiniteScroll)
+            return () => element.removeEventListener("scroll", handelInfiniteScroll)
+        }
+    }, [element])
+
+
     const lastMessage = useMemo(() => {
-        if (data) {
-            return Object.keys(data.message)[0]
-        } else {
-            return null
+        if (data && data.message.length > 0) {
+            if (data.message[data.message.length - 1].block_type !== 'date') {
+                return data.message[data.message.length - 1].data[data.message[data.message.length - 1].data.length - 1].name
+            }
+            else {
+                return data.message[data.message.length - 2].data[data.message[data.message.length - 2].data.length - 1].name
+            }
         }
     }, [data])
 
     console.log(data)
+    console.log(lastMessage)
 
-    const handelInfiniteScroll = async () => {
-        var scrollHeight = document.getElementById('scrollable-stack')?.scrollHeight
-        var innerHeight = document.getElementById('scrollable-stack')?.clientHeight
-        var scrollTop = document.getElementById('scrollable-stack')?.scrollTop
-        try {
-            if (scrollHeight && innerHeight && scrollTop &&
-                scrollHeight - innerHeight + scrollTop <= 10
-            ) {
-                setOldestMessageCreation(lastMessage)
-                await mutate()
-            }
-        } catch (error) {
-            console.log(error);
+    const loadMoreMessages = () => {
+        if (lastMessage && oldestMessage !== lastMessage) {
+            console.log('fetching more messages')
+            setOldestMessage(lastMessage)
+            console.log(oldestMessage)
+            mutate()
         }
-    };
-
-    useEffect(() => {
-        document.getElementById('scrollable-stack')?.addEventListener("scroll", handelInfiniteScroll)
-        return () => document.getElementById('scrollable-stack')?.removeEventListener("scroll", handelInfiniteScroll)
-    }, [])
+    }
 
     const { colorMode } = useColorMode()
 
@@ -191,7 +248,7 @@ export const ChatInterface = () => {
                 </HStack>
             </PageHeader>
             <Stack h='calc(100vh)' justify={'flex-end'} p={4} overflow='hidden' pt='16'>
-                {data && channelData && <ChatHistory parsed_messages={data.message} isDM={channelData?.is_direct_message} />}
+                {data && channelData && <ChatHistory parsed_messages={parsedMessages} isDM={channelData?.is_direct_message} isLoading={isLoading} />}
                 {channelData?.is_archived == 0 && ((user && user in channelMembers) || channelData?.type === 'Open' ?
                     <ChatInput channelID={channelData?.name ?? ''} allChannels={allChannels} allMembers={allMembers} /> :
                     <Box>

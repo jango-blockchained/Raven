@@ -1,4 +1,4 @@
-import { Stack, Box } from "@chakra-ui/react";
+import { Stack, Box, Spinner, Center } from "@chakra-ui/react";
 import { DividerWithText } from "../../layout/Divider/DividerWithText";
 import { DateObjectToFormattedDateString } from "../../../utils/operations";
 import { Message, MessagesWithDate } from "../../../types/Messaging/Message";
@@ -17,9 +17,10 @@ import { ContinuationChatMessageBox } from "./ChatMessage/ContinuationChatMessag
 interface ChatHistoryProps {
     parsed_messages: MessagesWithDate,
     isDM: number,
+    isLoading: boolean,
 }
 
-export const ChatHistory = ({ parsed_messages, isDM }: ChatHistoryProps) => {
+export const ChatHistory = ({ parsed_messages, isDM, isLoading }: ChatHistoryProps) => {
 
     const [isScrollable, setScrollable] = useState<boolean>(true)
     const handleScroll = (newState: boolean) => {
@@ -40,9 +41,10 @@ export const ChatHistory = ({ parsed_messages, isDM }: ChatHistoryProps) => {
         }
     }
 
+
     return (
         <>
-            <Stack spacing={0} justify="end" direction="column-reverse" overflowY={isScrollable ? "scroll" : "hidden"}>
+            <Stack spacing={0} justify="end" direction="column-reverse" overflowY={isScrollable ? "scroll" : "hidden"} id={'scrollable-stack'}>
                 {parsed_messages.map((block) => {
                     switch (block.block_type) {
                         case 'date':
@@ -73,7 +75,7 @@ export const ChatHistory = ({ parsed_messages, isDM }: ChatHistoryProps) => {
                             return null
                     }
                 })}
-                {isDM === 1 ? <EmptyStateForDM /> : <EmptyStateForChannel />}
+                {isLoading ? <Center><Spinner /></Center> : (isDM === 1 ? <EmptyStateForDM /> : <EmptyStateForChannel />)}
             </Stack>
             <UserProfileDrawer
                 isOpen={modalManager.modalType === ModalTypes.UserDetails}

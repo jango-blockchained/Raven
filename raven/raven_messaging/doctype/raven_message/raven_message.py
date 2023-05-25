@@ -69,8 +69,21 @@ def get_last_channel():
         return 'general'
 
 
-def get_messages(channel_id, start_after, limit):
+def get_messages(channel_id, limit, start_after):
     raven_message = frappe.qb.DocType('Raven Message')
+
+    # Fetch all messages sorted by their creation timestamp in descending order
+    all_messages = (frappe.qb.from_(raven_message)
+                    .select(raven_message.name)
+                    .where(raven_message.channel_id == channel_id)
+                    .orderby(raven_message.creation, order=Order.desc)).run(as_dict=True)
+
+    # Find the index of the start_after message
+    if start_after is not None:
+        start_after_index = next((index for (index, message) in enumerate(
+            all_messages) if message['name'] == start_after), None)
+    else:
+        start_after_index = -1
 
     query = (frappe.qb.from_(raven_message)
              .select(raven_message.name,
@@ -80,10 +93,10 @@ def get_messages(channel_id, start_after, limit):
                      raven_message.file,
                      raven_message.message_type,
                      raven_message.message_reactions)
-             .where(raven_message.channel_id == channel_id)
-             .orderby(raven_message.creation, order=Order.desc).limit(limit).offset(start_after))
+             .where(raven_message.channel_id == channel_id))
 
-    return query.run(as_dict=True)
+    return query.orderby(raven_message.creation, order=Order.desc).offset(start_after_index + 1).limit(limit).run(as_dict=True)
+
 
 def parse_messages(messages):
     message_list = []
@@ -109,7 +122,7 @@ def parse_messages(messages):
                     message_group['block_type'] = 'message'
                 message_list.append(message_group)
                 message_list.append(
-                    {'block_type': 'date', 'data': [last_message['creation'].date()]})
+                    {'block_type': 'date', 'data': [last_message['creation']]})
                 message_group = {
                     'block_type': 'message_group', 'data': [message]}
             else:
@@ -125,7 +138,8 @@ def parse_messages(messages):
         last_message = message
     return message_list
 
+
 @frappe.whitelist()
-def get_messages_by_date(channel_id, start_after, limit):
-    messages = get_messages(channel_id, start_after, limit)
+def get_messages_by_date(channel_id, limit, start_after=None):
+    messages = get_messages(channel_id, limit, start_after)
     return parse_messages(messages)
