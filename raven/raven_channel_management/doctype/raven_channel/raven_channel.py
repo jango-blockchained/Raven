@@ -69,12 +69,15 @@ class RavenChannel(Document):
             if doc:
                 continue
             else:
-                channel_member = frappe.get_doc({
-                    "doctype": "Raven Channel Member",
-                    "channel_id": self.name,
-                    "user_id": member
-                })
-                channel_member.insert()
+                # check if user is raven user
+                user_roles = frappe.get_roles(member)
+                if "Raven User" in user_roles:
+                    channel_member = frappe.get_doc({
+                        "doctype": "Raven Channel Member",
+                        "channel_id": self.name,
+                        "user_id": member
+                    })
+                    channel_member.insert()
 
     def autoname(self):
         if self.is_direct_message == 0:
@@ -103,33 +106,36 @@ def get_channel_list(hide_archived=False):
 
 @frappe.whitelist(methods=['POST'])
 def create_direct_message_channel(user_id):
-    channel_name = frappe.db.get_value("Raven Channel", filters={
-        "is_direct_message": 1,
-        "channel_name": ["in", [frappe.session.user + " _ " + user_id, user_id + " _ " + frappe.session.user]]
-    }, fieldname="name")
-    if channel_name:
-        return channel_name
-    # create direct message channel with user and current user
-    else:
-        if frappe.session.user == user_id:
-            channel = frappe.get_doc({
-                "doctype": "Raven Channel",
-                "channel_name": frappe.session.user + " _ " + user_id,
-                "is_direct_message": 1,
-                "is_self_message": 1
-            })
-            channel.insert()
-            channel.add_members([frappe.session.user])
-            return channel.name
+    # check if user is raven user
+    user_roles = frappe.get_roles(user_id)
+    if "Raven User" in user_roles:
+        channel_name = frappe.db.get_value("Raven Channel", filters={
+            "is_direct_message": 1,
+            "channel_name": ["in", [frappe.session.user + " _ " + user_id, user_id + " _ " + frappe.session.user]]
+        }, fieldname="name")
+        if channel_name:
+            return channel_name
+        # create direct message channel with user and current user
         else:
-            channel = frappe.get_doc({
-                "doctype": "Raven Channel",
-                "channel_name": frappe.session.user + " _ " + user_id,
-                "is_direct_message": 1
-            })
-            channel.insert()
-            channel.add_members([frappe.session.user, user_id])
-            return channel.name
+            if frappe.session.user == user_id:
+                channel = frappe.get_doc({
+                    "doctype": "Raven Channel",
+                    "channel_name": frappe.session.user + " _ " + user_id,
+                    "is_direct_message": 1,
+                    "is_self_message": 1
+                })
+                channel.insert()
+                channel.add_members([frappe.session.user])
+                return channel.name
+            else:
+                channel = frappe.get_doc({
+                    "doctype": "Raven Channel",
+                    "channel_name": frappe.session.user + " _ " + user_id,
+                    "is_direct_message": 1
+                })
+                channel.insert()
+                channel.add_members([frappe.session.user, user_id])
+                return channel.name
 
 
 @frappe.whitelist()

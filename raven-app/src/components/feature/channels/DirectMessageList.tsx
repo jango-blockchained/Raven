@@ -13,7 +13,7 @@ export const DirectMessageList = ({ userData }: { userData: User | null }) => {
     const { url } = useContext(FrappeContext) as FrappeConfig
     const { data: users, error: usersError } = useFrappeGetDocList<User>("User", {
         fields: ["full_name", "user_image", "name"],
-        filters: [["name", "!=", "Guest"]]
+        filters: [["name", "!=", "Guest"], ["enabled", "=", 1]],
     }, undefined, {
         revalidateOnFocus: false
     })
