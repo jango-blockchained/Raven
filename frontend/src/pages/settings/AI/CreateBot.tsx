@@ -18,7 +18,7 @@ const CreateBot = () => {
     const methods = useForm<RavenBot>({
         disabled: loading,
         defaultValues: {
-            is_ai_bot: 1,
+            is_ai_bot: 0,
             enable_file_search: 1,
             enable_code_interpreter: 1
         }
@@ -53,13 +53,13 @@ const CreateBot = () => {
                 <FormProvider {...methods}>
                     <SettingsContentContainer>
                         <SettingsPageHeader
-                            title='Create a Bot'
+                            title='Create an Agent'
                             // description='Bots can be used to send reminders, run AI assistants, and more.'
                             actions={<Button type='submit' disabled={loading}>
                                 {loading && <Loader className="text-white" />}
                                 {loading ? "Creating" : "Create"}
                             </Button>}
-                            breadcrumbs={[{ label: 'Bots', href: '../' }, { label: 'New Bot', href: '' }]}
+                            breadcrumbs={[{ label: 'Agents', href: '../' }, { label: 'New Agent', href: '' }]}
                         />
                         <ErrorBanner error={error} />
                         <BotForm isEdit={false} />

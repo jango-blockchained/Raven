@@ -1,9 +1,9 @@
 import { getFileName } from '@/utils/operations'
 import { ImageMessage } from '../../../../../../../types/Messaging/Message'
-import { Box, Button, Dialog, Flex, IconButton, Link, Text } from '@radix-ui/themes'
-import { Suspense, lazy, memo, useState, useRef, useEffect } from 'react'
+import { Box, Button, Dialog, Flex, IconButton, Link } from '@radix-ui/themes'
+import { Suspense, lazy, memo, useState, useRef, useMemo } from 'react'
 import { DIALOG_CONTENT_CLASS } from '@/utils/layout/dialog'
-import { BiDownload, BiChevronDown, BiChevronRight } from 'react-icons/bi'
+import { BiDownload, BiChevronDown, BiChevronRight, BiX } from 'react-icons/bi'
 import { UserFields } from '@/utils/users/UserListProvider'
 import { DateMonthAtHourMinuteAmPm } from '@/utils/dateConversions'
 import { clsx } from 'clsx'
@@ -29,8 +29,25 @@ export const ImageMessageBlock = memo(({ message, isScrolling = false, user }: I
 
     const [isVisible, setIsVisible] = useState<boolean>(true)
 
-    const height = isVisible ? (message.thumbnail_height ? isMobile ? message.thumbnail_height / 2 : message.thumbnail_height : '200') : '0'
-    const width = message.thumbnail_width ? isMobile ? message.thumbnail_width / 2 : message.thumbnail_width : '300'
+    const { height, width } = useMemo(() => {
+        if (!isVisible) {
+            return { height: '0', width: '0' }
+        }
+
+        let height = '200'
+        let width = '300'
+
+        if (message.thumbnail_height) {
+            height = isMobile ? String(message.thumbnail_height / 2) : String(message.thumbnail_height)
+        }
+
+        if (message.thumbnail_width) {
+            width = isMobile ? String(message.thumbnail_width / 2) : String(message.thumbnail_width)
+        }
+
+        return { height, width }
+    }, [message.thumbnail_height, message.thumbnail_width, isMobile, isVisible])
+
     const contentRef = useRef<HTMLDivElement | null>(null);
 
     const showImage = () => {
@@ -101,46 +118,75 @@ export const ImageMessageBlock = memo(({ message, isScrolling = false, user }: I
                     }}
                     width={width}
                     alt={`Image file sent by ${message.owner} at ${message.creation}`}
+                    onContextMenu={(e) => {
+                        e.stopPropagation();
+                    }}
                 />
             </Box>
             {!isScrolling &&
                 <Dialog.Root open={isOpen} onOpenChange={setIsOpen}>
-                    <Dialog.Content className={clsx(DIALOG_CONTENT_CLASS, 'sm:max-w-[88vw]')}>
-                        <Dialog.Title size='3'>{fileName}</Dialog.Title>
-                        <Dialog.Description color='gray' size='1'>{user?.full_name ?? message.owner} on <DateMonthAtHourMinuteAmPm date={message.creation} /></Dialog.Description>
-                        <Box my='4' className='w-full mx-auto items-center flex justify-center'>
-                            <Suspense fallback={<img
-                                src={message.file}
-                                loading='lazy'
-                                width='100%'
-                                // height='300'
-                                className='rounded-md shadow-md object-contain max-h-[600px]'
-                                alt={`Image file sent by ${message.owner} at ${message.creation}`}
-                            />}>
+                    <Dialog.Content className={clsx(
+                        DIALOG_CONTENT_CLASS,
+                        'sm:max-w-[88vw]',
+                        isMobile && 'fixed inset-0 w-full h-full max-w-none p-0 rounded-none bg-black overflow-hidden'
+                    )}>
+                        {isMobile && (
+                            <IconButton
+                                size='3'
+                                variant="ghost"
+                                color="gray"
+                                className='fixed top-4 right-4 z-10 text-white'
+                                onClick={() => setIsOpen(false)}
+                            >
+                                <BiX size='24' />
+                            </IconButton>
+                        )}
+
+                        <Dialog.Title size='3' className='h-0 invisible sm:h-auto sm:visible'>{fileName}</Dialog.Title>
+                        <Dialog.Description color='gray' size='1' className='h-0 invisible sm:h-auto sm:visible'>{user?.full_name ?? message.owner} on <DateMonthAtHourMinuteAmPm date={message.creation} /></Dialog.Description>
+                        <Box className={clsx(
+                            'w-full mx-auto items-center flex justify-center',
+                            isMobile ? 'h-[100dvh] absolute inset-0' : 'my-4'
+                        )}>
+                            <Suspense fallback={
+                                <img
+                                    src={message.file}
+                                    loading='lazy'
+                                    width='100%'
+                                    className={clsx(
+                                        'object-contain',
+                                        isMobile ? 'h-[100dvh] w-full' : 'rounded-md shadow-md max-h-[90vh] sm:max-h-[600px]'
+                                    )}
+                                    alt={`Image file sent by ${message.owner} at ${message.creation}`}
+                                />
+                            }>
                                 <ImageViewer>
                                     <img
                                         src={message.file}
                                         loading='lazy'
                                         width='100%'
-                                        className='rounded-md shadow-md object-contain max-h-[90vh] sm:max-h-[600px]'
+                                        className={clsx(
+                                            'object-contain',
+                                            isMobile ? 'h-[100dvh] w-full' : 'rounded-md shadow-md max-h-[90vh] sm:max-h-[600px]'
+                                        )}
                                         alt={`Image file sent by ${message.owner} at ${message.creation}`}
                                     />
                                 </ImageViewer>
                             </Suspense>
-
                         </Box>
-                        <Flex justify='end' gap='2' mt='3'>
-                            <Button variant='soft' color='gray' asChild>
-                                <Link className='no-underline' href={message.file} download>
-                                    <BiDownload />
-                                    Download
-                                </Link>
-                            </Button>
-                            <Dialog.Close>
-                                <Button color='gray' variant='soft'>Close</Button>
-                            </Dialog.Close>
-                        </Flex>
-
+                        {!isMobile && (
+                            <Flex justify='end' gap='2' mt='3'>
+                                <Button variant='soft' color='gray' asChild>
+                                    <Link className='no-underline' href={message.file} download>
+                                        <BiDownload />
+                                        Download
+                                    </Link>
+                                </Button>
+                                <Dialog.Close>
+                                    <Button color='gray' variant='soft'>Close</Button>
+                                </Dialog.Close>
+                            </Flex>
+                        )}
                     </Dialog.Content>
                 </Dialog.Root>
             }
