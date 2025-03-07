@@ -7,7 +7,9 @@ import { UserFields } from "./users/UserListProvider"
  */
 export const getFileExtension = (filename: string) => {
 
-    const extension = filename?.split('.').pop()?.toLocaleLowerCase() ?? ''
+    const fileNameWithoutQuery = filename?.split('?')[0]
+
+    const extension = fileNameWithoutQuery?.split('.').pop()?.toLocaleLowerCase() ?? ''
     return extension;
 }
 
@@ -30,7 +32,9 @@ export const isVideoFile = (ext: string) => {
 export const getFileName = (filename: string) => {
 
     const name = filename?.split('/')[3]
-    return name;
+
+    // Remove the query params from the filename
+    return name?.split('?')[0]
 }
 
 /**

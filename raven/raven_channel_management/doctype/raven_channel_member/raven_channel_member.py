@@ -28,9 +28,6 @@ class RavenChannelMember(Document):
 		user_id: DF.Link
 	# end: auto-generated types
 
-	def before_validate(self):
-		self.last_visit = frappe.utils.now()
-
 	def validate(self):
 		if (
 			self.has_value_changed("is_admin")
@@ -48,6 +45,7 @@ class RavenChannelMember(Document):
 				)
 
 	def before_insert(self):
+		self.last_visit = frappe.utils.now()
 		# 1. A user cannot be a member of a channel more than once
 		if frappe.db.exists(
 			"Raven Channel Member", {"channel_id": self.channel_id, "user_id": self.user_id}
@@ -64,6 +62,19 @@ class RavenChannelMember(Document):
 		member_name = frappe.get_cached_value("Raven User", self.user_id, "full_name")
 
 		current_user_name = frappe.get_cached_value("Raven User", frappe.session.user, "full_name")
+
+		is_thread = self.is_thread()
+
+		if not is_thread:
+			# Update the channel list for the user who left the channel
+			frappe.publish_realtime(
+				"channel_list_updated",
+				{
+					"channel_id": self.channel_id,
+				},
+				user=self.user_id,
+				after_commit=True,
+			)
 
 		# If this was the last member of a private channel, archive the channel
 		if (
@@ -156,12 +167,23 @@ class RavenChannelMember(Document):
 			"Raven Channel", self.channel_id, "is_direct_message"
 		)
 
+		is_thread = self.is_thread()
+
+		if not is_thread:
+			# Update the channel list for the user who joined the channel
+			frappe.publish_realtime(
+				"channel_list_updated",
+				{
+					"channel_id": self.channel_id,
+				},
+				user=self.user_id,
+				after_commit=True,
+			)
+
 		if not is_direct_message and self.allow_notifications:
 			subscribe_user_to_topic(self.channel_id, self.user_id)
 
 		if not is_direct_message:
-
-			is_thread = self.is_thread()
 
 			# Send a system message to the channel mentioning the member who joined
 			if not is_thread:

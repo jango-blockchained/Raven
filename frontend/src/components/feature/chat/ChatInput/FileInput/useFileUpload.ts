@@ -2,6 +2,9 @@ import { CustomFile } from '@/components/feature/file-upload/FileDrop'
 import { useContext, useRef, useState } from 'react'
 import { Message } from '../../../../../../../types/Messaging/Message'
 import { FrappeConfig, FrappeContext } from 'frappe-react-sdk'
+import { RavenMessage } from '@/types/RavenMessaging/RavenMessage'
+import { toast } from 'sonner'
+import { getErrorMessage } from '@/components/layout/AlertBanner/ErrorBanner'
 
 
 export const fileExt = ['jpg', 'JPG', 'jpeg', 'JPEG', 'png', 'PNG', 'gif', 'GIF']
@@ -9,12 +12,14 @@ export interface FileUploadProgress {
   progress: number,
   isComplete: boolean,
 }
-export default function useFileUpload(channelID: string, selectedMessage?: Message | null) {
+export default function useFileUpload(channelID: string) {
 
   const { file } = useContext(FrappeContext) as FrappeConfig
   const fileInputRef = useRef<any>(null)
 
   const [files, setFiles] = useState<CustomFile[]>([])
+
+  const [compressImages, setCompressImages] = useState(true)
 
   const filesStateRef = useRef<CustomFile[]>([])
 
@@ -41,16 +46,19 @@ export default function useFileUpload(channelID: string, selectedMessage?: Messa
     })
   }
 
-  const uploadFiles = async () => {
+  const uploadFiles = async (selectedMessage?: Message | null): Promise<RavenMessage[]> => {
     const newFiles = [...filesStateRef.current]
     if (newFiles.length > 0) {
-      const promises = newFiles.map(async (f: CustomFile) => {
+      const promises: Promise<RavenMessage | null>[] = newFiles.map(async (f: CustomFile, index: number) => {
         return file.uploadFile(f,
           {
             isPrivate: true,
             doctype: 'Raven Message',
             otherData: {
               channelID: channelID,
+              compressImages: compressImages,
+              is_reply: index === 0 ? selectedMessage ? 1 : 0 : 0,
+              linked_message: index === 0 ? selectedMessage ? selectedMessage.name : null : null
             },
             fieldname: 'file',
           },
@@ -66,7 +74,7 @@ export default function useFileUpload(channelID: string, selectedMessage?: Messa
             }))
           },
           'raven.api.upload_file.upload_file_with_message')
-          .then(() => {
+          .then((res: { data: { message: RavenMessage } }) => {
             setFiles(files => files.filter(file => file.fileID !== f.fileID))
             setFileUploadProgress(p => ({
               ...p,
@@ -75,24 +83,33 @@ export default function useFileUpload(channelID: string, selectedMessage?: Messa
                 isComplete: true,
               },
             }))
+            return res.data.message
           })
-          .catch(() => {
+          .catch((e) => {
             setFileUploadProgress(p => {
               const newProgress = { ...p }
               delete newProgress[f.fileID]
               return newProgress
             })
+
+            toast.error("There was an error uploading the file " + f.name, {
+              description: getErrorMessage(e)
+            })
+
+            return null
           })
       })
 
       return Promise.all(promises)
-        .then(() => {
+        .then((res) => {
           setFiles([])
+          return res.filter((file) => file !== null)
         }).catch((e) => {
           console.error(e)
+          return []
         })
     } else {
-      return Promise.resolve()
+      return Promise.resolve([])
     }
   }
 
@@ -102,6 +119,8 @@ export default function useFileUpload(channelID: string, selectedMessage?: Messa
     setFiles,
     removeFile,
     addFile,
+    compressImages,
+    setCompressImages,
     uploadFiles,
     fileUploadProgress
   }

@@ -1,5 +1,5 @@
 import { ContextMenu, Flex } from '@radix-ui/themes'
-import { FileMessage, Message } from '../../../../../../../types/Messaging/Message'
+import { FileMessage, ImageMessage, Message } from '../../../../../../../types/Messaging/Message'
 import { useContext } from 'react'
 import { UserContext } from '@/utils/auth/UserProvider'
 import { BiBookmarkMinus, BiBookmarkPlus, BiCopy, BiDownload, BiLink, BiPaperclip, BiTrash } from 'react-icons/bi'
@@ -9,11 +9,12 @@ import { RetractVote } from './RetractVote'
 import { toast } from 'sonner'
 import { getErrorMessage } from '@/components/layout/AlertBanner/ErrorBanner'
 import { AiOutlineEdit } from 'react-icons/ai'
-import { LuForward, LuReply } from 'react-icons/lu'
+import { LuForward, LuLink, LuReply } from 'react-icons/lu'
 import { MdOutlineEmojiEmotions } from "react-icons/md";
 import { CreateThreadContextItem } from './QuickActions/CreateThreadButton'
 import { RiPushpinLine, RiUnpinLine } from 'react-icons/ri'
 import MessageActionSubMenu from './MessageActionSubMenu'
+import { useParams } from 'react-router-dom'
 
 export interface MessageContextMenuProps {
     message?: Message | null,
@@ -40,24 +41,26 @@ export const MessageContextMenu = ({ message, onDelete, onEdit, onReply, onForwa
 
                 {message && message.message_type === 'Poll' && <RetractVote message={message} />}
 
-                <ContextMenu.Item onClick={onReply}>
-                    <Flex gap='2'>
+                <ContextMenu.Item>
+                    <Flex gap='2' width='100%' onClick={onReply}>
                         <LuReply size='18' />
                         Reply
                     </Flex>
                 </ContextMenu.Item>
-                <ContextMenu.Item onClick={onForward}>
-                    <Flex gap='2'>
+
+                <ContextMenu.Item>
+                    <Flex gap='2' width='100%' onClick={onForward}>
                         <LuForward size='18' />
                         Forward
                     </Flex>
                 </ContextMenu.Item>
                 {message && !message.is_thread && showThreadButton && <CreateThreadContextItem messageID={message.name} />}
+                <CopyMessageLink message={message} />
                 <ContextMenu.Separator />
                 <ContextMenu.Group>
                     {message.message_type === 'Text' &&
-                        <ContextMenu.Item onClick={copy}>
-                            <Flex gap='2'>
+                        <ContextMenu.Item>
+                            <Flex gap='2' width='100%' onClick={copy}>
                                 <BiCopy size='18' />
                                 Copy
                             </Flex>
@@ -66,8 +69,8 @@ export const MessageContextMenu = ({ message, onDelete, onEdit, onReply, onForwa
 
                     {['File', 'Image'].includes(message.message_type) &&
                         <ContextMenu.Group>
-                            <ContextMenu.Item onClick={copy}>
-                                <Flex gap='2'>
+                            <ContextMenu.Item>
+                                <Flex gap='2' width='100%' onClick={copy}>
                                     <BiLink size='18' />
                                     Copy link
                                 </Flex>
@@ -82,8 +85,8 @@ export const MessageContextMenu = ({ message, onDelete, onEdit, onReply, onForwa
                                 </a>
                             </ContextMenu.Item>
 
-                            <ContextMenu.Item onClick={onAttachDocument}>
-                                <Flex gap='2'>
+                            <ContextMenu.Item>
+                                <Flex gap='2' width='100%' onClick={onAttachDocument}>
                                     <BiPaperclip size='18' />
                                     Attach File to Document
                                 </Flex>
@@ -91,15 +94,15 @@ export const MessageContextMenu = ({ message, onDelete, onEdit, onReply, onForwa
                         </ContextMenu.Group>
                     }
 
-                    <PinMessageAction message={message} />
+                    {showThreadButton && <PinMessageAction message={message} />}
                     <SaveMessageAction message={message} />
 
                 </ContextMenu.Group>
 
                 {isReactionsAvailable && <ContextMenu.Group>
                     <ContextMenu.Separator />
-                    <ContextMenu.Item onClick={onViewReaction}>
-                        <Flex gap='2'>
+                    <ContextMenu.Item>
+                        <Flex gap='2' width='100%' onClick={onViewReaction}>
                             <MdOutlineEmojiEmotions size='18' />
                             View Reactions
                         </Flex>
@@ -111,15 +114,15 @@ export const MessageContextMenu = ({ message, onDelete, onEdit, onReply, onForwa
                 {isOwner && <ContextMenu.Group>
                     <ContextMenu.Separator />
                     {message.message_type === 'Text' &&
-                        <ContextMenu.Item onClick={onEdit}>
-                            <Flex gap='2'>
+                        <ContextMenu.Item>
+                            <Flex gap='2' width='100%' onClick={onEdit}>
                                 <AiOutlineEdit size='18' />
                                 Edit
                             </Flex>
                         </ContextMenu.Item>
                     }
-                    <ContextMenu.Item color="red" onClick={onDelete}>
-                        <Flex gap='2'>
+                    <ContextMenu.Item color="red">
+                        <Flex gap='2' width='100%' onClick={onDelete}>
                             <BiTrash size='18' />
                             Delete
                         </Flex>
@@ -130,11 +133,33 @@ export const MessageContextMenu = ({ message, onDelete, onEdit, onReply, onForwa
     )
 }
 
+const CopyMessageLink = ({ message }: { message: Message }) => {
+    const { workspaceID, threadID } = useParams()
+
+    const onClick = () => {
+        const basePath = `${import.meta.env.VITE_BASE_NAME}`
+
+        const isMessageInThread = threadID === message.channel_id
+        if (isMessageInThread) {
+            navigator.clipboard.writeText(`${window.location.origin}${basePath}/${workspaceID}/threads/${threadID}?message_id=${message.name}`)
+        } else {
+            navigator.clipboard.writeText(`${window.location.origin}${basePath}/${workspaceID}/${message.channel_id}?message_id=${message.name}`)
+        }
+        toast.success('Message link copied to clipboard')
+    }
+
+    return <ContextMenu.Item>
+        <Flex gap='2' width='100%' onClick={onClick}>
+            <BiLink size='18' />
+            Copy Message Link
+        </Flex>
+    </ContextMenu.Item>
+}
 
 const SaveMessageAction = ({ message }: { message: Message }) => {
 
     const { currentUser } = useContext(UserContext)
-    const isSaved = JSON.parse(message._liked_by ?? '[]').includes(currentUser)
+    const isSaved = JSON.parse(message._liked_by ? message._liked_by : '[]').includes(currentUser)
 
     const { call } = useContext(FrappeContext) as FrappeConfig
 
@@ -157,8 +182,8 @@ const SaveMessageAction = ({ message }: { message: Message }) => {
             })
     }
 
-    return <ContextMenu.Item onClick={handleLike}>
-        <Flex gap='2'>
+    return <ContextMenu.Item>
+        <Flex gap='2' width='100%' onClick={handleLike}>
             {!isSaved && <BiBookmarkPlus size='18' />}
             {isSaved && <BiBookmarkMinus size='18' />}
             {!isSaved ? "Save" : "Unsave"} Message
@@ -188,8 +213,8 @@ const PinMessageAction = ({ message }: { message: Message }) => {
         })
     }
 
-    return <ContextMenu.Item onClick={handlePin}>
-        <Flex gap='2'>
+    return <ContextMenu.Item>
+        <Flex gap='2' width='100%' onClick={handlePin}>
             {!isPinned ? <RiPushpinLine size='18' /> : <RiUnpinLine size='18' />}
             {!isPinned ? "Pin" : "Unpin"}
         </Flex>
