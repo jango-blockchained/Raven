@@ -308,7 +308,7 @@ function ChannelSelectCombobox({
                 <PopoverContent
                     side="bottom"
                     align="start"
-                    className={cn("w-(--radix-popover-trigger-width) min-w-(--radix-popover-trigger-width) max-h-100 p-0 flex flex-col", dropdownClassName)}
+                    className={cn("w-fit min-w-(--radix-popover-trigger-width) max-h-100 p-0 flex flex-col", dropdownClassName)}
                 >
                     <Command shouldFilter={true} className="flex-1 min-h-0">
                         <CommandInput placeholder="Search channels and DMs..." className="focus:ring-0 border-0 bg-transparent" />

@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react"
-import { Check } from "lucide-react"
+import { Check, CheckCheck, Inbox } from "lucide-react"
 import { Virtuoso } from "react-virtuoso"
 import { useNotificationList } from "@stores/notifications/useNotificationList"
 import { useUnreadNotificationsCount } from "@hooks/useNotifications"
@@ -10,7 +10,7 @@ import { Switch } from "@components/ui/switch"
 import { Tabs, TabsList, TabsTrigger } from "@components/ui/tabs"
 import { Button } from "@components/ui/button"
 import { Badge } from "@components/ui/badge"
-import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@components/ui/empty"
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@components/ui/empty"
 import { useIsMobile } from "@hooks/use-mobile"
 import { PageHeader } from "@components/layout/PageHeader"
 import AppMobileFooter from "@components/features/header/AppMobileFooter"
@@ -75,7 +75,7 @@ export default function Notifications() {
             <div className="flex min-h-0 flex-1">
                 {shouldShowSidebar && (
                     <div className="md:w-(--notifications-sidebar-width) w-full shrink-0 min-h-0">
-                        <nav className="flex h-full w-full flex-col bg-surface-base md:bg-surface-sidebar">
+                        <nav className="relative flex h-full w-full flex-col bg-surface-base md:bg-surface-sidebar">
                             <PageHeader title={_("Notifications")}>
                                 {unreadCount > 0 && (
                                     <Badge variant="subtle" size="sm" theme="gray">
@@ -84,7 +84,7 @@ export default function Notifications() {
                                 )}
                             </PageHeader>
 
-                            <div className="shrink-0 px-2 pb-2">
+                            <div className="shrink-0 px-2 p-2">
                                 <Tabs value={activeTab} onValueChange={(v) => onTabChange(v as NotificationTab)}>
                                     <TabsList variant="subtle" className="w-full">
                                         {TABS.map((t) => (
@@ -118,10 +118,16 @@ export default function Notifications() {
                                 )}
                             </div>
 
-                            <div className="flex min-h-0 flex-1">
-                                {currentData.length === 0 && !isLoading ? (
+                            {/* Empty state centers over the whole nav (absolute) so it lands at the
+                                same height as the right pane's empty state, not offset below the
+                                header/tabs/toggle stack. pointer-events-none keeps those clickable. */}
+                            {currentData.length === 0 && !isLoading && (
+                                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                                     <EmptyState showUnread={showUnread} />
-                                ) : (
+                                </div>
+                            )}
+                            <div className="flex min-h-0 flex-1">
+                                {(currentData.length > 0 || isLoading) && (
                                     <Virtuoso
                                         className="flex-1 min-h-0"
                                         style={{ height: "100%" }}
@@ -164,6 +170,7 @@ export default function Notifications() {
 
 const EmptyState = ({ showUnread }: { showUnread: boolean }) => (
     <Empty>
+        <EmptyMedia>{showUnread ? <CheckCheck /> : <Inbox />}</EmptyMedia>
         <EmptyHeader>
             <EmptyTitle>{showUnread ? _("You're all caught up") : _("No notifications yet")}</EmptyTitle>
             <EmptyDescription>

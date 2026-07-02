@@ -291,15 +291,20 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                         {/* Reserve the editor's min-height before it mounts (EditorContent is
                             empty until `editor` is ready) so the composer — and the stream's
                             height — don't jump on channel open. Same class as the editor surface. */}
-                        <div className={EDITOR_MIN_H}>
-                            <EditorContent editor={editor} />
-                        </div>
-                        <div className="flex items-center gap-1 px-1 pb-1">
-                            {isMobile ? (
-                                // Mobile: secondary actions collapse into a "+" bottom sheet.
+                        {isMobile ? (
+                            <div className="flex items-center gap-1 px-1">
                                 <MobileComposerActions channelID={channelID} onToggleFormatting={() => setShowFormatting((v) => !v)} />
-                            ) : (
-                                <>
+                                <div className="flex-1 min-w-0 [&_.tiptap]:min-h-9 [&_.tiptap]:py-2">
+                                    <EditorContent editor={editor} />
+                                </div>
+                                <SendButton onSend={handleSend} loading={pendingSend} />
+                            </div>
+                        ) : (
+                            <>
+                                <div className={EDITOR_MIN_H}>
+                                    <EditorContent editor={editor} />
+                                </div>
+                                <div className="flex items-center gap-1 px-1 pb-1">
                                     <AddFileButton channelID={channelID} onAfterAttach={() => editor?.commands.focus()} />
                                     <Tooltip>
                                         <TooltipTrigger asChild>
@@ -327,11 +332,11 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                                     <Separator orientation="vertical" className="mx-1 h-4!" />
                                     <CreatePollDialog channelID={channelID} />
                                     <AttachFrappeDocumentDialog />
-                                </>
-                            )}
-                            <div className="flex-1" />
-                            <SendButton onSend={handleSend} loading={pendingSend} />
-                        </div>
+                                    <div className="flex-1" />
+                                    <SendButton onSend={handleSend} loading={pendingSend} />
+                                </div>
+                            </>
+                        )}
                     </TooltipProvider>
                 </div>
             </div>

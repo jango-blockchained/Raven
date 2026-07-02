@@ -116,7 +116,7 @@ export default function ThreadDrawer({
     // A poll in this thread takes over the rail (its detail drawer overlays the thread).
     if (threadPoll) {
         return (
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col h-full w-full">
                 <PollDrawer
                     user={threadPoll.user}
                     poll={threadPoll.poll}

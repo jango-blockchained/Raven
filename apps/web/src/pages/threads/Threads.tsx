@@ -60,10 +60,10 @@ export default function Threads() {
     }, [navigate])
 
     const list = (
-        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+        <div className="relative flex flex-col flex-1 min-h-0 overflow-hidden">
             <PageHeader title={_("Threads")} />
             <div className="flex flex-col flex-1 overflow-hidden">
-                <div className="px-2 pt-2 pb-3 shrink-0 space-y-4 z-0">
+                <div className="p-2 shrink-0 space-y-3 z-0">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-gray-4 pointer-events-none" />
                         <Input
@@ -84,9 +84,9 @@ export default function Threads() {
                             </button>
                         )}
                     </div>
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ThreadTab)}>
-                            <TabsList variant="subtle" size="sm">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-2 flex-wrap">
+                        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ThreadTab)} className="w-full md:w-auto">
+                            <TabsList variant="subtle" size="md">
                                 {TABS.map(tab => (
                                     <TabsTrigger key={tab.key} value={tab.key}>
                                         {_(tab.label)}
@@ -94,8 +94,8 @@ export default function Threads() {
                                 ))}
                             </TabsList>
                         </Tabs>
-                        <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3 justify-between w-full md:w-auto">
+                            <div className="flex items-center gap-2 px-1">
                                 <Label htmlFor="unread-toggle" className="text-xs font-medium text-ink-gray-4 cursor-pointer">
                                     {_("Unread only")}
                                 </Label>
@@ -117,8 +117,8 @@ export default function Threads() {
                                 searchable
                                 size="sm"
                                 showLabel={false}
-                                dropdownClassName="w-68"
-                                triggerClassName="w-40"
+                                dropdownClassName="max-w-68"
+                                triggerClassName="max-w-40"
                             />
                         </div>
                     </div>
