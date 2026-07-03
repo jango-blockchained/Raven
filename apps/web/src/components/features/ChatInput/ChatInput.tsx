@@ -128,7 +128,8 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
     // On mobile the composer bottom padding is keyboard-aware: closed → clear the home indicator
     // (safe-area inset); open → flush (pb-0), since the composer sits above the keyboard and the
     // inset would be dead space. Desktop keeps its plain pb-3/pb-4. Scoped to this editor's focus.
-    const keyboardOpen = useIsKeyboardOpen(editor)
+    // Gated to mobile so desktop doesn't attach unused focus + visualViewport listeners.
+    const keyboardOpen = useIsKeyboardOpen(editor, isMobile)
 
     // Reactive "is there anything worth sending" — text that isn't just whitespace, or a
     // non-text inline node (mention, emoji, etc.). `editor.isEmpty` treats "   " as content,
@@ -323,6 +324,10 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                             empty until `editor` is ready) so the composer — and the stream's
                             height — don't jump on channel open. Same class as the editor surface. */}
                         {isMobile ? (
+                            // Mobile is a single row: [+] · editor · send. The `[&_.tiptap]` overrides
+                            // deliberately replace the editor surface's default EDITOR_CLASS heights
+                            // (EDITOR_MIN_H etc.) with a compact one-line-that-grows box — these values
+                            // are mobile-specific and intentionally NOT tied to EDITOR_MIN_H.
                             <div className="flex items-center gap-1 px-1">
                                 <MobileComposerActions channelID={channelID} onToggleFormatting={() => setShowFormatting((v) => !v)} />
                                 <div className="flex-1 min-w-0 [&_.tiptap]:min-h-9 [&_.tiptap]:max-h-24 [&_.tiptap]:overflow-y-auto [&_.tiptap]:py-2">

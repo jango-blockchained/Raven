@@ -13,11 +13,15 @@ import type { Editor } from "@tiptap/react"
  * ProseMirror's reliable `blur` event is the backstop that restores the padding. The visualViewport
  * shrink is a secondary signal — pure viewport math is flaky in a standalone iOS PWA (innerHeight can
  * shrink with the keyboard, and page scroll eats the gap), so it's an OR, not the source of truth.
+ *
+ * Pass `enabled: false` (e.g. on desktop, where the result is unused) to skip the focus +
+ * visualViewport listeners entirely — it just returns false.
  */
-export function useIsKeyboardOpen(editor: Editor | null): boolean {
+export function useIsKeyboardOpen(editor: Editor | null, enabled = true): boolean {
     const [open, setOpen] = useState(false)
 
     useEffect(() => {
+        if (!enabled) return
         const vv = window.visualViewport
 
         const compute = () => {
@@ -41,7 +45,7 @@ export function useIsKeyboardOpen(editor: Editor | null): boolean {
             vv?.removeEventListener("resize", compute)
             vv?.removeEventListener("scroll", compute)
         }
-    }, [editor])
+    }, [editor, enabled])
 
     return open
 }
