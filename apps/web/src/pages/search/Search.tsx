@@ -141,9 +141,9 @@ export default function Search() {
             )}>
                 <PageHeader title={_('Search')} />
                 <div className="shrink-0">
-                    <div className="mx-auto w-full px-2 pt-2 space-y-3">
+                    <div className="mx-auto w-full px-2 pt-2 space-y-2">
                         {searchInput}
-                        <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:flex-wrap">
+                        <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center md:flex-wrap">
                             <SearchTabsBar activeTab={activeTab} setActiveTab={onTabChange} fullWidth={isMobile} />
                             <div className="md:ml-auto">
                                 <SearchFiltersBar

@@ -83,9 +83,9 @@ const SavedMessages = () => {
                 )}>
                     <PageHeader title={_('Saved Messages')} />
 
-                    <div className="shrink-0 px-2 pt-2 pb-3 space-y-2">
+                    <div className="shrink-0 px-2 pt-2 pb-2 space-y-2">
                         {searchInput}
-                        <div className="mt-4 flex items-center gap-2">
+                        <div className="mt-3 flex items-center gap-2">
                             {/* --- Reminders: tabs + add-reminder button (commented until backend support) --- */}
                             {/* <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as SavedMessageStatus)}>
                                 <TabsList variant="subtle" size="sm">
@@ -108,7 +108,7 @@ const SavedMessages = () => {
                                 showLabel={false}
                                 dropdownClassName="w-68"
                                 className={isMobile ? "w-full min-w-0" : undefined}
-                                triggerClassName={isMobile ? "w-full" : "w-40"}
+                                triggerClassName={"w-40"}
                             />
                             {/* <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setReminderDialogOpen(true)}>
                                 <Plus className="h-3.5 w-3.5 mr-1.5" />
