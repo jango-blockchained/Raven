@@ -396,7 +396,7 @@ const ChannelRow = ({ channel, workspaceID }: { channel: ChannelListItem; worksp
                     // leading-snug: the type scale's 1.15 line-height is too tight to contain
                     // descenders (g/y/p) once `truncate` clips overflow — Safari cuts them on
                     // some DPIs. A looser single-line height fixes it.
-                    "min-w-0 flex-1 truncate text-xl md:text-sm leading-snug",
+                    "min-w-0 flex-1 truncate text-lg md:text-sm leading-snug",
                     unread > 0 && !channel.muted ? "font-semibold" : "font-normal",
                 )}
             >
