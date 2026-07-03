@@ -8,6 +8,7 @@ import { channelDrawerAtom } from "@utils/channelAtoms"
 import { useOpenChannelDrawer } from "@hooks/useChannelDrawer"
 import { useNavigate, useParams } from "react-router-dom"
 import { useChannel } from "@hooks/useChannel"
+import { useIsMobile } from "@hooks/use-mobile"
 import _ from "@lib/translate"
 
 interface ChannelHeaderProps {
@@ -21,6 +22,7 @@ const ChannelHeader = ({ channelID }: ChannelHeaderProps) => {
     const { channel, toggleStarChannel, isStarred } = useChannel(channelID)
     const navigate = useNavigate()
     const { workspaceID } = useParams()
+    const isMobile = useIsMobile()
 
     const pinnedCount = channel?.pinned_messages_string ? channel.pinned_messages_string.split("\n").length : 0
 
@@ -42,22 +44,22 @@ const ChannelHeader = ({ channelID }: ChannelHeaderProps) => {
             <div className="flex items-center justify-center md:hidden">
                 <Button
                     variant="ghost"
-                    size="sm"
+                    size="md"
                     isIconButton
                     onClick={() => navigate(`/${workspaceID ?? ''}`)}
                     aria-label={_('Back')}
                 >
-                    <ChevronLeft />
+                    <ChevronLeft className="size-4.5" />
                 </Button>
             </div>
 
             {/* Left side */}
-            <div className="flex items-center gap-2 min-w-0">
-                <div className="flex items-center gap-0.5">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+                <div className="flex items-center gap-0.5 min-w-0">
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <Button variant="ghost" size="sm" isIconButton className={isStarred ? "text-yellow-400" : ""} aria-label={_('Star')} onClick={toggleStarChannel}>
-                                <Star className={isStarred ? "fill-yellow-400" : ""} />
+                            <Button variant="ghost" size={isMobile ? "md" : "sm"} isIconButton className={isStarred ? "text-yellow-400" : ""} aria-label={_('Star')} onClick={toggleStarChannel}>
+                                <Star className={`size-4.5 md:size-4 ${isStarred ? "fill-yellow-400" : ""}`} />
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent>
@@ -69,8 +71,8 @@ const ChannelHeader = ({ channelID }: ChannelHeaderProps) => {
 
                     {pinnedCount > 0 && <Tooltip>
                         <TooltipTrigger asChild>
-                            <Button variant="ghost" size="sm" onClick={onOpenPins} aria-label={_('View Pinned Messages')}>
-                                <Pin />
+                            <Button variant="ghost" size={isMobile ? "md" : "sm"} onClick={onOpenPins} aria-label={_('View Pinned Messages')}>
+                                <Pin className="size-4.5 md:size-4" />
                                 <span className="sr-only">{_('View Pinned Messages')}</span>
                                 <span className="text-ink-gray-6 text-sm">{pinnedCount}</span>
                             </Button>
@@ -83,7 +85,7 @@ const ChannelHeader = ({ channelID }: ChannelHeaderProps) => {
             </div>
 
             {/* Right side */}
-            <div className="flex items-center gap-1 ml-auto">
+            <div className="flex items-center gap-1 ml-auto shrink-0 pl-1">
                 {/* <Tooltip>
                     <TooltipTrigger asChild>
                         <Button variant="ghost" size="sm" isIconButton>

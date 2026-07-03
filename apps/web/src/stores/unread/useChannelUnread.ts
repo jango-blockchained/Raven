@@ -33,6 +33,17 @@ export const useGroupUnread = (channelIDs: string[]): number =>
     )
 
 /**
+ * Sum of unread message counts across the set — a message total, not a conversation
+ * count. Used by the collapsed-group badge, which mirrors the per-channel counts it
+ * hides (one noisy channel SHOULD inflate it). Contrast useGroupUnread.
+ */
+export const useGroupUnreadCount = (channelIDs: string[]): number =>
+    useSyncExternalStore(
+        useCallback((onChange) => channelUnreadStore.subscribeGlobal(onChange), []),
+        () => channelIDs.reduce((total, id) => total + channelUnreadStore.getState(id).count, 0),
+    )
+
+/**
  * Number of channels with unread in a workspace (conversation count). DMs are
  * excluded — they're workspace-agnostic and surfaced under their own entry.
  */

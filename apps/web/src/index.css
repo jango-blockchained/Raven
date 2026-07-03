@@ -26,6 +26,21 @@
 
 @custom-variant standalone (@media (display-mode: standalone));
 
+/* Reading/content tier for names + list-row labels: larger on mobile (15px) than
+   desktop (13px), built ONLY from existing Espresso tokens (no --text-* overrides).
+   Single source of truth — apply to sender names, thread row labels, CommandMenu
+   items, search result rows. Message body + composer scale a step above via .tiptap.
+
+   NOTE: the breakpoint is an explicit nested @media, NOT `@apply text-lg md:text-sm`.
+   A responsive `md:` variant inside @apply-in-@utility gets flattened to an
+   unconditional rule (always desktop size) — so we set font-size directly. */
+@utility text-content {
+  font-size: var(--text-base);          /* mobile 14px */
+  @media (width >= 48rem) {
+    font-size: var(--text-sm);        /* desktop 13px */
+  }
+}
+
 /* scroll-fade (from shadcn): masks a scroll container's edges so content fades out at the
    top/bottom instead of cutting off hard. The scroll-timeline keyframes reveal each edge's
    fade only when there's content to scroll in that direction — no fade on the first row when

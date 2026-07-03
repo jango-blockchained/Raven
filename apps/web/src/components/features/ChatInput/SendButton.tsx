@@ -15,7 +15,7 @@ const SendButton = ({ onSend, disabled, loading }: SendButtonProps) => {
     const isMobile = useIsMobile()
     return (
         <Button
-            size="sm"
+            size={isMobile ? "md" : "sm"}
             type="button"
             onClick={onSend}
             disabled={disabled}

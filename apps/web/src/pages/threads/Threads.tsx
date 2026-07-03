@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useState } from "react"
 import { Outlet, useLocation, useNavigate, useParams } from "react-router-dom"
 import { Search, X } from "lucide-react"
+import { Input } from "@components/ui/input"
 import { Switch } from "@components/ui/switch"
 import { Label } from "@components/ui/label"
-import { Input } from "@components/ui/input"
+import { UnreadFilterPill } from "@components/common/UnreadFilterPill"
 import { Tabs, TabsList, TabsTrigger } from "@components/ui/tabs"
 import { Empty, EmptyHeader, EmptyDescription } from "@components/ui/empty"
 import { ChannelSelect } from "@components/common/ChannelSelect/ChannelSelect"
@@ -60,17 +61,28 @@ export default function Threads() {
     }, [navigate])
 
     const list = (
-        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-            <PageHeader title={_("Threads")} />
+        <div className="relative flex flex-col flex-1 min-h-0 overflow-hidden">
+            <PageHeader title={_("Threads")}>
+                <div className="ml-auto hidden md:flex items-center gap-2 px-1">
+                    <Label htmlFor="unread-toggle" className="text-xs font-medium text-ink-gray-4 cursor-pointer">
+                        {_("Unread only")}
+                    </Label>
+                    <Switch
+                        id="unread-toggle"
+                        checked={onlyShowUnread}
+                        onCheckedChange={setOnlyShowUnread}
+                    />
+                </div>
+            </PageHeader>
             <div className="flex flex-col flex-1 overflow-hidden">
-                <div className="px-2 pt-2 pb-3 shrink-0 space-y-4 z-0">
+                <div className="p-2 shrink-0 space-y-3 z-0">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-gray-4 pointer-events-none" />
                         <Input
                             placeholder={_("Search threads...")}
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="pl-9 pr-9 h-8 text-base"
+                            className="pl-9 pr-9 h-9 md:h-8 text-xl md:text-base"
                             autoFocus
                         />
                         {search && (
@@ -84,9 +96,9 @@ export default function Threads() {
                             </button>
                         )}
                     </div>
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ThreadTab)}>
-                            <TabsList variant="subtle" size="sm">
+                    <div className="flex flex-row items-center gap-1 md:justify-between">
+                        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ThreadTab)} className="min-w-0 shrink-0">
+                            <TabsList variant="subtle" size="md">
                                 {TABS.map(tab => (
                                     <TabsTrigger key={tab.key} value={tab.key}>
                                         {_(tab.label)}
@@ -94,17 +106,7 @@ export default function Threads() {
                                 ))}
                             </TabsList>
                         </Tabs>
-                        <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-2">
-                                <Label htmlFor="unread-toggle" className="text-xs font-medium text-ink-gray-4 cursor-pointer">
-                                    {_("Unread only")}
-                                </Label>
-                                <Switch
-                                    id="unread-toggle"
-                                    checked={onlyShowUnread}
-                                    onCheckedChange={setOnlyShowUnread}
-                                />
-                            </div>
+                        <div className="flex items-center gap-1 min-w-0 flex-1 md:flex-none">
                             <ChannelSelect
                                 channels={channels}
                                 dmChannels={dmChannels}
@@ -117,8 +119,9 @@ export default function Threads() {
                                 searchable
                                 size="sm"
                                 showLabel={false}
-                                dropdownClassName="w-68"
-                                triggerClassName="w-40"
+                                className="w-full min-w-0"
+                                dropdownClassName="max-w-68"
+                                triggerClassName="w-full max-w-40 md:w-fit"
                             />
                         </div>
                     </div>
@@ -135,6 +138,7 @@ export default function Threads() {
                     />
                 </div>
             </div>
+            <UnreadFilterPill active={onlyShowUnread} onToggle={setOnlyShowUnread} />
         </div>
     )
 

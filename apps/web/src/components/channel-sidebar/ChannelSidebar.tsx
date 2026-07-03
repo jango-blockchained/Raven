@@ -5,7 +5,7 @@ import { useHotkeys } from "react-hotkeys-hook"
 import { Check, ChevronDown, ChevronRight, Hash, Star } from "lucide-react"
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso"
 import { useLocalStorage } from "usehooks-ts"
-import { useChannelUnread, useGroupUnread, useWorkspaceUnread } from "@stores/unread/useChannelUnread"
+import { useChannelUnread, useGroupUnreadCount, useWorkspaceUnread } from "@stores/unread/useChannelUnread"
 import { Badge } from "@components/ui/badge"
 import { Button } from "@components/ui/button"
 import { Skeleton } from "@components/ui/skeleton"
@@ -216,9 +216,9 @@ const WorkspaceSwitcher = ({ workspaceID }: { workspaceID?: string }) => {
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm">
-                    {current && <WorkspaceLogo workspace={current} />}
-                    <span className="truncate text-ink-gray-8 text-sm-medium">{current?.workspace_name || workspaceID}</span>
-                    <ChevronDown />
+                    {current && <WorkspaceLogo workspace={current} className="size-5 md:size-4.5" />}
+                    <span className="truncate text-ink-gray-8 font-medium text-xl md:text-sm">{current?.workspace_name || workspaceID}</span>
+                    <ChevronDown className="size-4.5 md:size-4" />
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" sideOffset={4} className="min-w-52">
@@ -249,7 +249,7 @@ const WorkspaceSwitcherItem = ({
     return (
         <DropdownMenuItem onClick={onSelect}>
             <WorkspaceLogo workspace={workspace} />
-            <span className="truncate">{workspace.workspace_name}</span>
+            <span className="truncate text-xl md:text-sm">{workspace.workspace_name}</span>
             {/* The current workspace shows the check; the others surface their unread */}
             {isCurrent ? (
                 <Check className="ml-auto h-4 w-4 text-ink-gray-8" />
@@ -265,8 +265,8 @@ const WorkspaceSwitcherItem = ({
 }
 
 /** Small square logo, first-letter fallback — same resolution as the primary rail. */
-const WorkspaceLogo = ({ workspace }: { workspace: WorkspaceFields }) => (
-    <Avatar className="size-4.5 shrink-0 rounded-sm">
+const WorkspaceLogo = ({ workspace, className }: { workspace: WorkspaceFields, className?: string }) => (
+    <Avatar className={cn("size-4.5 shrink-0 rounded-sm", className)}>
         <AvatarImage src={workspace.logo} alt={workspace.workspace_name} />
         <AvatarFallback className="rounded-none bg-surface-gray-3 text-2xs text-ink-gray-5">
             {workspace.workspace_name.charAt(0)}
@@ -289,9 +289,9 @@ const ChannelGroup = ({
     open: boolean
     onOpenChange: (open: boolean) => void
 }) => {
-    // Group badge counts members with unread (a conversation count) — shown only
-    // while collapsed, when the per-channel badges are hidden with the rows
-    const totalUnread = useGroupUnread(useMemo(() => channels.filter((c) => !c.muted).map((c) => c.name), [channels]))
+    // Group badge sums the unread MESSAGE counts of its channels — it mirrors the
+    // per-channel badges it hides while collapsed, so one noisy channel inflates it.
+    const totalUnread = useGroupUnreadCount(useMemo(() => channels.filter((c) => !c.muted).map((c) => c.name), [channels]))
 
     // Slack-style: collapsing a group never hides where you ARE — the active
     // member stays visible as a single row under the collapsed header
@@ -324,7 +324,7 @@ const ChannelGroup = ({
                     </button>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                    <ul className="ml-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l border-outline-gray-1 px-2 py-0.5">
+                    <ul className="ml-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l border-outline-gray-1 pl-2 py-0.5">
                         {channels.map((channel) => (
                             <li key={channel.name}>
                                 <ChannelRow channel={channel} workspaceID={workspaceID} />
@@ -350,7 +350,7 @@ export const ChannelGroupLabel = ({ groupName, isHighlighted = false }: { groupN
         return (
             <span className="flex min-w-0 items-center gap-2">
                 <Star className="h-4 w-4 shrink-0 text-ink-gray-6" />
-                <span className={cn("truncate leading-snug text-sm", isHighlighted ? "text-ink-gray-10 text-sm-medium" : "text-ink-gray-7")}>{_("Favorites")}</span>
+                <span className={cn("truncate leading-snug text-base md:text-sm", isHighlighted ? "text-ink-gray-10 font-medium" : "text-ink-gray-7")}>{_("Favorites")}</span>
             </span>
         )
     }
@@ -364,7 +364,7 @@ export const ChannelGroupLabel = ({ groupName, isHighlighted = false }: { groupN
         <span className="flex min-w-0 items-center gap-1.5">
             {emoji && <span className="shrink-0 text-lg leading-none">{emoji}</span>}
             {/* leading-snug: avoid Safari clipping descenders on the truncated label (1.15 is too tight) */}
-            <span className={cn("truncate leading-snug text-sm", isHighlighted ? "text-ink-gray-10 text-sm-medium" : "text-ink-gray-7")}>{nameWithoutEmoji}</span>
+            <span className={cn("truncate leading-snug text-base md:text-sm", isHighlighted ? "text-ink-gray-10 font-medium" : "text-ink-gray-7")}>{nameWithoutEmoji}</span>
         </span>
     )
 }
@@ -379,7 +379,7 @@ const ChannelRow = ({ channel, workspaceID }: { channel: ChannelListItem; worksp
             to={`/${encodeURIComponent(workspaceID ?? "")}/${encodeURIComponent(channel.name)}`}
             className={({ isActive }) =>
                 cn(
-                    "flex min-w-0 select-none items-center gap-2 overflow-hidden rounded text-base px-2 text-ink-gray-6 py-1.5",
+                    "flex min-w-0 select-none items-center gap-2 overflow-hidden rounded text-base px-3 md:px-2 text-ink-gray-6 py-2 md:py-1.5",
                     // `transition` (not transition-colors) so box-shadow animates IN SYNC
                     // with the background — Virtuoso recycles rows on workspace switch, and
                     // transition-colors left the shadow popping while the bg cross-faded.
@@ -396,14 +396,14 @@ const ChannelRow = ({ channel, workspaceID }: { channel: ChannelListItem; worksp
                     // leading-snug: the type scale's 1.15 line-height is too tight to contain
                     // descenders (g/y/p) once `truncate` clips overflow — Safari cuts them on
                     // some DPIs. A looser single-line height fixes it.
-                    "min-w-0 flex-1 truncate text-base md:text-sm leading-snug",
+                    "min-w-0 flex-1 truncate text-lg md:text-sm leading-snug",
                     unread > 0 && !channel.muted ? "font-semibold" : "font-normal",
                 )}
             >
                 {channel.channel_name}
             </span>
             {unread > 0 && !channel.muted && (
-                <Badge size="sm" variant="ghost" theme="gray" className="shrink-0">
+                <Badge size="sm" variant="ghost" theme="gray" className="shrink-0 justify-center tabular-nums">
                     {unread > 9 ? "9+" : unread}
                 </Badge>
             )}

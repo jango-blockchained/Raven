@@ -40,7 +40,7 @@ export const MobileSearchButton = () => {
         onClick={() => setOpen(true)}
         aria-label={_("Command Menu")}
     >
-        <SearchIcon />
+        <SearchIcon className="size-4.5 md:size-4" />
     </Button>
     </div>
 }

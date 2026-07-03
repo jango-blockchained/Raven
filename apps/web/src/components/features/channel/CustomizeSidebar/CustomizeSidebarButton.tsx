@@ -60,7 +60,7 @@ export const CustomizeSidebarButton = () => {
                         isIconButton
                         aria-label={_("Channel options")}
                     >
-                        <MoreVertical />
+                        <MoreVertical className="size-4.5 md:size-4" />
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" side="bottom" className="min-w-64">

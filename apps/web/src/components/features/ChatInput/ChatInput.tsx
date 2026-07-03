@@ -20,6 +20,7 @@ import { MentionWarningBanner } from "./MentionWarningBanner"
 import { MobileComposerActions } from "./MobileComposerActions"
 import { loadDraft, saveDraft } from "./draft"
 import { useIsMobile } from "@hooks/use-mobile"
+import { useIsKeyboardOpen } from "@hooks/useIsKeyboardOpen"
 import { enqueueSend } from "@stores/messages/messageSender"
 import { editingMessageAtom, replyToMessageAtom } from "@utils/channelAtoms"
 import { getLastEditableMessage } from "@components/features/message/actions/editTarget"
@@ -124,6 +125,34 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
 
     const editor = useRavenEditor({ submitRef: sendRef, linkRef, filesRef, cancelReplyRef, editLastRef, content: initialDraft || undefined, autofocus: true, placeholder: _("Type a message...") })
 
+    // On mobile the composer bottom padding is keyboard-aware: closed → clear the home indicator
+    // (safe-area inset); open → flush (pb-0), since the composer sits above the keyboard and the
+    // inset would be dead space. Desktop keeps its plain pb-3/pb-4. Scoped to this editor's focus.
+    // Gated to mobile so desktop doesn't attach unused focus + visualViewport listeners.
+    const keyboardOpen = useIsKeyboardOpen(editor, isMobile)
+
+    // Reactive "is there anything worth sending" — text that isn't just whitespace, or a
+    // non-text inline node (mention, emoji, etc.). `editor.isEmpty` treats "   " as content,
+    // so we can't use it here. Drives both the send-button disabled state and the send guard.
+    const editorHasContent = useEditorState({
+        editor,
+        selector: ({ editor: e }) => {
+            // Fast O(1) reject for the blank composer (its resting state) — skip the doc walks.
+            if (!e || e.isEmpty) return false
+            if (e.state.doc.textContent.trim().length > 0) return true
+            // Non-empty but no text: only "content" if there's a non-text inline node (mention/emoji).
+            let hasInlineNonText = false
+            e.state.doc.descendants((node) => {
+                if (!node.isText && node.isInline) {
+                    hasInlineNonText = true
+                    return false
+                }
+                return true
+            })
+            return hasInlineNonText
+        },
+    })
+
     // Persist the draft as the user types (debounced). Stable callback so the
     // debounced instance — and its flush() on unmount — stay identity-stable.
     const persistDraft = useDebounceCallback(
@@ -184,8 +213,8 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
 
     const handleSend = useCallback(() => {
         if (!editor) return
-        // Nothing to send — no text, no uploaded files, nothing staged (uploading or errored).
-        if (editor.isEmpty && files.length === 0 && !hasUploadsInFlight && !hasFailedUploads) return
+        // Nothing to send — no meaningful text/content, no uploaded files, nothing staged.
+        if (!editorHasContent && files.length === 0 && !hasUploadsInFlight && !hasFailedUploads) return
 
         // Files are still uploading: hold the send. An effect dispatches it once
         // every upload settles, so the in-flight files aren't dropped.
@@ -195,7 +224,10 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
         }
 
         dispatchSend()
-    }, [editor, files, hasUploadsInFlight, hasFailedUploads, dispatchSend, setPendingSend])
+    }, [editor, editorHasContent, files, hasUploadsInFlight, hasFailedUploads, dispatchSend, setPendingSend])
+
+    // Disable send when there's genuinely nothing to send (mirrors the handleSend guard).
+    const nothingToSend = !editorHasContent && files.length === 0 && !hasUploadsInFlight && !hasFailedUploads
 
     // Held send: once uploads settle, dispatch (or back off if any failed so the
     // user can remove the bad file and retry — we never send silently without it).
@@ -251,7 +283,7 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
     // the hooks order. App-wide write-blocking is a later, broader effort.
     if (isInReadOnlyMode()) {
         return (
-            <div className="px-3 pb-4 w-full">
+            <div className={cn("px-3 pb-4 w-full", isMobile && (keyboardOpen ? "pb-0" : "pb-[calc(2rem+env(safe-area-inset-bottom))]"))}>
                 <div className="flex items-center justify-center gap-2 rounded-lg border border-outline-gray-2 bg-surface-gray-1 px-3 py-3 text-sm text-ink-gray-6">
                     <Lock className="size-3 shrink-0" />
                     <span>{_("The site is in read-only mode right now. Please wait while the site is being updated.")}</span>
@@ -267,7 +299,7 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                 e.preventDefault()
                 handleSend()
             }}
-            className="px-3 pb-3 w-full flex flex-col gap-2"
+            className={cn("px-3 pb-3 w-full flex flex-col gap-2", isMobile && (keyboardOpen ? "pb-0" : "pb-[calc(1.75rem+env(safe-area-inset-bottom))]"))}
         >
             {/* Warning banner is only shown for primary channels, not DMs, threads in DMs. */}
             {!isDM && mentionedIds.length > 0 && <MentionWarningBanner channelID={parentChannelID ?? channelID} mentionedIds={mentionedIds} isThread={parentChannelID ? true : false} />}
@@ -291,15 +323,24 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                         {/* Reserve the editor's min-height before it mounts (EditorContent is
                             empty until `editor` is ready) so the composer — and the stream's
                             height — don't jump on channel open. Same class as the editor surface. */}
-                        <div className={EDITOR_MIN_H}>
-                            <EditorContent editor={editor} />
-                        </div>
-                        <div className="flex items-center gap-1 px-1 pb-1">
-                            {isMobile ? (
-                                // Mobile: secondary actions collapse into a "+" bottom sheet.
+                        {isMobile ? (
+                            // Mobile is a single row: [+] · editor · send. The `[&_.tiptap]` overrides
+                            // deliberately replace the editor surface's default EDITOR_CLASS heights
+                            // (EDITOR_MIN_H etc.) with a compact one-line-that-grows box — these values
+                            // are mobile-specific and intentionally NOT tied to EDITOR_MIN_H.
+                            <div className="flex items-center gap-1 px-1">
                                 <MobileComposerActions channelID={channelID} onToggleFormatting={() => setShowFormatting((v) => !v)} />
-                            ) : (
-                                <>
+                                <div className="flex-1 min-w-0 [&_.tiptap]:min-h-9 [&_.tiptap]:max-h-24 [&_.tiptap]:overflow-y-auto [&_.tiptap]:py-2">
+                                    <EditorContent editor={editor} />
+                                </div>
+                                <SendButton onSend={handleSend} loading={pendingSend} disabled={nothingToSend} />
+                            </div>
+                        ) : (
+                            <>
+                                <div className={EDITOR_MIN_H}>
+                                    <EditorContent editor={editor} />
+                                </div>
+                                <div className="flex items-center gap-1 px-1 pb-1">
                                     <AddFileButton channelID={channelID} onAfterAttach={() => editor?.commands.focus()} />
                                     <Tooltip>
                                         <TooltipTrigger asChild>
@@ -327,11 +368,11 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                                     <Separator orientation="vertical" className="mx-1 h-4!" />
                                     <CreatePollDialog channelID={channelID} />
                                     <AttachFrappeDocumentDialog />
-                                </>
-                            )}
-                            <div className="flex-1" />
-                            <SendButton onSend={handleSend} loading={pendingSend} />
-                        </div>
+                                    <div className="flex-1" />
+                                    <SendButton onSend={handleSend} loading={pendingSend} disabled={nothingToSend} />
+                                </div>
+                            </>
+                        )}
                     </TooltipProvider>
                 </div>
             </div>

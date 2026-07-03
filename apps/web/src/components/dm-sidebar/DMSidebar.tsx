@@ -121,7 +121,7 @@ export function DMSidebar() {
             {/* Border on mobile only (full-page list needs the separator);
                 none on desktop where the heading sits cleanly in the column */}
             <div className="flex h-11 md:h-auto shrink-0 items-center justify-between gap-1 border-b md:border-b-0 px-2 py-2">
-                <span className="text-base font-medium text-ink-gray-8 px-1 py-1">{_("Direct Messages")}</span>
+                <span className="md:text-base text-xl font-medium text-ink-gray-8 px-1 py-1">{_("Direct Messages")}</span>
                 <span className="md:hidden">
                     <MobileSearchButton />
                 </span>
@@ -323,14 +323,14 @@ function DMRowShell({
                             // leading-snug: the type scale's 1.15 line-height is too tight to
                             // contain descenders (g/y/p) once `truncate` clips overflow — Safari
                             // cuts them on some DPIs. A looser single-line height fixes it.
-                            "truncate text-base md:text-sm leading-snug text-ink-gray-8",
+                            "truncate text-lg md:text-sm leading-snug text-ink-gray-8",
                             unread > 0 ? "font-semibold" : "font-normal"
                         )}
                     >
                         {name}
                     </span>
                     {date && (
-                        <span className="text-2xs text-ink-gray-4 shrink-0">
+                        <span className="text-sm md:text-2xs text-ink-gray-4 shrink-0">
                             {date}
                         </span>
                     )}
@@ -340,7 +340,7 @@ function DMRowShell({
                         className={cn(
                             // leading-snug: see note on the name above — line-clamp also clips
                             // descenders at the tight 1.15 line-height on Safari.
-                            "line-clamp-1 text-sm md:text-xs leading-snug flex-1 min-w-0",
+                            "line-clamp-1 text-base md:text-xs leading-snug flex-1 min-w-0",
                             unread > 0
                                 ? "font-medium text-ink-gray-8"
                                 : "text-ink-gray-4"
