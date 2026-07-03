@@ -77,7 +77,7 @@ const SavedMessages = () => {
                     right pane's gray canvas separates them). On mobile a selection takes over the whole
                     screen, so the list pane is hidden (mirrors notifications / search). */}
                 <div className={cn(
-                    "flex flex-col min-w-0",
+                    "relative flex flex-col min-w-0",
                     hasSelection ? "w-1/2 shrink-0" : "flex-1",
                     isMobile && hasSelection && "hidden"
                 )}>

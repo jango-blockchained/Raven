@@ -12,6 +12,7 @@ import SearchLinkResults from '@components/features/search/results/SearchLinkRes
 import SearchPollResults from '@components/features/search/results/SearchPollResults'
 import NotificationChat, { type SelectedNotification } from '@pages/notifications/NotificationChat'
 import { PageHeader } from '@components/layout/PageHeader'
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@components/ui/empty'
 import { SearchFilters } from '@components/features/search/types'
 
 import { useChannelList } from "@stores/channels/useChannelList"
@@ -76,6 +77,22 @@ export default function Search() {
     const { channels, dmChannels } = useChannelList()
     const users = useLiveQuery(() => db.users.toArray(), [])
 
+    // Don't fetch until there's something to search for — an empty query with no filters would
+    // otherwise pull the whole corpus. Gating the render here means the result components (and
+    // their fetch hooks) never mount, so no request fires.
+    const hasActiveSearch =
+        (filters.query ?? '').trim().length > 0 ||
+        !!filters.channel_id ||
+        !!filters.owner ||
+        (filters.file_type?.length ?? 0) > 0 ||
+        !!filters.channel_type ||
+        filters.is_direct_message != null ||
+        filters.saved != null ||
+        filters.is_pinned != null ||
+        filters.is_thread_message != null ||
+        filters.has_reactions != null ||
+        filters.mentions_me != null
+
     const onTabChange = (tab: SearchTab) => {
         setActiveTab(tab)
         setSearchParams((prev) => {
@@ -135,7 +152,7 @@ export default function Search() {
                 the right pane's gray canvas separates them). On mobile a selection takes over the
                 whole screen, so the list pane is hidden (mirrors the notifications page). */}
             <div className={cn(
-                "flex flex-col overflow-hidden min-w-0",
+                "relative flex flex-col overflow-hidden min-w-0",
                 hasSelection ? "w-1/2 shrink-0" : "flex-1",
                 isMobile && hasSelection && "hidden"
             )}>
@@ -165,12 +182,31 @@ export default function Search() {
                     </div>
                 </div>
 
+                {/* Empty prompt centers over the whole pane (absolute) so it lands at the same
+                    height as the right pane's empty state, not offset below the header/tabs/filters.
+                    pointer-events-none keeps the search input + filters clickable underneath. */}
+                {!hasActiveSearch && (
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                        <Empty>
+                            <EmptyMedia><SearchIcon /></EmptyMedia>
+                            <EmptyHeader>
+                                <EmptyTitle>{_('Search Raven')}</EmptyTitle>
+                                <EmptyDescription>{_('Find messages, files, links and polls. Type a query or pick a filter to start.')}</EmptyDescription>
+                            </EmptyHeader>
+                        </Empty>
+                    </div>
+                )}
+
                 <div className="flex-1 min-h-0 px-3 md:px-0 pb-2">
                     <div className="mx-auto w-full h-full">
-                        {activeTab === 'messages' && <SearchMessageResults searchValue={filters.query} filters={filters} onSelect={onSelect} selectedID={selected?.messageID} />}
-                        {activeTab === 'files' && <SearchFileResults searchValue={filters.query} filters={filters} onSelect={onSelect} selectedID={selected?.messageID} />}
-                        {activeTab === 'links' && <SearchLinkResults searchValue={filters.query} filters={filters} onSelect={onSelect} selectedID={selected?.messageID} />}
-                        {activeTab === 'polls' && <SearchPollResults searchValue={filters.query} filters={filters} onSelect={onSelect} selectedID={selected?.messageID} />}
+                        {hasActiveSearch && (
+                            <>
+                                {activeTab === 'messages' && <SearchMessageResults searchValue={filters.query} filters={filters} onSelect={onSelect} selectedID={selected?.messageID} />}
+                                {activeTab === 'files' && <SearchFileResults searchValue={filters.query} filters={filters} onSelect={onSelect} selectedID={selected?.messageID} />}
+                                {activeTab === 'links' && <SearchLinkResults searchValue={filters.query} filters={filters} onSelect={onSelect} selectedID={selected?.messageID} />}
+                                {activeTab === 'polls' && <SearchPollResults searchValue={filters.query} filters={filters} onSelect={onSelect} selectedID={selected?.messageID} />}
+                            </>
+                        )}
                     </div>
                 </div>
             </div>

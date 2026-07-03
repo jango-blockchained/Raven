@@ -17,6 +17,7 @@ import type { SelectedNotification } from '@pages/notifications/NotificationChat
 import { RESULT_ROW_ACTIVE_CLASS } from '@components/common/MessageResultBlock/MessageResultBlock'
 import { cn } from '@lib/utils'
 import { SearchFilters } from '../types'
+import { SearchNoResults } from './SearchNoResults'
 
 interface SearchLinkResultsProps {
     searchValue?: string
@@ -35,13 +36,7 @@ const SearchLinkResults = ({ searchValue, filters, onSelect, selectedID }: Searc
 
     if (error) return <ErrorBanner error={error} />
     if (isLoading) return <LinkPreviewSkeletonList />
-    if (results.length === 0) {
-        return (
-            <div className="text-sm text-ink-gray-4 text-center py-8">
-                {_('No links found.')}
-            </div>
-        )
-    }
+    if (results.length === 0) return <SearchNoResults title={_('No links found')} />
 
     return (
         <Virtuoso
