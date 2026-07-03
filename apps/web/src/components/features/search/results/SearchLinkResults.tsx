@@ -111,7 +111,7 @@ const LinkResultRowInner = ({ link, user, channel, dmChannel, peer, workspace, o
             >
                 {user && <UserAvatar user={user} size="md" showStatusIndicator={false} />}
                 <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline gap-1.5 flex-wrap text-base md:text-sm">
+                    <div className="flex items-baseline gap-1.5 flex-wrap text-content">
                         {user && <span className="font-medium text-ink-gray-8 truncate">{user.full_name}</span>}
                         <span className="shrink-0 text-xs text-ink-gray-4">{relativeDate}</span>
                         {workspace && (
@@ -164,7 +164,7 @@ const LinkResultRowInner = ({ link, user, channel, dmChannel, peer, workspace, o
                         </div>
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5">
-                                <h3 className="text-base md:text-sm font-medium text-ink-gray-8 truncate">{link.title || url}</h3>
+                                <h3 className="text-content font-medium text-ink-gray-8 truncate">{link.title || url}</h3>
                                 <ExternalLink
                                     className="h-3 w-3 text-ink-gray-4 opacity-0 group-hover:opacity-100 hover:text-ink-gray-8 transition-opacity shrink-0"
                                     onClick={(e) => { e.stopPropagation(); window.open(url, '_blank', 'noopener,noreferrer') }}

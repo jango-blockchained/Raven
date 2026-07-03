@@ -17,7 +17,10 @@
  */
 
 .tiptap {
-  @apply text-p-base text-ink-gray-7 break-words;
+  /* Reading tier: larger on mobile (16px) than desktop (14px) using the existing
+     paragraph tokens — no --text-* overrides. Covers BOTH surfaces this class styles:
+     the message body and the composer (16px input also dodges iOS focus-zoom). */
+  @apply text-p-xl md:text-p-base text-ink-gray-7 break-words;
 }
 
 /* Spacing model mirrors the editor (frappe-ui v3 / ProseMirror): paragraphs

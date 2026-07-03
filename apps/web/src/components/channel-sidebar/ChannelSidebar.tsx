@@ -5,7 +5,7 @@ import { useHotkeys } from "react-hotkeys-hook"
 import { Check, ChevronDown, ChevronRight, Hash, Star } from "lucide-react"
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso"
 import { useLocalStorage } from "usehooks-ts"
-import { useChannelUnread, useGroupUnread, useWorkspaceUnread } from "@stores/unread/useChannelUnread"
+import { useChannelUnread, useGroupUnreadCount, useWorkspaceUnread } from "@stores/unread/useChannelUnread"
 import { Badge } from "@components/ui/badge"
 import { Button } from "@components/ui/button"
 import { Skeleton } from "@components/ui/skeleton"
@@ -216,9 +216,9 @@ const WorkspaceSwitcher = ({ workspaceID }: { workspaceID?: string }) => {
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm">
-                    {current && <WorkspaceLogo workspace={current} />}
+                    {current && <WorkspaceLogo workspace={current} className="size-5 md:size-4.5" />}
                     <span className="truncate text-ink-gray-8 font-medium text-xl md:text-sm">{current?.workspace_name || workspaceID}</span>
-                    <ChevronDown />
+                    <ChevronDown className="size-4.5 md:size-4" />
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" sideOffset={4} className="min-w-52">
@@ -265,8 +265,8 @@ const WorkspaceSwitcherItem = ({
 }
 
 /** Small square logo, first-letter fallback — same resolution as the primary rail. */
-const WorkspaceLogo = ({ workspace }: { workspace: WorkspaceFields }) => (
-    <Avatar className="size-4.5 shrink-0 rounded-sm">
+const WorkspaceLogo = ({ workspace, className }: { workspace: WorkspaceFields, className?: string }) => (
+    <Avatar className={cn("size-4.5 shrink-0 rounded-sm", className)}>
         <AvatarImage src={workspace.logo} alt={workspace.workspace_name} />
         <AvatarFallback className="rounded-none bg-surface-gray-3 text-2xs text-ink-gray-5">
             {workspace.workspace_name.charAt(0)}
@@ -289,9 +289,9 @@ const ChannelGroup = ({
     open: boolean
     onOpenChange: (open: boolean) => void
 }) => {
-    // Group badge counts members with unread (a conversation count) — shown only
-    // while collapsed, when the per-channel badges are hidden with the rows
-    const totalUnread = useGroupUnread(useMemo(() => channels.filter((c) => !c.muted).map((c) => c.name), [channels]))
+    // Group badge sums the unread MESSAGE counts of its channels — it mirrors the
+    // per-channel badges it hides while collapsed, so one noisy channel inflates it.
+    const totalUnread = useGroupUnreadCount(useMemo(() => channels.filter((c) => !c.muted).map((c) => c.name), [channels]))
 
     // Slack-style: collapsing a group never hides where you ARE — the active
     // member stays visible as a single row under the collapsed header

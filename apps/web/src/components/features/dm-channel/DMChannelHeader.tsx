@@ -73,8 +73,8 @@ export function DMChannelHeader({ peer, channelID }: DMChannelHeaderProps) {
                                     user={peer}
                                     size="sm"
                                 />
-                                <span className="text-sm font-medium truncate">{displayName}</span>
-                                <ChevronDown className="size-4 shrink-0" />
+                                <span className="text-lg md:text-sm font-medium truncate">{displayName}</span>
+                                <ChevronDown className="size-4.5 md:size-4 shrink-0" />
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="start" className="w-56">

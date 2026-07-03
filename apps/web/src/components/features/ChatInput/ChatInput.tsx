@@ -20,6 +20,7 @@ import { MentionWarningBanner } from "./MentionWarningBanner"
 import { MobileComposerActions } from "./MobileComposerActions"
 import { loadDraft, saveDraft } from "./draft"
 import { useIsMobile } from "@hooks/use-mobile"
+import { useIsKeyboardOpen } from "@hooks/useIsKeyboardOpen"
 import { enqueueSend } from "@stores/messages/messageSender"
 import { editingMessageAtom, replyToMessageAtom } from "@utils/channelAtoms"
 import { getLastEditableMessage } from "@components/features/message/actions/editTarget"
@@ -66,6 +67,10 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
     const [replyTo, setReplyTo] = useAtom(replyToMessageAtom(channelID))
     const { name: currentUser } = useUserCookieData()
     const isMobile = useIsMobile()
+    // Home-indicator clearance only matters when the keyboard is closed; while it's open the
+    // composer sits above it, so the extra padding would be dead space (see useIsKeyboardOpen).
+    const keyboardOpen = useIsKeyboardOpen()
+    const padBottomSafeArea = isMobile && !keyboardOpen
     // The mention warning banner (on-leave / non-member) is channel-only — DMs and DM
     // threads have no membership to manage and you're talking to one person already.
     // A thread composer passes isDirectMessage (its parent's status) since the thread
@@ -251,7 +256,7 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
     // the hooks order. App-wide write-blocking is a later, broader effort.
     if (isInReadOnlyMode()) {
         return (
-            <div className="px-3 pb-4 w-full">
+            <div className={cn("px-3 pb-4 w-full", padBottomSafeArea && "pb-[calc(2rem+env(safe-area-inset-bottom))]")}>
                 <div className="flex items-center justify-center gap-2 rounded-lg border border-outline-gray-2 bg-surface-gray-1 px-3 py-3 text-sm text-ink-gray-6">
                     <Lock className="size-3 shrink-0" />
                     <span>{_("The site is in read-only mode right now. Please wait while the site is being updated.")}</span>
@@ -267,7 +272,7 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                 e.preventDefault()
                 handleSend()
             }}
-            className="px-3 pb-3 w-full flex flex-col gap-2"
+            className={cn("px-3 pb-3 w-full flex flex-col gap-2", padBottomSafeArea && "pb-[calc(1.75rem+env(safe-area-inset-bottom))]")}
         >
             {/* Warning banner is only shown for primary channels, not DMs, threads in DMs. */}
             {!isDM && mentionedIds.length > 0 && <MentionWarningBanner channelID={parentChannelID ?? channelID} mentionedIds={mentionedIds} isThread={parentChannelID ? true : false} />}

@@ -18,6 +18,7 @@ import { useChannelList } from "@stores/channels/useChannelList"
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@db'
 import { Input } from '@components/ui/input'
+import { useIsMobile } from '@hooks/use-mobile'
 import { cn } from '@lib/utils'
 import _ from '@lib/translate'
 
@@ -46,6 +47,7 @@ export default function Search() {
     const [activeTab, setActiveTab] = useState<SearchTab>(tabFromURL)
     const [selected, setSelected] = useState<SelectedNotification | null>(null)
     const hasSelection = !!selected
+    const isMobile = useIsMobile()
 
     // Clicking the open row again collapses the pane back to a full-width list.
     const onSelect = useCallback((selection: SelectedNotification) => {
@@ -105,7 +107,7 @@ export default function Search() {
                 value={searchValue}
                 onChange={(e) => setSearchValue(e.target.value)}
                 placeholder={_('Search messages, files, links, polls')}
-                className={cn("pl-9 pr-9 h-8 text-base",
+                className={cn("pl-9 pr-9 h-9 md:h-8 text-xl md:text-base",
                     hasSelection && "bg-surface-gray-3 hover:bg-surface-gray-4"
                 )}
                 autoFocus
@@ -124,31 +126,33 @@ export default function Search() {
     )
 
 
-    // TODO: Add mobile search layout
     return (
         <div className={cn(
             "flex flex-row h-full overflow-hidden",
             hasSelection && "bg-surface-gray-1"
         )}>
             {/* Left pane: full width by default; exact half once a result is selected (no divider —
-                the right pane's gray canvas separates them). */}
+                the right pane's gray canvas separates them). On mobile a selection takes over the
+                whole screen, so the list pane is hidden (mirrors the notifications page). */}
             <div className={cn(
                 "flex flex-col overflow-hidden min-w-0",
-                hasSelection ? "w-1/2 shrink-0" : "flex-1"
+                hasSelection ? "w-1/2 shrink-0" : "flex-1",
+                isMobile && hasSelection && "hidden"
             )}>
                 <PageHeader title={_('Search')} />
                 <div className="shrink-0">
                     <div className="mx-auto w-full px-2 pt-2 space-y-3">
                         {searchInput}
-                        <div className="mt-4 flex items-center gap-3 flex-wrap">
-                            <SearchTabsBar activeTab={activeTab} setActiveTab={onTabChange} />
-                            <div className="ml-auto">
+                        <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:flex-wrap">
+                            <SearchTabsBar activeTab={activeTab} setActiveTab={onTabChange} fullWidth={isMobile} />
+                            <div className="md:ml-auto">
                                 <SearchFiltersBar
                                     filters={filters}
                                     channels={channels}
                                     dmChannels={dmChannels}
                                     onChannelChange={setChannelFilter}
                                     onUserChange={setUserFilter}
+                                    isMobile={isMobile}
                                 />
                             </div>
                         </div>
@@ -172,7 +176,10 @@ export default function Search() {
             </div>
 
             {selected && (
-                <div className="w-1/2 shrink-0 flex flex-col min-h-0 bg-surface-gray-0">
+                <div className={cn(
+                    "shrink-0 flex flex-col min-h-0 bg-surface-gray-0",
+                    isMobile ? "w-full" : "w-1/2"
+                )}>
                     <NotificationChat selected={selected} />
                 </div>
             )}

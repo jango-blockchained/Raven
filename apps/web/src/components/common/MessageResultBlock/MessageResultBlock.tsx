@@ -59,7 +59,7 @@ const MessageResultBlockInner = ({ message, user, channel, dmChannel, peer, work
             >
                 {user && <UserAvatar user={user} size="md" showStatusIndicator={false} />}
                 <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline gap-1.5 flex-wrap text-base md:text-sm">
+                    <div className="flex items-baseline gap-1.5 flex-wrap text-content">
                         {user && (
                             <span className="font-medium text-ink-gray-8 truncate">{user.full_name}</span>
                         )}

@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react"
-import { Check, CheckCheck, Inbox } from "lucide-react"
+import { Check, CheckCheck, Inbox, MoreVertical } from "lucide-react"
 import { Virtuoso } from "react-virtuoso"
 import { useNotificationList } from "@stores/notifications/useNotificationList"
 import { useUnreadNotificationsCount } from "@hooks/useNotifications"
@@ -8,8 +8,10 @@ import _ from "@lib/translate"
 import { Label } from "@components/ui/label"
 import { Switch } from "@components/ui/switch"
 import { Tabs, TabsList, TabsTrigger } from "@components/ui/tabs"
+import { UnreadFilterPill } from "@components/common/UnreadFilterPill"
 import { Button } from "@components/ui/button"
 import { Badge } from "@components/ui/badge"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@components/ui/dropdown-menu"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@components/ui/empty"
 import { useIsMobile } from "@hooks/use-mobile"
 import { PageHeader } from "@components/layout/PageHeader"
@@ -82,6 +84,33 @@ export default function Notifications() {
                                         {unreadCount > 99 ? "99+" : unreadCount}
                                     </Badge>
                                 )}
+                                <div className="ml-auto flex items-center gap-1">
+                                    <div className="hidden md:flex items-center gap-2 px-1">
+                                        <Label htmlFor="unread-toggle" className="text-xs font-medium text-ink-gray-4 cursor-pointer">
+                                            {_("Unread only")}
+                                        </Label>
+                                        <Switch
+                                            id="unread-toggle"
+                                            checked={showUnread}
+                                            onCheckedChange={onShowUnreadChange}
+                                        />
+                                    </div>
+                                    {unreadCount > 0 && (
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="sm" isIconButton aria-label={_("More options")}>
+                                                    <MoreVertical className="size-4.5 md:size-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onClick={markAllRead}>
+                                                    <Check />
+                                                    {_("Mark all as read")}
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    )}
+                                </div>
                             </PageHeader>
 
                             <div className="shrink-0 px-2 p-2">
@@ -96,31 +125,9 @@ export default function Notifications() {
                                 </Tabs>
                             </div>
 
-                            <div className="flex shrink-0 items-center justify-between gap-2 px-3 pb-2">
-                                <div className="flex items-center gap-2">
-                                    <Label
-                                        htmlFor="unread-toggle"
-                                        className="cursor-pointer text-xs font-medium text-ink-gray-4"
-                                    >
-                                        {_("Unread only")}
-                                    </Label>
-                                    <Switch
-                                        id="unread-toggle"
-                                        checked={showUnread}
-                                        onCheckedChange={onShowUnreadChange}
-                                    />
-                                </div>
-                                {unreadCount > 0 && (
-                                    <Button variant="ghost" size="sm" onClick={markAllRead}>
-                                        <Check />
-                                        {_("Mark all as read")}
-                                    </Button>
-                                )}
-                            </div>
-
                             {/* Empty state centers over the whole nav (absolute) so it lands at the
                                 same height as the right pane's empty state, not offset below the
-                                header/tabs/toggle stack. pointer-events-none keeps those clickable. */}
+                                header + tabs. pointer-events-none keeps those clickable. */}
                             {currentData.length === 0 && !isLoading && (
                                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                                     <EmptyState showUnread={showUnread} />
@@ -156,6 +163,7 @@ export default function Notifications() {
                                     />
                                 )}
                             </div>
+                            <UnreadFilterPill active={showUnread} onToggle={onShowUnreadChange} />
                         </nav>
                     </div>
                 )}

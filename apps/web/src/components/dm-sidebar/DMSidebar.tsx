@@ -323,14 +323,14 @@ function DMRowShell({
                             // leading-snug: the type scale's 1.15 line-height is too tight to
                             // contain descenders (g/y/p) once `truncate` clips overflow — Safari
                             // cuts them on some DPIs. A looser single-line height fixes it.
-                            "truncate text-base md:text-sm leading-snug text-ink-gray-8",
+                            "truncate text-xl md:text-sm leading-snug text-ink-gray-8",
                             unread > 0 ? "font-semibold" : "font-normal"
                         )}
                     >
                         {name}
                     </span>
                     {date && (
-                        <span className="text-2xs text-ink-gray-4 shrink-0">
+                        <span className="text-sm md:text-2xs text-ink-gray-4 shrink-0">
                             {date}
                         </span>
                     )}
@@ -340,7 +340,7 @@ function DMRowShell({
                         className={cn(
                             // leading-snug: see note on the name above — line-clamp also clips
                             // descenders at the tight 1.15 line-height on Safari.
-                            "line-clamp-1 text-sm md:text-xs leading-snug flex-1 min-w-0",
+                            "line-clamp-1 text-lg md:text-xs leading-snug flex-1 min-w-0",
                             unread > 0
                                 ? "font-medium text-ink-gray-8"
                                 : "text-ink-gray-4"
