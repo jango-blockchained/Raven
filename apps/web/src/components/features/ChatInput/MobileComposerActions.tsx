@@ -49,7 +49,7 @@ export const MobileComposerActions = ({
 
             <Drawer open={sheetOpen} onOpenChange={setSheetOpen}>
                 <DrawerTrigger asChild>
-                    <Button type="button" variant="ghost" size="sm" isIconButton aria-label={_("More actions")}>
+                    <Button type="button" variant="ghost" size="md" isIconButton aria-label={_("More actions")}>
                         <Plus />
                     </Button>
                 </DrawerTrigger>
@@ -60,8 +60,8 @@ export const MobileComposerActions = ({
                             <Button
                                 key={row.label}
                                 variant="ghost"
-                                size="md"
-                                className="w-full justify-start gap-3"
+                                size="lg"
+                                className="w-full justify-start gap-3 text-lg font-normal"
                                 onClick={() => {
                                     setSheetOpen(false)
                                     row.onClick()
