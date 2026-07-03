@@ -67,10 +67,6 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
     const [replyTo, setReplyTo] = useAtom(replyToMessageAtom(channelID))
     const { name: currentUser } = useUserCookieData()
     const isMobile = useIsMobile()
-    // On mobile the composer bottom padding is keyboard-aware: closed → clear the home indicator
-    // (safe-area inset); open → flush (pb-0), since the composer sits above the keyboard and the
-    // inset would be dead space. Desktop keeps its plain pb-3/pb-4. See useIsKeyboardOpen.
-    const keyboardOpen = useIsKeyboardOpen()
     // The mention warning banner (on-leave / non-member) is channel-only — DMs and DM
     // threads have no membership to manage and you're talking to one person already.
     // A thread composer passes isDirectMessage (its parent's status) since the thread
@@ -128,6 +124,33 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
     )
 
     const editor = useRavenEditor({ submitRef: sendRef, linkRef, filesRef, cancelReplyRef, editLastRef, content: initialDraft || undefined, autofocus: true, placeholder: _("Type a message...") })
+
+    // On mobile the composer bottom padding is keyboard-aware: closed → clear the home indicator
+    // (safe-area inset); open → flush (pb-0), since the composer sits above the keyboard and the
+    // inset would be dead space. Desktop keeps its plain pb-3/pb-4. Scoped to this editor's focus.
+    const keyboardOpen = useIsKeyboardOpen(editor)
+
+    // Reactive "is there anything worth sending" — text that isn't just whitespace, or a
+    // non-text inline node (mention, emoji, etc.). `editor.isEmpty` treats "   " as content,
+    // so we can't use it here. Drives both the send-button disabled state and the send guard.
+    const editorHasContent = useEditorState({
+        editor,
+        selector: ({ editor: e }) => {
+            // Fast O(1) reject for the blank composer (its resting state) — skip the doc walks.
+            if (!e || e.isEmpty) return false
+            if (e.state.doc.textContent.trim().length > 0) return true
+            // Non-empty but no text: only "content" if there's a non-text inline node (mention/emoji).
+            let hasInlineNonText = false
+            e.state.doc.descendants((node) => {
+                if (!node.isText && node.isInline) {
+                    hasInlineNonText = true
+                    return false
+                }
+                return true
+            })
+            return hasInlineNonText
+        },
+    })
 
     // Persist the draft as the user types (debounced). Stable callback so the
     // debounced instance — and its flush() on unmount — stay identity-stable.
@@ -189,8 +212,8 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
 
     const handleSend = useCallback(() => {
         if (!editor) return
-        // Nothing to send — no text, no uploaded files, nothing staged (uploading or errored).
-        if (editor.isEmpty && files.length === 0 && !hasUploadsInFlight && !hasFailedUploads) return
+        // Nothing to send — no meaningful text/content, no uploaded files, nothing staged.
+        if (!editorHasContent && files.length === 0 && !hasUploadsInFlight && !hasFailedUploads) return
 
         // Files are still uploading: hold the send. An effect dispatches it once
         // every upload settles, so the in-flight files aren't dropped.
@@ -200,7 +223,10 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
         }
 
         dispatchSend()
-    }, [editor, files, hasUploadsInFlight, hasFailedUploads, dispatchSend, setPendingSend])
+    }, [editor, editorHasContent, files, hasUploadsInFlight, hasFailedUploads, dispatchSend, setPendingSend])
+
+    // Disable send when there's genuinely nothing to send (mirrors the handleSend guard).
+    const nothingToSend = !editorHasContent && files.length === 0 && !hasUploadsInFlight && !hasFailedUploads
 
     // Held send: once uploads settle, dispatch (or back off if any failed so the
     // user can remove the bad file and retry — we never send silently without it).
@@ -302,7 +328,7 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                                 <div className="flex-1 min-w-0 [&_.tiptap]:min-h-9 [&_.tiptap]:max-h-24 [&_.tiptap]:overflow-y-auto [&_.tiptap]:py-2">
                                     <EditorContent editor={editor} />
                                 </div>
-                                <SendButton onSend={handleSend} loading={pendingSend} />
+                                <SendButton onSend={handleSend} loading={pendingSend} disabled={nothingToSend} />
                             </div>
                         ) : (
                             <>
@@ -338,7 +364,7 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                                     <CreatePollDialog channelID={channelID} />
                                     <AttachFrappeDocumentDialog />
                                     <div className="flex-1" />
-                                    <SendButton onSend={handleSend} loading={pendingSend} />
+                                    <SendButton onSend={handleSend} loading={pendingSend} disabled={nothingToSend} />
                                 </div>
                             </>
                         )}
