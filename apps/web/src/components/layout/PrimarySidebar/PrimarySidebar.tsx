@@ -120,8 +120,7 @@ const UnreadBadge = ({ count }: { count?: number }) => {
 
 const NotificationsLink = () => {
 
-    const { data: unreadCountData } = useUnreadNotificationsCount()
-    const unreadCount = unreadCountData?.message ?? 0
+    const unreadCount = useUnreadNotificationsCount()
 
     return <NavLink to="notifications">
         {({ isActive }) => (

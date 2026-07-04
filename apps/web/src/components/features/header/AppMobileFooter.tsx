@@ -111,10 +111,8 @@ const DirectMessageLink = () => {
 }
 
 const NotificationsLink = () => {
-    const { data: unreadCountData } = useUnreadNotificationsCount()
-    const unreadCount = unreadCountData?.message ?? 0
-
-    // TODO: Add realtime event listeners here to update the unread count when new notifications are created or read
+    // Store-derived (unread-id set size); kept live globally by useNotificationsRealtime.
+    const unreadCount = useUnreadNotificationsCount()
 
     return <FooterNavLink
         icon={<BellIcon />}

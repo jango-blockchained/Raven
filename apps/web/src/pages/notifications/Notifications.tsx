@@ -46,8 +46,7 @@ export default function Notifications() {
         markAllRead,
     } = useNotificationList(tab, { unreadOnly: showUnread })
 
-    const { data: unreadCountData } = useUnreadNotificationsCount()
-    const unreadCount = unreadCountData?.message ?? 0
+    const unreadCount = useUnreadNotificationsCount()
 
     const usersById = useUsersById()
 

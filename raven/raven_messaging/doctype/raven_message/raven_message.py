@@ -151,6 +151,10 @@ class RavenMessage(Document):
 					{
 						"channel_id": self.channel_id,
 						"user_id": mention_id,
+						# The mentioned user's client adds this to its unread-notification set
+						# (badge + mark-read-on-view). Set even on insert: Frappe names the doc
+						# (set_new_name) before the before_validate/validate hooks run.
+						"message_id": self.name,
 					},
 					user=mention_id,
 					after_commit=True,

@@ -96,10 +96,33 @@ export const useThreadList = (tab: ThreadTab, { channel, onlyShowUnread, search 
         loadMoreThreads(client, tab, viewKey, filters)
     }, [client, tab, viewKey, filters])
 
-    const rows = useMemo(
-        () => selectThreadRows(state, { channelFilter: channel, onlyShowUnread, unreadSet }),
-        [state, channel, onlyShowUnread, unreadSet],
-    )
+    // Session-sticky unread view (same pattern as useNotificationList): a thread the user is
+    // LOOKING at must not vanish the moment it's read — clicking it clears its unread
+    // (onThreadClick → unreadThreadsStore.remove), which would otherwise yank the row out of
+    // the filtered list while its pane opens beside it. Every row displayed unread in this
+    // view is remembered and survives the filter (rendered as read). Reset synchronously on
+    // view change (an effect would leave one stale frame), re-applying the filter cleanly.
+    const seenUnreadRef = useRef<Set<string>>(new Set())
+    const seenViewKeyRef = useRef(viewKey)
+    if (seenViewKeyRef.current !== viewKey) {
+        seenViewKeyRef.current = viewKey
+        seenUnreadRef.current = new Set()
+    }
+
+    const rows = useMemo(() => {
+        const selected = selectThreadRows(state, {
+            channelFilter: channel,
+            onlyShowUnread,
+            unreadSet,
+            keepIds: seenUnreadRef.current,
+        })
+        if (onlyShowUnread) {
+            for (const row of selected) {
+                if (row._isUnread) seenUnreadRef.current.add(row.name)
+            }
+        }
+        return selected
+    }, [state, channel, onlyShowUnread, unreadSet])
 
     return {
         rows,

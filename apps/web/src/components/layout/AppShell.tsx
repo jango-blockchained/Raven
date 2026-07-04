@@ -24,6 +24,7 @@ import { useLeaveSync } from "@stores/leave/useLeaveSync"
 import { useThreadsRealtime } from "@stores/threads/useThreadsRealtime"
 import { useUnreadThreadsSync } from "@stores/threads/useUnreadThreads"
 import { useNotificationsRealtime } from "@stores/notifications/useNotificationsRealtime"
+import { useUnreadNotificationsSync } from "@hooks/useNotifications"
 import { useReportActiveState } from "@stores/presence/useReportActiveState"
 import DocumentTitle from "./DocumentTitle"
 import RavenSettingsDialog from "@components/features/settings/SettingsDialog"
@@ -119,8 +120,11 @@ const AppListeners = ({ children }: { children: React.ReactNode }) => {
     // Seeds + reconciles the unread-threads set (read via useUnreadThreadsCount)
     useUnreadThreadsSync()
     // Notifications: reconcile the warm tab windows on new mention/reaction + keep the
-    // unread-count badge live (page + sidebar), even when the Notifications page is closed.
+    // unread-id set live (page + sidebar badge), even when the Notifications page is closed.
     useNotificationsRealtime()
+    // Seeds + reconciles the unread-notification id set (badge = set size; ids are marked
+    // read as their messages scroll into view — markNotificationsReadOnView)
+    useUnreadNotificationsSync()
     // TODO: Push notification listener
     // TODO: App update listener
 
