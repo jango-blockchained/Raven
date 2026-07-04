@@ -22,6 +22,7 @@ const SendButton = ({ onSend, disabled, loading }: SendButtonProps) => {
             loading={loading}
             loadingText={isMobile ? undefined : _("Sending...")}
             isIconButton={isMobile}
+            className={isMobile ? "rounded-full" : undefined}
             aria-label={_("Send message")}
         >
             {/* While loading the Button shows its own spinner; don't also render content. */}

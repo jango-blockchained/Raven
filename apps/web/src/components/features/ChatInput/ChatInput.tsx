@@ -308,7 +308,7 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                 so they must NOT be clipped. The inner box keeps overflow-y-hidden so the
                 formatting toolbar's square top corners stay within the rounded border. */}
             <div data-raven-editor className="relative w-full">
-                <div className="w-full rounded-lg border border-outline-gray-2 shadow-outline-base bg-surface-white focus-within:border-outline-gray-3 overflow-y-hidden">
+                <div className={cn("w-full rounded-lg border border-outline-gray-2 shadow-outline-base bg-surface-white focus-within:border-outline-gray-3 overflow-y-hidden", isMobile && "rounded-full")}>
                     <TooltipProvider>
 
                         {editor && showFormatting && (

@@ -49,7 +49,7 @@ export const MobileComposerActions = ({
 
             <Drawer open={sheetOpen} onOpenChange={setSheetOpen}>
                 <DrawerTrigger asChild>
-                    <Button type="button" variant="ghost" size="md" isIconButton aria-label={_("More actions")}>
+                    <Button type="button" variant="ghost" size="md" isIconButton aria-label={_("More actions")} className="rounded-full">
                         <Plus />
                     </Button>
                 </DrawerTrigger>
