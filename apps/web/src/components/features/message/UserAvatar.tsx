@@ -107,8 +107,8 @@ const getSizeClasses = (size: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl') => {
         case '2xl':
             return {
                 avatar: 'h-24 w-24 rounded-full',
-                indicator: 'h-6 w-6 -bottom-0 right-0 border-2 border-outline-base',
-                manualAvailableDot: 'h-3 w-3',
+                indicator: 'h-5 w-5 bottom-0.5 right-0 border-2 border-outline-base',
+                manualAvailableDot: 'h-2.5 w-2.5',
                 bot: 'h-6 w-6',
                 botContainer: 'h-9 w-9 -bottom-1 -right-1 border-2 border-outline-base',
                 font: 'text-4xl font-semibold',

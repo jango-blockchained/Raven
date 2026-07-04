@@ -11,16 +11,24 @@ interface ProfileRowProps extends Omit<React.ComponentPropsWithoutRef<"button">,
     /** Show a trailing chevron — for rows that navigate. Ignored if `trailing` is set. */
     chevron?: boolean
     destructive?: boolean
+    /**
+     * Render as a <label> so tapping anywhere on the row activates the trailing control
+     * (native label behavior — the control must be a labelable element, e.g. a Switch).
+     * Use instead of `onClick` for toggle rows: a button here would nest the control's
+     * button inside another button.
+     */
+    asLabel?: boolean
 }
 
 /**
  * One row in the profile list. Renders as a button when interactive (own `onClick`, or an
- * `onClick` injected by an `asChild` trigger such as DropdownMenuTrigger), otherwise a div —
- * so a chevron-only row stays a div and can sit inside a NavLink without nesting a button in
- * an anchor. Forwards its ref + extra props so it can serve as a Radix `asChild` trigger.
+ * `onClick` injected by an `asChild` trigger such as DropdownMenuTrigger), a label for
+ * `asLabel` toggle rows, otherwise a div — so a chevron-only row stays a div and can sit
+ * inside a NavLink without nesting a button in an anchor. Forwards its ref + extra props
+ * so it can serve as a Radix `asChild` trigger.
  */
 export const ProfileRow = forwardRef<HTMLButtonElement, ProfileRowProps>(function ProfileRow(
-    { icon: Icon, label, description, onClick, trailing, chevron, destructive, className, ...rest },
+    { icon: Icon, label, description, onClick, trailing, chevron, destructive, asLabel, className, ...rest },
     ref,
 ) {
     // A Radix `asChild` trigger (e.g. DropdownMenuTrigger) opens on pointer-down and injects
@@ -28,19 +36,18 @@ export const ProfileRow = forwardRef<HTMLButtonElement, ProfileRowProps>(functio
     // it that way, not via onClick, to render a real button and wire press feedback.
     const isTrigger = "aria-haspopup" in rest
     const interactive = !!onClick || isTrigger
-    // Press feedback only on rows that actually do something on tap — an action/trigger
-    // or a navigation row (chevron). Rows whose only control is a trailing element (e.g. a
-    // Switch) don't highlight, since the row itself isn't tappable.
-    const pressable = interactive || chevron
-    // Ref may attach to a div in the non-interactive case; the union is intentional.
-    const Comp = (interactive ? "button" : "div") as "button"
+    // Press feedback only on rows that actually do something on tap — an action/trigger,
+    // a navigation row (chevron), or a label row that toggles its trailing control.
+    const pressable = interactive || chevron || asLabel
+    // Ref may attach to a div/label in the non-button cases; the union is intentional.
+    const Comp = (asLabel ? "label" : interactive ? "button" : "div") as "button"
     return (
         <Comp
             ref={ref}
             type={interactive ? "button" : undefined}
             onClick={onClick}
             className={cn(
-                "flex w-full items-center gap-3 bg-surface-elevation-1 rounded-lg px-3 py-3 md:py-2 text-left select-none transition-colors outline-none focus-visible:outline-none",
+                "flex w-full items-center gap-3 bg-surface-elevation-1 rounded-lg px-3 py-4 md:py-2 text-left select-none transition-colors outline-none focus-visible:outline-none",
                 // `data-[state=open]` covers asChild-trigger rows, where the menu opens on
                 // pointer-down and would otherwise mask the :active highlight.
                 pressable && "active:bg-surface-gray-3 data-[state=open]:bg-surface-gray-3",

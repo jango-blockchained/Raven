@@ -6,25 +6,28 @@ import useCurrentRavenUser from "@raven/lib/hooks/useCurrentRavenUser"
 import { useTheme } from "@components/theme-provider"
 import { useLogout } from "@hooks/useLogout"
 import { useIsMobile } from "@hooks/use-mobile"
+import { useIsPushNotificationEnabled } from "@hooks/fetchers/useIsPushNotificationEnabled"
 import { ProfileRow } from "@components/features/profile/ProfileRow"
 import { EditProfileDrawer } from "@components/features/profile/EditProfileDrawer"
+import { ProfileImageMenu } from "@components/features/profile/ProfileImageMenu"
 import { PageHeader } from "@components/layout/PageHeader"
 import AppMobileFooter from "@components/features/header/AppMobileFooter"
-import { UserAvatar, getStatusIndicatorColor } from "@components/features/message/UserAvatar"
+import { getStatusIndicatorColor } from "@components/features/message/UserAvatar"
 import { cn } from "@lib/utils"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@components/ui/dropdown-menu"
 import { Switch } from "@components/ui/switch"
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@components/ui/alert-dialog"
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@components/ui/alert-dialog"
+import { Button } from "@components/ui/button"
 import { getErrorMessage } from "@lib/frappe"
 import { FrappeError } from "frappe-react-sdk"
 import _ from "@lib/translate"
-import { Separator } from "@components/ui/separator"
 
 const Profile = () => {
     const { myProfile } = useCurrentRavenUser()
     const { theme, setTheme } = useTheme()
     const { logout, isLoggingOut } = useLogout()
     const isMobile = useIsMobile()
+    const isPushAvailable = useIsPushNotificationEnabled()
     const [editOpen, setEditOpen] = useState(false)
     const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false)
 
@@ -66,7 +69,8 @@ const Profile = () => {
                 <div className="gap-1">
                     {myProfile && (
                         <div className="flex flex-col w-full items-center gap-4 px-4 py-4 text-left">
-                            <UserAvatar user={myProfile} size="2xl" className="rounded-full" showStatusIndicator />
+                            {/* Tapping the avatar opens the Upload / Remove photo menu */}
+                            <ProfileImageMenu />
                             <div className="flex min-w-0 flex-1 flex-col gap-2">
                                 <span className="truncate text-4xl font-semibold text-ink-gray-9">{myProfile.full_name}</span>
                                 {myProfile.availability_status && (
@@ -82,7 +86,7 @@ const Profile = () => {
                         {myProfile?.custom_status && <span className="truncate text-center text-lg md:text-sm text-ink-gray-6">{myProfile.custom_status}</span>}
                     </div>
                 </div>
-                <div className="flex flex-col px-1 gap-3">
+                <div className="flex flex-col px-1 gap-2">
                     {/* Appearance — whole row opens the theme menu; icon + label reflect the choice */}
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -104,20 +108,22 @@ const Profile = () => {
                         </DropdownMenuContent>
                     </DropdownMenu>
 
-                    {/* Push notifications — only when the server relay is enabled */}
-                    <ProfileRow
-                        icon={Bell}
-                        label={_("Push notifications")}
-                        trailing={<Switch size="md" checked={pushOn} onCheckedChange={togglePush} />}
-                    />
+                    {/* Push notifications — only when the server can deliver them. asLabel
+                        makes a tap anywhere on the row toggle the switch. */}
+                    {isPushAvailable && (
+                        <ProfileRow
+                            icon={Bell}
+                            label={_("Push notifications")}
+                            asLabel
+                            trailing={<Switch size="md" checked={pushOn} onCheckedChange={togglePush} />}
+                        />
+                    )}
                     {/* Saved messages */}
                     <NavLink to="/saved-messages">
                         <ProfileRow icon={Bookmark} label={_("Saved messages")} chevron />
                     </NavLink>
 
                     <ProfileRow icon={Edit} label={_("Edit profile")} onClick={() => setEditOpen(true)} />
-
-                    <Separator />
 
                     {/* Log out */}
                     <ProfileRow icon={LogOut} label={_("Log out")} destructive onClick={() => setConfirmLogoutOpen(true)} />
@@ -137,8 +143,12 @@ const Profile = () => {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>{_("Cancel")}</AlertDialogCancel>
-                        <AlertDialogAction disabled={isLoggingOut} onClick={logout}>{_("Log out")}</AlertDialogAction>
+                        <AlertDialogCancel disabled={isLoggingOut}>{_("Cancel")}</AlertDialogCancel>
+                        {/* Plain Button (not AlertDialogAction) so the dialog stays open with a
+                            spinner while logging out; on failure the toast shows and it remains. */}
+                        <Button type="button" variant="solid" theme="red" size="md" loading={isLoggingOut} loadingText={_("Logging out…")} onClick={logout}>
+                            {_("Log out")}
+                        </Button>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
