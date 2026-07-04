@@ -7,37 +7,62 @@ import { commandMenuOpenAtom } from './atoms'
 import _ from '@lib/translate'
 import { DMChannelListItem } from '@raven/types/common/ChannelListItem'
 import { Badge } from '@components/ui/badge'
-import { useLiveQuery } from 'dexie-react-hooks'
-import { db, UserData } from "@db"
+import { UserData } from "@db"
 import { useMemo } from 'react'
+import { defaultFilter } from 'cmdk'
 import { useCreateDM } from '@hooks/useCreateDM'
+import { useUsersById } from '@hooks/useMessageRowLookups'
 import { BotIcon, Loader2 } from 'lucide-react'
+
+/** Same cap rationale as ChannelList: bound what cmdk must score + reconcile per keystroke. */
+const MAX_RESULTS = 50
 
 const UserList = ({ text }: { text: string }) => {
 
-    const filteredUsers = useLiveQuery(() => db.users
-        .filter((user: UserData) => user.name.toLowerCase().includes(text.toLowerCase()) || user.full_name.toLowerCase().includes(text.toLowerCase()))
-        .toArray(),
-        [text])
-
+    // In-memory users (usersStore snapshot — includes disabled users, same as the old Dexie
+    // table read). The previous useLiveQuery ran a full IndexedDB table scan per keystroke
+    // AND resolved async (items landed a render behind cmdk's search); this is synchronous
+    // and only re-filters when a user actually changes.
+    const usersById = useUsersById()
     const { dmChannels } = useChannelList()
+
+    const filteredUsers = useMemo(() => {
+        if (!text) return []
+        // Pre-rank with cmdk's scorer over the same string its customFilter sees
+        // (keywords = [full_name, name]) so fuzzy matches survive, then cap.
+        const scored: { user: UserData; score: number }[] = []
+        for (const user of usersById.values()) {
+            const score = defaultFilter(`${user.full_name} ${user.name}`, text)
+            if (score > 0) scored.push({ user, score })
+        }
+        return scored
+            .sort((a, b) => b.score - a.score)
+            .slice(0, MAX_RESULTS)
+            .map((x) => x.user)
+    }, [usersById, text])
+
+    /** peer_user_id → DM channel, so mapping users isn't O(users × DMs) per keystroke. */
+    const dmByPeer = useMemo(() => {
+        const m = new Map<string, DMChannelListItem>()
+        for (const dm of dmChannels) m.set(dm.peer_user_id, dm)
+        return m
+    }, [dmChannels])
 
     const mappedUsers = useMemo(() => {
         if (text) {
-            if (!filteredUsers) return []
             return filteredUsers.map(user => {
-                const dmChannel = dmChannels.find(channel => channel.peer_user_id === user.name)
+                const dmChannel = dmByPeer.get(user.name)
                 return dmChannel ? { user, channel: dmChannel } : { user, channel: null }
             })
         } else {
             return dmChannels.slice(0, 3).map(channel => {
-                const user = filteredUsers?.find(user => user.name === channel.peer_user_id) || null
+                const user = usersById.get(channel.peer_user_id) ?? null
                 return { user, channel }
             })
         }
-    }, [filteredUsers, dmChannels])
+    }, [filteredUsers, dmByPeer, dmChannels, usersById, text])
 
-    if (text && (!filteredUsers || !filteredUsers.length)) return null
+    if (text && !filteredUsers.length) return null
     // filteredUsers need to be mapped to dmChannels and then render DMChannelItem or UserItem based on whether dm_channel exists or not. In UserItem, we will do api call on click to create dm_channel and then navigate to that dm_channel
 
     return (
