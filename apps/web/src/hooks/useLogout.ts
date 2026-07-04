@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { lastChannelAtom, lastWorkspaceAtom } from "@utils/lastVisitedAtoms"
 import { getErrorMessage } from "@lib/frappe"
 import _ from "@lib/translate"
+import { errorResponseToast } from "@components/ui/error-banner"
 
 /**
  * Logs the user out and returns them to Frappe's login page. Ported from the legacy
@@ -41,7 +42,7 @@ export function useLogout(): { logout: () => Promise<void>; isLoggingOut: boolea
             window.location.replace(base ? `/${base}/login` : "/login")
         } catch (e) {
             setIsLoggingOut(false)
-            toast.error(_("Failed to log out"), { description: getErrorMessage(e as FrappeError) })
+            errorResponseToast(_("Could not log out"), e as FrappeError)
         }
     }, [frappeLogout, mutate, setLastWorkspace, setLastChannel])
 

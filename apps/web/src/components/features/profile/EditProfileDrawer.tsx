@@ -9,10 +9,10 @@ import { Input } from "@components/ui/input"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@components/ui/form"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@components/ui/select"
 import { Drawer, DrawerContent, DrawerTitle } from "@components/ui/drawer"
-import { getErrorMessage } from "@lib/frappe"
 import { FrappeError } from "frappe-react-sdk"
 import { cn } from "@lib/utils"
 import _ from "@lib/translate"
+import { errorResponseToast } from "@components/ui/error-banner"
 
 const STATUS_OPTIONS = [
     { value: "Available", label: _("Available") },
@@ -68,7 +68,7 @@ export function EditProfileDrawer({ open, onOpenChange }: { open: boolean; onOpe
             toast.success(_("Profile updated"))
             onOpenChange(false)
         } catch (e) {
-            toast.error(_("Couldn't update profile"), { description: getErrorMessage(e as FrappeError) })
+            errorResponseToast(_("Could not update profile"), e as FrappeError)
         }
     }
 

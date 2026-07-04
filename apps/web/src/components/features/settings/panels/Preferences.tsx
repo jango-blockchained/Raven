@@ -1,4 +1,3 @@
-import { Label } from "@components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@components/ui/select"
 import { Separator } from "@components/ui/separator"
 import { SettingsPanelDescription, SettingsPanelHeader, SettingsPanelTitle, SettingsPanelContent, SettingsFormLabel, SettingsFormDescription, SettingsFormRow } from "@components/ui/settings-dialog"
@@ -9,13 +8,13 @@ import _ from "@lib/translate"
 import { useFrappePostCall } from "frappe-react-sdk"
 import { toast } from "sonner"
 import useCurrentRavenUser from "@raven/lib/hooks/useCurrentRavenUser"
-import { getErrorMessage } from "@lib/frappe"
 import { ArrowDownAzIcon, BellDotIcon, ClockIcon } from "lucide-react"
 import { Popover, PopoverContent, PopoverTrigger } from "@components/ui/popover"
 import { Button } from "@components/ui/button"
 import { useTheme } from "@components/theme-provider"
 import { customEmojiCategoriesAtom } from "@lib/emojiMart"
 import Picker from "@emoji-mart/react"
+import { errorResponseToast } from "@components/ui/error-banner"
 
 const Preferences = () => {
 
@@ -41,7 +40,7 @@ const Preferences = () => {
                 id: "preferences-updated"
             })
         }).catch((e) => {
-            toast.error(getErrorMessage(e))
+            errorResponseToast(_("Could not update preference"), e)
         })
     }
 

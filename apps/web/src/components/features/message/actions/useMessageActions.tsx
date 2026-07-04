@@ -24,10 +24,10 @@ import { parsePinnedIds } from "@stores/messages/selectors"
 import { channelStore } from "@stores/channels/store"
 import { useChannelPinnedString } from "@stores/channels/useChannelList"
 import { seedThreadMeta } from "@stores/threads/useThreadMeta"
-import { getErrorMessage } from "@lib/frappe"
 import _ from "@lib/translate"
 import type { Message } from "@raven/types/common/Message"
 import { useUserCookieData } from "@hooks/useUserCookieData"
+import { errorResponseToast } from "@components/ui/error-banner"
 
 export type MessageAction = {
     id: string
@@ -143,7 +143,7 @@ export const useMessageActions = (message: Message | null): MessageAction[][] =>
                             seedThreadMeta(threadID, 0)
                             navigate(`${base}/thread/${threadID}`)
                         })
-                        .catch((e) => toast.error(_("Could not create thread"), { description: getErrorMessage(e) }))
+                        .catch((e) => errorResponseToast(_("Could not create thread"), e))
                 },
             })
         }
@@ -213,7 +213,7 @@ export const useMessageActions = (message: Message | null): MessageAction[][] =>
                         message_id: message.name,
                     }).catch((e) => {
                         channelStore.patchChannel(message.channel_id, { pinned_messages_string: prev })
-                        toast.error(isPinned ? _("Could not unpin message") : _("Could not pin message"), { description: getErrorMessage(e) })
+                        errorResponseToast(isPinned ? _("Could not unpin message") : _("Could not pin message"), e)
                     })
                 },
             },
@@ -231,7 +231,7 @@ export const useMessageActions = (message: Message | null): MessageAction[][] =>
                     channelMessagesStore.savedUpdated(message.channel_id, message.name, JSON.stringify(nextLiked))
                     call.post("raven.api.raven_message.save_message", { message_id: message.name, add: !currentlySaved }).catch((e) => {
                         channelMessagesStore.savedUpdated(message.channel_id, message.name, prevLiked)
-                        toast.error(currentlySaved ? _("Could not unsave message") : _("Could not save message"), { description: getErrorMessage(e) })
+                        errorResponseToast(currentlySaved ? _("Could not unsave message") : _("Could not save message"), e)
                     })
                 },
             },

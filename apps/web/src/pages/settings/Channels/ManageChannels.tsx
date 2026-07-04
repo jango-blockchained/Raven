@@ -17,8 +17,8 @@ import { useWorkspaces } from "@hooks/useWorkspaces"
 import { Badge } from "@components/ui/badge"
 import { useJoinChannel } from "@hooks/useJoinChannel"
 import { useLeaveChannel } from "@hooks/useLeaveChannel"
-import { toast } from "sonner"
-import { getErrorMessage } from "@lib/frappe"
+import { errorResponseToast } from "@components/ui/error-banner"
+import { FrappeError } from "frappe-react-sdk"
 
 export const ManageChannels = () => {
 
@@ -138,15 +138,11 @@ const ChannelJoinButton = ({ channel }: { channel: ChannelListItem }) => {
     const toggleJoin = (action: "join" | "leave") => {
         if (action === "join") {
             return joinChannel().catch((e) => {
-                toast.error("Could not join channel", {
-                    description: getErrorMessage(e),
-                })
+                errorResponseToast(_("Could not join channel"), e as FrappeError)
             })
         } else {
             return leaveChannel().catch((e) => {
-                toast.error("Could not leave channel", {
-                    description: getErrorMessage(e),
-                })
+                errorResponseToast(_("Could not leave channel"), e as FrappeError)
             })
         }
     }

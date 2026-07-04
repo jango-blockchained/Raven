@@ -6,9 +6,9 @@ import useCurrentRavenUser from "@raven/lib/hooks/useCurrentRavenUser"
 import { UserAvatar } from "@components/features/message/UserAvatar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@components/ui/dropdown-menu"
 import { Spinner } from "@components/ui/spinner"
-import { getErrorMessage } from "@lib/frappe"
 import { cn } from "@lib/utils"
 import _ from "@lib/translate"
+import { errorResponseToast } from "@components/ui/error-banner"
 
 /**
  * The profile page's avatar — tapping it opens an Upload / Remove photo menu. Photo changes
@@ -43,7 +43,7 @@ export function ProfileImageMenu() {
             await setImage(res.file_url)
             toast.success(_("Photo updated"))
         } catch (e) {
-            toast.error(_("Couldn't update photo"), { description: getErrorMessage(e as FrappeError) })
+            errorResponseToast(_("Could not update photo"), e as FrappeError)
         } finally {
             setSaving(false)
         }
@@ -55,7 +55,7 @@ export function ProfileImageMenu() {
             await setImage("")
             toast.success(_("Photo removed"))
         } catch (e) {
-            toast.error(_("Couldn't remove photo"), { description: getErrorMessage(e as FrappeError) })
+            errorResponseToast(_("Could not remove photo"), e as FrappeError)
         } finally {
             setSaving(false)
         }

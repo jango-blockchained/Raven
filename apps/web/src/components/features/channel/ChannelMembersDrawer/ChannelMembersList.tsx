@@ -14,6 +14,7 @@ import { useDebounceValue } from 'usehooks-ts';
 import { Badge } from '@components/ui/badge';
 import { InputGroup, InputGroupAddon } from '@components/ui/input-group';
 import { cn } from '@lib/utils';
+import { errorResponseToast } from '@components/ui/error-banner';
 
 const ChannelMembersList = ({ members, channelID, allowSettingChange }: { members: ChannelMemberData[], channelID: string, allowSettingChange: boolean }) => {
 
@@ -76,7 +77,7 @@ const MembersList = ({ filteredMembers, channelID, allowSettingChange }: { filte
                 toast.success(_("Member removed"))
                 loadChannelMembers(call, channelID, true)
             })
-            .catch(() => toast.error(_("Failed to remove member")))
+            .catch((error) => errorResponseToast(_("Failed to remove member"), error))
     }
 
     const handleToggleAdmin = (member: ChannelMemberData) => {
@@ -87,7 +88,7 @@ const MembersList = ({ filteredMembers, channelID, allowSettingChange }: { filte
                 toast.success(newAdminStatus === 1 ? _("Member is now an admin") : _("Admin rights removed"))
                 loadChannelMembers(call, channelID, true)
             })
-            .catch(() => toast.error(_("Failed to update member")))
+            .catch((error) => errorResponseToast(_("Failed to update member"), error))
     }
 
     return (

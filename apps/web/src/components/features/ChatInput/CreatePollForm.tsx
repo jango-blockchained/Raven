@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useFrappePostCall } from 'frappe-react-sdk'
-import { toast } from 'sonner'
 import dayjs from 'dayjs'
 import { CalendarClock, CalendarIcon, EyeOff, ListChecks, Plus, X } from 'lucide-react'
 import { Button } from '@components/ui/button'
@@ -14,9 +13,9 @@ import { Popover, PopoverContent, PopoverTrigger } from '@components/ui/popover'
 import { DialogFooter, DialogHeader, DialogTitle } from '@components/ui/dialog'
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@components/ui/form'
 import { SmallTextField } from '@components/ui/form-elements'
-import { getErrorMessage } from '@lib/frappe'
 import { cn } from '@lib/utils'
 import _ from '@lib/translate'
+import { errorResponseToast } from '@components/ui/error-banner'
 
 interface CreatePollFormProps {
     channelID: string
@@ -151,7 +150,7 @@ export const CreatePollForm = ({ channelID, onClose }: CreatePollFormProps) => {
             max_choices: data.is_multi_choice ? Math.min(Number(data.max_choices) || 2, validOptions.length) : undefined,
         })
             .then(() => onClose())
-            .catch((e) => toast.error(_('Could not create poll'), { description: getErrorMessage(e) }))
+            .catch((e) => errorResponseToast(_('Could not create poll'), e))
     }
 
     return (

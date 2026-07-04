@@ -1,7 +1,5 @@
 import React, { useMemo, useState } from "react"
 import { useFrappePostCall } from "frappe-react-sdk"
-import { toast } from "sonner"
-import { getErrorMessage } from "@lib/frappe"
 import { useUserCookieData } from "@hooks/useUserCookieData"
 import { ScrollArea } from "@components/ui/scroll-area"
 import { Button } from "@components/ui/button"
@@ -33,6 +31,7 @@ import _ from "@lib/translate"
 import { Separator } from "@components/ui/separator"
 import { useAtomValue } from "jotai"
 import { timeFormatAtom } from "@utils/preferences"
+import { errorResponseToast } from "@components/ui/error-banner"
 
 export interface PollDrawerProps {
     user: UserData
@@ -63,7 +62,7 @@ export const PollDrawer: React.FC<PollDrawerProps> = ({
     const onRetract = () => {
         retractVote({ poll_id: poll.name })
             .then(() => onClose())
-            .catch((e) => toast.error(_("Could not retract your vote"), { description: getErrorMessage(e) }))
+            .catch((e) => errorResponseToast(_("Could not retract your vote"), e))
     }
 
     const [confirmClose, setConfirmClose] = useState(false)
@@ -72,7 +71,7 @@ export const PollDrawer: React.FC<PollDrawerProps> = ({
         closePoll({ poll_id: poll.name })
             // Success closes the drawer (which unmounts this dialog); keep it open on error.
             .then(() => onClose())
-            .catch((e) => toast.error(_("Could not close the poll"), { description: getErrorMessage(e) }))
+            .catch((e) => errorResponseToast(_("Could not close the poll"), e))
     }
 
     const timeFormat = useAtomValue(timeFormatAtom)

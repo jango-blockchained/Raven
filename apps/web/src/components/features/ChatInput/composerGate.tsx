@@ -1,15 +1,13 @@
 import { useCallback, useContext, useMemo, useSyncExternalStore } from "react"
 import { FrappeConfig, FrappeContext } from "frappe-react-sdk"
-import { toast } from "sonner"
-import { Archive, UserRoundX } from "lucide-react"
 import { Button } from "@components/ui/button"
 import { useChannelById } from "@stores/channels/useChannelList"
 import { channelStore } from "@stores/channels/store"
 import { useChannelMembers, loadChannelMembers } from "@hooks/useChannelMembers"
 import { useUserCookieData } from "@hooks/useUserCookieData"
 import { useJoinChannel } from "@hooks/useJoinChannel"
-import { getErrorMessage } from "@lib/frappe"
 import _ from "@lib/translate"
+import { errorResponseToast } from "@components/ui/error-banner"
 
 export type ComposerGateState = "loading" | "composer" | "archived" | "not-member"
 
@@ -43,7 +41,7 @@ export const useComposerGate = (channelID: string) => {
         joinChannel()
             // Refresh the member store so the gate flips to `composer` immediately.
             .then(() => loadChannelMembers(call, channelID, true))
-            .catch((e) => toast.error(_("Could not join"), { description: getErrorMessage(e) }))
+            .catch((e) => errorResponseToast(_("Could not join"), e))
     }, [joinChannel, call, channelID])
 
     let state: ComposerGateState

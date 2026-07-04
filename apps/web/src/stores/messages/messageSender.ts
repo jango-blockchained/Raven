@@ -1,15 +1,14 @@
 import dayjs from "dayjs"
-import { toast } from "sonner"
 import type { FrappeError } from "frappe-react-sdk"
 import type { Message } from "@raven/types/common/Message"
 import type { OutboxMessage } from "@db"
 import { getAttachmentKind } from "@utils/attachmentPreview"
-import { getErrorMessage } from "@lib/frappe"
 import _ from "@lib/translate"
 import { channelMessagesStore } from "./store"
 import { channelUnreadStore } from "@stores/unread/store"
 import { putOutbox, removeOutbox, setOutboxStatus, isSettling } from "./outbox"
 import type { OptimisticMessage } from "./types"
+import { errorResponseToast } from "@components/ui/error-banner"
 
 /** Minimal Frappe client — `call` from FrappeContext. */
 export type PostClient = {
@@ -177,10 +176,7 @@ export const submitSend = (
             // One shared id means many failures at once show a single error, not a
             // pile of them. (The failed message on screen is the main signal; this
             // error also covers sends the user has scrolled past.)
-            toast.error(_("Could not send your message"), {
-                id: "message-send-failed",
-                description: getErrorMessage(error),
-            })
+            errorResponseToast(_("Could not send your message"), error)
         })
         .finally(() => inFlight.delete(batchId))
 }

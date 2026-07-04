@@ -1,6 +1,5 @@
 import { useMemo } from "react"
 import { useFrappeGetCall, useFrappePostCall } from "frappe-react-sdk"
-import { toast } from "sonner"
 import type { Message } from "@raven/types/common/Message"
 import type { RavenPoll } from "@raven/types/RavenMessaging/RavenPoll"
 import type { RavenPollOption } from "@raven/types/RavenMessaging/RavenPollOption"
@@ -8,7 +7,6 @@ import { useHasBeenInView } from "@hooks/useHasBeenInView"
 import { useUsersById } from "@hooks/useMessageRowLookups"
 import { useSetAtom } from "jotai"
 import { pollDrawerAtom, channelDrawerAtom } from "@utils/channelAtoms"
-import { getErrorMessage } from "@lib/frappe"
 import _ from "@lib/translate"
 import { PollVotingContainer } from "./PollVotingContainer"
 import { PollQuestionHeader } from "./PollQuestionHeader"
@@ -16,6 +14,7 @@ import { SingleChoicePollVoting } from "./SingleChoicePollVoting"
 import { MultiChoicePollVoting } from "./MultiChoicePollVoting"
 import { PollOptionBar, getOptionPercentage, isUserVote, type PollOptionWithVoters } from "./poll-components"
 import { TooltipProvider } from "@components/ui/tooltip"
+import { errorResponseToast } from "@components/ui/error-banner"
 
 type PollData = {
     poll: RavenPoll & { options: RavenPollOption[] }
@@ -127,7 +126,7 @@ const LoadedPoll = ({ message }: { message: Message }) => {
         if (optionIds.length === 0) return
         addVote({ message_id: message.name, option_id: poll.is_multi_choice ? optionIds : optionIds[0] })
             .then(() => mutate())
-            .catch((e) => toast.error(_("Could not record your vote"), { description: getErrorMessage(e) }))
+            .catch((e) => errorResponseToast(_("Could not record your vote"), e))
     }
 
     return (

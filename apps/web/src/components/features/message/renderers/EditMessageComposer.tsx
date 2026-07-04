@@ -2,16 +2,15 @@ import { useContext, useRef, useState } from "react"
 import { FrappeConfig, FrappeContext, useFrappeUpdateDoc } from "frappe-react-sdk"
 import { useSetAtom } from "jotai"
 import { EditorContent } from "@tiptap/react"
-import { toast } from "sonner"
 import { Button } from "@components/ui/button"
 import { TooltipProvider } from "@components/ui/tooltip"
 import { EditorFormattingToolbar } from "@components/features/editor/EditorFormattingToolbar"
 import { useRavenEditor, EDITOR_MIN_H } from "@components/features/editor/useRavenEditor"
 import { channelMessagesStore } from "@stores/messages/store"
 import { editingMessageAtom } from "@utils/channelAtoms"
-import { getErrorMessage } from "@lib/frappe"
 import _ from "@lib/translate"
 import type { Message } from "@raven/types/common/Message"
+import { errorResponseToast } from "@components/ui/error-banner"
 
 type FileLikeMessage = Message & { file?: string }
 
@@ -49,7 +48,7 @@ export const EditMessageComposer = ({ message }: { message: Message }) => {
 
     // submit/cancel are read through refs by the editor's (build-once) keydown closure,
     // so reassigning them each render keeps Enter/Escape calling the latest handlers.
-    const submitRef = useRef<() => void>(() => {})
+    const submitRef = useRef<() => void>(() => { })
     const cancelRef = useRef<() => boolean>(() => false)
     cancelRef.current = () => {
         close()
@@ -59,7 +58,7 @@ export const EditMessageComposer = ({ message }: { message: Message }) => {
     // ⌘⇧U opens the formatting toolbar's link popover: linkRef bumps a signal the
     // toolbar watches (reset via onLinkConsumed so re-renders don't reopen it).
     const [linkSignal, setLinkSignal] = useState(0)
-    const linkRef = useRef<() => void>(() => {})
+    const linkRef = useRef<() => void>(() => { })
     linkRef.current = () => setLinkSignal((n) => n + 1)
 
     const editor = useRavenEditor({
@@ -85,7 +84,7 @@ export const EditMessageComposer = ({ message }: { message: Message }) => {
             channelMessagesStore.messageDeleted(channelID, messageID)
             call.post("raven.api.raven_message.delete_messages", { message_ids: [messageID] }).catch((e) => {
                 if (snapshot) channelMessagesStore.messagesRestored(channelID, [snapshot])
-                toast.error(_("Could not delete message"), { description: getErrorMessage(e) })
+                errorResponseToast(_("Could not delete message"), e)
             })
             return
         }
@@ -101,7 +100,7 @@ export const EditMessageComposer = ({ message }: { message: Message }) => {
                     is_edited: prev.is_edited,
                 })
             }
-            toast.error(_("Could not edit message"), { description: getErrorMessage(e) })
+            errorResponseToast(_("Could not edit message"), e)
         })
     }
     submitRef.current = onSave

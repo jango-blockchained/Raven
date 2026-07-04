@@ -4,7 +4,8 @@ import { Alert, AlertDescription, AlertProps, AlertTitle } from '@components/ui/
 import { AlertCircle } from 'lucide-react'
 import MarkdownRenderer from '@components/ui/markdown'
 import _ from '@lib/translate'
-import { useMemo } from 'react'
+import { ReactNode, useMemo } from 'react'
+import { toast, type ExternalToast } from 'sonner'
 
 type ErrorBannerProps = AlertProps & {
     error?: FrappeError | null,
@@ -40,12 +41,26 @@ const ErrorBanner = ({ error, overrideHeading, ...props }: ErrorBannerProps) => 
             <AlertCircle />
             <AlertTitle>{overrideHeading ?? parseHeading(messages[0])}</AlertTitle>
             <AlertDescription>
-                {messages.map((m, i) => {
-                    return <MarkdownRenderer content={m.message} key={i} />
-                })}
+                {getErrorMessageAsMarkdown(error)}
             </AlertDescription>
         </Alert>
     )
+}
+
+export const errorResponseToast = (title: string, error?: FrappeError | null, options?: ExternalToast) => {
+    toast.error(title, {
+        description: getErrorMessageAsMarkdown(error),
+        ...options,
+    })
+}
+
+export const getErrorMessageAsMarkdown = (error?: FrappeError | null): ReactNode => {
+    const messages = getErrorMessages(error)
+    return <>
+        {messages.map((m, i) => {
+            return <MarkdownRenderer content={m.message} key={i} />
+        })}
+    </>
 }
 
 export default ErrorBanner

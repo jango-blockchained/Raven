@@ -1,4 +1,3 @@
-import { Label } from "@components/ui/label"
 import { Separator } from "@components/ui/separator"
 import { SettingsPanelDescription, SettingsPanelHeader, SettingsPanelTitle, SettingsPanelContent, SettingsFormLabel, SettingsFormDescription, SettingsFormRow } from "@components/ui/settings-dialog"
 import { useTheme } from "@components/theme-provider"
@@ -8,9 +7,9 @@ import _ from "@lib/translate"
 import { useFrappePostCall } from "frappe-react-sdk"
 import { toast } from "sonner"
 import useCurrentRavenUser from "@raven/lib/hooks/useCurrentRavenUser"
-import { getErrorMessage } from "@lib/frappe"
 import { Select, SelectItem, SelectValue, SelectTrigger, SelectContent } from "@components/ui/select"
-import { Grid3x2Icon, ImagesIcon, FileStack, LayoutPanelLeftIcon } from "lucide-react"
+import { ImagesIcon, LayoutPanelLeftIcon } from "lucide-react"
+import { errorResponseToast } from "@components/ui/error-banner"
 
 const Appearance = () => {
 
@@ -276,7 +275,7 @@ const LeftRightLayoutSwitcher = () => {
             mutate()
             toast.success(_("Chat style updated"))
         }).catch((e) => {
-            toast.error(getErrorMessage(e))
+            errorResponseToast(_("Could not update chat style"), e)
         })
     }
 

@@ -15,6 +15,7 @@ import { GroupDnd } from "./GroupDnd"
 import { useParams } from "react-router"
 import { H3 } from "@components/ui/typography"
 import { SettingsPanelContent, SettingsPanelDescription, SettingsPanelHeader, SettingsPanelTitle } from "@components/ui/settings-dialog"
+import { errorResponseToast } from "@components/ui/error-banner"
 
 export const CustomizeSidebarDialog = ({ onClose }: { onClose?: () => void }) => {
 
@@ -44,8 +45,8 @@ export const CustomizeSidebarDialog = ({ onClose }: { onClose?: () => void }) =>
                 toast.success(_("Sidebar updated"))
                 mutate()
                 onClose?.()
-            }).catch(() => {
-                toast.error(_("Failed to update sidebar"))
+            }).catch((error) => {
+                errorResponseToast(_("Failed to update sidebar"), error)
             })
         }
     }

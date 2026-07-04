@@ -1,10 +1,9 @@
 import { useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { useFrappePostCall, useSWRConfig } from "frappe-react-sdk"
-import { toast } from "sonner"
 import { useDMChannels } from "@stores/channels/useChannelList"
-import { getErrorMessage } from "@lib/frappe"
 import _ from "@lib/translate"
+import { errorResponseToast } from "@components/ui/error-banner"
 
 /**
  * Open the direct-message channel with a user, creating it only if needed.
@@ -51,7 +50,7 @@ export const useCreateDM = () => {
                     return channelID
                 })
                 .catch((err) => {
-                    toast.error(_("Could not create a DM channel"), { description: getErrorMessage(err) })
+                    errorResponseToast(_("Could not create a DM channel"), err)
                     return undefined
                 })
         },

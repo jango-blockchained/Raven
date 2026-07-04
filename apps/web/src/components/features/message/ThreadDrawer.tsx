@@ -26,8 +26,8 @@ import { useUserCookieData } from "@hooks/useUserCookieData"
 import { unreadThreadsStore } from "@stores/threads/unreadStore"
 import { threadListStore } from "@stores/threads/listStore"
 import { pollDrawerAtom } from "@utils/channelAtoms"
-import { getErrorMessage } from "@lib/frappe"
 import _ from "@lib/translate"
+import { errorResponseToast } from "@components/ui/error-banner"
 
 /**
  * The thread view: header + root message + replies stream + composer. Router-agnostic —
@@ -87,7 +87,7 @@ export default function ThreadDrawer({
                 toast.success(_("You left the thread"))
                 onClose()
             })
-            .catch((e) => toast.error(_("Could not leave the thread"), { description: getErrorMessage(e) }))
+            .catch((e) => errorResponseToast(_("Could not leave the thread"), e))
     }
 
     const { deleteDoc, loading: deleting } = useFrappeDeleteDoc()
@@ -102,7 +102,7 @@ export default function ThreadDrawer({
                 toast.success(_("Thread deleted"))
                 onClose()
             })
-            .catch((e) => toast.error(_("Could not delete the thread"), { description: getErrorMessage(e) }))
+            .catch((e) => errorResponseToast(_("Could not delete the thread"), e))
     }
 
     // Esc closes the thread's poll drawer first, then the thread. enableOnContentEditable because
