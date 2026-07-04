@@ -1,15 +1,19 @@
 import { useContext } from "react"
 import { FrappeConfig, FrappeContext, useFrappeEventListener, useSWRConfig } from "frappe-react-sdk"
-import { UNREAD_COUNT_KEY } from "@hooks/useNotifications"
+import { UNREAD_NOTIFICATION_IDS_KEY } from "@hooks/useNotifications"
 import { notificationListStore } from "./store"
+import { unreadNotificationsStore } from "./unreadStore"
 import { reconcileFirstPage, type NotificationCall } from "./loaders"
 
 /**
  * Global notifications realtime, mounted once in AppListeners. The list-affecting events
  * carry no row data, so a new mention/reaction triggers a page-0 reconcile of every loaded
- * view that could contain it. The read events flip is_read in place across all views. Every
- * event also revalidates the shared unread-count key, keeping the sidebar + page badge live
- * even when the Notifications page is unmounted.
+ * view that could contain it. The read events flip is_read in place across all views.
+ *
+ * The badge is the unread-id SET's size (unreadNotificationsStore) — events apply to it
+ * locally (add / remove / clear) with no count refetch. The only refetch left is the ids
+ * reconcile on a reaction REMOVAL, where the client can't know whether the message still
+ * has other unread reactions.
  */
 export const useNotificationsRealtime = () => {
     const { call } = useContext(FrappeContext) as FrappeConfig
@@ -23,19 +27,36 @@ export const useNotificationsRealtime = () => {
             if (filters.notificationType && filters.notificationType !== notificationType) continue
             reconcileFirstPage(client, viewKey, filters)
         }
-        globalMutate(UNREAD_COUNT_KEY)
     }
 
-    useFrappeEventListener("raven_mention", () => onNewNotification("mention"))
-    useFrappeEventListener("raven_reaction_notification", () => onNewNotification("reaction"))
+    useFrappeEventListener("raven_mention", (event: { message_id?: string }) => {
+        if (event.message_id) unreadNotificationsStore.add(event.message_id)
+        onNewNotification("mention")
+    })
 
-    useFrappeEventListener("message_notifications_read", (event: { message_id: string }) => {
-        notificationListStore.markMessageRead(event.message_id)
-        globalMutate(UNREAD_COUNT_KEY)
+    useFrappeEventListener(
+        "raven_reaction_notification",
+        (event: { message_id?: string; removed?: boolean }) => {
+            if (event.removed) {
+                // An unreact: the message may or may not still carry other unread
+                // reactions — refetch the authoritative id set instead of guessing.
+                globalMutate(UNREAD_NOTIFICATION_IDS_KEY)
+            } else if (event.message_id) {
+                unreadNotificationsStore.add(event.message_id)
+            }
+            onNewNotification("reaction")
+        },
+    )
+
+    // Batched echo from mark_message_notifications_read — our own flush and other tabs'.
+    useFrappeEventListener("message_notifications_read", (event: { message_ids?: string[] }) => {
+        const ids = event.message_ids ?? []
+        unreadNotificationsStore.remove(ids)
+        for (const id of ids) notificationListStore.markMessageRead(id)
     })
 
     useFrappeEventListener("all_notifications_read", () => {
         notificationListStore.markAllRead()
-        globalMutate(UNREAD_COUNT_KEY, { message: 0 }, { revalidate: false })
+        unreadNotificationsStore.clear()
     })
 }

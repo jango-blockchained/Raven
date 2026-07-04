@@ -14,7 +14,7 @@ import { formatRelativeDate } from "@lib/date"
 import { getMessageTeaser } from "@utils/messageUtils"
 import _ from "@lib/translate"
 import type { DMChannelListItem } from "@raven/types/common/ChannelListItem"
-import { useChannelList } from "@stores/channels/useChannelList"
+import { useDMChannels } from "@stores/channels/useChannelList"
 import { useChannelUnread } from "@stores/unread/useChannelUnread"
 import { usePrefetchChannel, setChannelListScrolling } from "@stores/messages/usePrefetchChannel"
 import { useUserCookieData } from "@hooks/useUserCookieData"
@@ -40,7 +40,7 @@ const dmListComponents = { Footer: DMListFooter }
 
 export function DMSidebar() {
 
-    const { dmChannels, isLoading } = useChannelList()
+    const { dmChannels, isLoading } = useDMChannels()
     const usersById = useUsersById()
 
     // Reset scroll-suppression if we unmount mid-scroll (Virtuoso's isScrolling(false) wouldn't

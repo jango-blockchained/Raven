@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef } from "react"
-import { useFrappePostCall } from "frappe-react-sdk"
+import { useCallback, useContext, useEffect, useRef } from "react"
+import { FrappeConfig, FrappeContext, useFrappePostCall } from "frappe-react-sdk"
 import { useDebounceCallback } from "usehooks-ts"
 import type { Message } from "@raven/types/common/Message"
 import { channelUnreadStore } from "./store"
 import { unreadThreadsStore } from "@stores/threads/unreadStore"
+import { markNotificationsReadOnView } from "@stores/notifications/unreadStore"
 
 /** How long after the last in-view message before we flush the watermark to the server. */
 const FLUSH_DELAY = 1500
@@ -28,6 +29,7 @@ export const useChannelReadTracker = (
     { isAtBottom, hasNewerMessages }: { isAtBottom: boolean; hasNewerMessages: boolean },
 ) => {
     const { call: trackVisit } = useFrappePostCall("raven.api.raven_channel_member.track_visit")
+    const { call } = useContext(FrappeContext) as FrappeConfig
 
     /** Newest message creation seen this session (forward-only). */
     const watermarkRef = useRef<string | null>(null)
@@ -68,12 +70,16 @@ export const useChannelReadTracker = (
 
     const onMessageInView = useCallback(
         (message: Message) => {
+            // Viewing a message with an unread notification (a mention of you / a reaction on
+            // your message) marks it read — O(1) no-op for everything else. Deliberately NOT
+            // forward-only like the watermark: scrolling UP to an older mention clears it too.
+            markNotificationsReadOnView(call, message.name)
             if (!watermarkRef.current || message.creation > watermarkRef.current) {
                 watermarkRef.current = message.creation
                 debouncedFlush()
             }
         },
-        [debouncedFlush],
+        [call, debouncedFlush],
     )
 
     // Register the active-read channel and hold its badge at zero while the user
