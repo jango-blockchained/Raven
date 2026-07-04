@@ -17,6 +17,7 @@ import { useToggleReaction } from "./useToggleReaction"
 import { ReactionPicker } from "./ReactionPicker"
 import type { Message } from "@raven/types/common/Message"
 import { QuickEmojisAtom } from "@utils/preferences"
+import { useIsMobile } from "@hooks/use-mobile"
 
 /**
  * The floating quick-action toolbar — ONE instance per stream, positioned over
@@ -45,6 +46,7 @@ export const MessageHoverToolbar = ({
     const setReplyTo = useSetAtom(replyToMessageAtom(message.channel_id))
     const toggleReaction = useToggleReaction()
     const [menuOpen, setMenuOpen] = useState(false)
+    const isMobile = useIsMobile()
 
     /** The ellipsis menu marks the message as the action target, like right-click does. */
     const handleMenuOpenChange = (open: boolean) => {
@@ -67,7 +69,7 @@ export const MessageHoverToolbar = ({
                 <Button
                     key={emoji.id}
                     variant="ghost"
-                    size="md"
+                    size={isMobile ? "lg" : "md"}
                     isIconButton
                     aria-label={`${_("React with")} ${emoji}`}
                     onClick={() => toggleReaction(message, emoji.native ? emoji.native : emoji.src ?? "", emoji.src ? true : false, emoji.id)}
@@ -77,26 +79,26 @@ export const MessageHoverToolbar = ({
                             src={emoji.src}
                             alt={emoji.id}
                             loading="lazy"
-                            className="h-4.5 w-4.5 object-contain"
+                            className="md:h-4.5 md:w-4.5 h-5 w-5 object-contain"
                             aria-hidden="true"
                         />
                     ) : (
                         // em-emoji renders from the Apple set (initialized in
                         // App.tsx) so reactions look the same on every platform
-                        <span className="flex h-4.5 w-4.5 items-center justify-center" aria-hidden="true">
+                        <span className="flex md:h-4.5 md:w-4.5 h-5 w-5 items-center justify-center" aria-hidden="true">
                             <em-emoji native={emoji.native} set="apple" size="1.1em" fallback={emoji.id} />
                         </span>
                     )}
                 </Button>
             ))}
             <ReactionPicker message={message} tooltip={_("Add reaction")} side="bottom" align="end" onOpenChange={onMenuOpenChange}>
-                <Button variant="ghost" size="md" isIconButton aria-label={_("Add reaction")}>
+                <Button variant="ghost" size={isMobile ? "lg" : "md"} isIconButton aria-label={_("Add reaction")}>
                     <SmilePlus />
                 </Button>
             </ReactionPicker>
             <Button
                 variant="ghost"
-                size="md"
+                size={isMobile ? "lg" : "md"}
                 isIconButton
                 aria-label={_("Reply")}
                 onClick={() => setReplyTo(message)}
@@ -107,7 +109,7 @@ export const MessageHoverToolbar = ({
             {onOpenFullMenu ? (
                 <Button
                     variant="ghost"
-                    size="md"
+                    size={isMobile ? "lg" : "md"}
                     isIconButton
                     aria-label={_("More actions")}
                     onClick={onOpenFullMenu}
@@ -117,7 +119,7 @@ export const MessageHoverToolbar = ({
             ) : (
                 <DropdownMenu open={menuOpen} onOpenChange={handleMenuOpenChange}>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="md" isIconButton aria-label={_("More actions")}>
+                        <Button variant="ghost" size={isMobile ? "lg" : "md"} isIconButton aria-label={_("More actions")}>
                             <MoreHorizontal />
                         </Button>
                     </DropdownMenuTrigger>

@@ -46,19 +46,19 @@ export const MobileComposerActions = ({
 
             <Drawer open={sheetOpen} onOpenChange={setSheetOpen}>
                 <DrawerTrigger asChild>
-                    <Button type="button" variant="ghost" size="md" isIconButton aria-label={_("More actions")} className="rounded-full text-ink-gray-6">
-                        <Plus />
+                    <Button type="button" variant="ghost" size="lg" isIconButton aria-label={_("More actions")} className="rounded-full">
+                        <Plus className="size-6" />
                     </Button>
                 </DrawerTrigger>
                 <DrawerContent>
                     <DrawerTitle className="sr-only">{_("Composer actions")}</DrawerTitle>
-                    <div className="flex flex-col gap-1 p-3 pb-6">
+                    <div className="flex flex-col gap-1 p-3 pb-10">
                         {rows.map((row) => (
                             <Button
                                 key={row.label}
                                 variant="ghost"
                                 size="lg"
-                                className="w-full justify-start gap-3 text-lg font-normal"
+                                className="w-full justify-start gap-3 text-xl-normal py-6"
                                 onClick={() => {
                                     setSheetOpen(false)
                                     row.onClick()

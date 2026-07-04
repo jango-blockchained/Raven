@@ -44,28 +44,31 @@ const ChannelHeader = ({ channelID }: ChannelHeaderProps) => {
             <div className="flex items-center justify-center md:hidden">
                 <Button
                     variant="ghost"
-                    size="md"
+                    size="lg"
                     isIconButton
                     onClick={() => navigate(`/${workspaceID ?? ''}`)}
                     aria-label={_('Back')}
                 >
-                    <ChevronLeft className="size-4.5" />
+                    <ChevronLeft className="size-6" />
                 </Button>
             </div>
 
             {/* Left side */}
             <div className="flex items-center gap-2 min-w-0 flex-1">
                 <div className="flex items-center gap-0.5 min-w-0">
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button variant="ghost" size={isMobile ? "md" : "sm"} isIconButton className={isStarred ? "text-yellow-400" : ""} aria-label={_('Star')} onClick={toggleStarChannel}>
-                                <Star className={`size-4.5 md:size-4 ${isStarred ? "fill-yellow-400" : ""}`} />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            {_('Add to Favorites')}
-                        </TooltipContent>
-                    </Tooltip>
+                    <div className="items-center justify-center hidden md:flex">
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="ghost" size={isMobile ? "md" : "sm"} isIconButton className={isStarred ? "text-yellow-400" : ""} aria-label={_('Star')} onClick={toggleStarChannel}>
+                                    <Star className={`size-4.5 md:size-4 ${isStarred ? "fill-yellow-400" : ""}`} />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                {_('Add to Favorites')}
+                            </TooltipContent>
+                        </Tooltip>
+                    </div>
+
 
                     <ChannelMenu channelID={channelID} />
 

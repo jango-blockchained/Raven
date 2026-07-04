@@ -247,8 +247,8 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
 
     // When a reply is started (from a message's Reply action), focus the composer.
     useEffect(() => {
-        if (replyTo) editor?.commands.focus()
-    }, [replyTo, editor])
+        if (replyTo && !isMobile) editor?.commands.focus()
+    }, [replyTo, editor, isMobile])
 
     // Expose this channel's composer focus so the pane-level FileDropZone (and any other
     // attach path outside this subtree) can refocus the editor after a drop.
@@ -259,8 +259,10 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
 
     const cancelReply = useCallback(() => {
         setReplyTo(null)
-        editor?.commands.focus()
-    }, [setReplyTo, editor])
+        if (!isMobile) {
+            editor?.commands.focus()
+        }
+    }, [setReplyTo, editor, isMobile])
 
     // The set of @-mentioned user ids in the draft, as a stable joined string so this
     // only re-renders when the mention set changes (not on every keystroke). Drives
@@ -299,7 +301,7 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                 e.preventDefault()
                 handleSend()
             }}
-            className={cn("px-3 pb-3 w-full flex flex-col gap-2", isMobile && (keyboardOpen ? "pb-0" : "pb-[calc(1.75rem+env(safe-area-inset-bottom))]"))}
+            className={cn("md:px-3 md:pb-3 w-full flex flex-col gap-2")}
         >
             {/* Warning banner is only shown for primary channels, not DMs, threads in DMs. */}
             {!isDM && mentionedIds.length > 0 && <MentionWarningBanner channelID={parentChannelID ?? channelID} mentionedIds={mentionedIds} isThread={parentChannelID ? true : false} />}
@@ -308,10 +310,10 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                 so they must NOT be clipped. The inner box keeps overflow-y-hidden so the
                 formatting toolbar's square top corners stay within the rounded border. */}
             <div data-raven-editor className="relative w-full">
-                <div className={cn("w-full rounded-lg border border-outline-gray-2 shadow-outline-base bg-surface-white focus-within:border-outline-gray-3 overflow-y-hidden", isMobile && "rounded-full")}>
+                <div className={cn("w-full md:rounded-lg md:border border-outline-gray-2 shadow-outline-base bg-surface-white focus-within:border-outline-gray-3 overflow-y-hidden")}>
                     <TooltipProvider>
 
-                        {editor && showFormatting && (
+                        {editor && showFormatting && !isMobile && (
                             <EditorFormattingToolbar
                                 editor={editor}
                                 linkSignal={linkSignal}
@@ -328,12 +330,17 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                             // deliberately replace the editor surface's default EDITOR_CLASS heights
                             // (EDITOR_MIN_H etc.) with a compact one-line-that-grows box — these values
                             // are mobile-specific and intentionally NOT tied to EDITOR_MIN_H.
-                            <div className="flex items-center gap-1 px-1">
-                                <MobileComposerActions channelID={channelID} />
-                                <div className="flex-1 min-w-0 [&_.tiptap]:min-h-9 [&_.tiptap]:max-h-64 [&_.tiptap]:overflow-y-auto [&_.tiptap]:py-2">
+                            <div className={cn("flex items-end gap-1 px-2 py-2 border-t border-outline-gray-2 bg-surface-elevation-1", isMobile && (keyboardOpen ? "pb-0" : "pb-4"))}>
+                                <div className="flex items-center justify-center h-10">
+                                    <MobileComposerActions channelID={channelID} />
+                                </div>
+                                <div className="flex-1 min-w-0 dark:bg-surface-elevation-3 bg-surface-gray-1 rounded-2xl [&_.tiptap]:min-h-10 [&_.tiptap]:max-h-64 [&_.tiptap]:overflow-y-auto [&_.tiptap]:py-2">
                                     <EditorContent editor={editor} />
                                 </div>
-                                <SendButton onSend={handleSend} loading={pendingSend} disabled={nothingToSend} />
+                                <div className="flex items-center justify-center h-10">
+                                    <SendButton onSend={handleSend} loading={pendingSend} disabled={nothingToSend} />
+                                </div>
+
                             </div>
                         ) : (
                             <>
