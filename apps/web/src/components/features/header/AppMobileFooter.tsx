@@ -93,7 +93,7 @@ const UnreadBadge = ({ count }: { count?: number }) => {
     // Pill, not a fixed circle: a single digit stays circular (min-w == height),
     // but "9+" / two digits grow horizontally with px-1 so the glyphs aren't
     // crushed against the boundary. h-4 keeps the cap height stable either way.
-    return <span className="absolute -top-2 -right-4 h-4 min-w-4 px-1 flex items-center justify-center rounded-full bg-surface-red-6 dark:bg-surface-red-6 text-ink-base dark:text-ink-red-1 text-[10px] leading-none">
+    return <span className="absolute -top-2 -right-3.5 h-4 min-w-4 px-1 flex items-center justify-center rounded-full bg-surface-red-6 dark:bg-surface-red-6 text-ink-base dark:text-ink-red-1 text-[10px] leading-none">
         {count > 9 ? "9+" : count}
     </span>
 

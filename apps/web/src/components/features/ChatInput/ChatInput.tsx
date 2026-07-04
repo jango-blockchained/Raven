@@ -284,7 +284,7 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
     if (isInReadOnlyMode()) {
         return (
             <div className={cn("px-3 pb-4 w-full", isMobile && (keyboardOpen ? "pb-0" : "pb-[calc(2rem+env(safe-area-inset-bottom))]"))}>
-                <div className="flex items-center justify-center gap-2 rounded-lg border border-outline-gray-2 bg-surface-gray-1 px-3 py-3 text-p-sm text-ink-gray-6">
+                <div className="flex items-center justify-center gap-2 md:rounded-lg rounded-xl border border-outline-gray-2 bg-surface-gray-1 px-3 py-3 text-p-sm text-ink-gray-6">
                     <Lock className="size-3 shrink-0" />
                     <span>{_("The site is in read-only mode right now. Please wait while the site is being updated.")}</span>
                 </div>
@@ -308,7 +308,7 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                 so they must NOT be clipped. The inner box keeps overflow-y-hidden so the
                 formatting toolbar's square top corners stay within the rounded border. */}
             <div data-raven-editor className="relative w-full">
-                <div className="w-full rounded-lg border border-outline-gray-2 shadow-outline-base bg-surface-white focus-within:border-outline-gray-3 overflow-y-hidden">
+                <div className={cn("w-full rounded-lg border border-outline-gray-2 shadow-outline-base bg-surface-white focus-within:border-outline-gray-3 overflow-y-hidden", isMobile && "rounded-full")}>
                     <TooltipProvider>
 
                         {editor && showFormatting && (
@@ -329,8 +329,8 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                             // (EDITOR_MIN_H etc.) with a compact one-line-that-grows box — these values
                             // are mobile-specific and intentionally NOT tied to EDITOR_MIN_H.
                             <div className="flex items-center gap-1 px-1">
-                                <MobileComposerActions channelID={channelID} onToggleFormatting={() => setShowFormatting((v) => !v)} />
-                                <div className="flex-1 min-w-0 [&_.tiptap]:min-h-9 [&_.tiptap]:max-h-24 [&_.tiptap]:overflow-y-auto [&_.tiptap]:py-2">
+                                <MobileComposerActions channelID={channelID} />
+                                <div className="flex-1 min-w-0 [&_.tiptap]:min-h-9 [&_.tiptap]:max-h-64 [&_.tiptap]:overflow-y-auto [&_.tiptap]:py-2">
                                     <EditorContent editor={editor} />
                                 </div>
                                 <SendButton onSend={handleSend} loading={pendingSend} disabled={nothingToSend} />

@@ -194,7 +194,7 @@ export default function ChatStream({ channelID, pinnedMessagesString }: ChatStre
                             // so the smaller the region the less an image visibly dissolves on scroll.
                             className="dark:scroll-fade [--scroll-fade-t-size:2rem] [--scroll-fade-b-size:2rem] flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto [overflow-anchor:none]"
                         >
-                            <div className="flex min-w-0 w-full flex-col px-3 pb-4">
+                            <div className="flex min-w-0 w-full flex-col md:px-3 pb-4">
                                 {isLoading ? (
                                     <MessageListSkeleton />
                                 ) : error ? (

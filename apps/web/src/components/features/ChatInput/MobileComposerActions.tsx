@@ -1,5 +1,5 @@
 import { useRef, useState } from "react"
-import { Plus, Paperclip, Type, BarChart3, FileBox, type LucideIcon } from "lucide-react"
+import { Plus, Paperclip, BarChart3, FileBox, type LucideIcon } from "lucide-react"
 import { Button } from "@components/ui/button"
 import { Drawer, DrawerContent, DrawerTitle, DrawerTrigger } from "@components/ui/drawer"
 import { useAttachFile } from "./useFileInput"
@@ -16,10 +16,8 @@ import _ from "@lib/translate"
  */
 export const MobileComposerActions = ({
     channelID,
-    onToggleFormatting,
 }: {
     channelID: string
-    onToggleFormatting: () => void
 }) => {
     const [sheetOpen, setSheetOpen] = useState(false)
     const [pollOpen, setPollOpen] = useState(false)
@@ -29,7 +27,6 @@ export const MobileComposerActions = ({
 
     const rows: { icon: LucideIcon; label: string; onClick: () => void }[] = [
         { icon: Paperclip, label: _("Attach file"), onClick: () => fileInputRef.current?.click() },
-        { icon: Type, label: _("Formatting"), onClick: onToggleFormatting },
         { icon: BarChart3, label: _("Create a poll"), onClick: () => setPollOpen(true) },
         { icon: FileBox, label: _("Attach a document"), onClick: () => setDocOpen(true) },
     ]
@@ -49,7 +46,7 @@ export const MobileComposerActions = ({
 
             <Drawer open={sheetOpen} onOpenChange={setSheetOpen}>
                 <DrawerTrigger asChild>
-                    <Button type="button" variant="ghost" size="md" isIconButton aria-label={_("More actions")}>
+                    <Button type="button" variant="ghost" size="md" isIconButton aria-label={_("More actions")} className="rounded-full text-ink-gray-6">
                         <Plus />
                     </Button>
                 </DrawerTrigger>

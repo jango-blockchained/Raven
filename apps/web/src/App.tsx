@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import Profile from "./pages/settings/Profile"
+import MobileProfile from "@pages/profile/Profile"
 import Channel from "@pages/workspace/Channel"
 import Notifications from "@pages/notifications/Notifications"
 import SavedMessages from "@pages/saved-messages/SavedMessages"
@@ -116,6 +117,7 @@ function App() {
                   <Route index element={<Search />} />
                 </Route>
                 <Route path="saved-messages" element={<SavedMessages />} />
+                <Route path="profile" element={<MobileProfile />} />
                 {/* <Route path="settings" element={<AppSettings />}>
                   <Route index element={<Navigate to="profile" replace />} />
                   <Route path="profile" element={<Profile />} />

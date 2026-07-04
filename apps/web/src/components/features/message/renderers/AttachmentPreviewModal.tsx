@@ -126,12 +126,12 @@ const AttachmentPreviewContent = ({
                 PDF <embed>, which fills its box and swallows its own clicks,
                 that frame plus the width cap below is the only backdrop */}
             <div
-                className="relative flex min-h-0 flex-1 items-center justify-center p-4"
+                className="relative flex min-h-0 flex-1 items-center justify-center md:p-4"
                 onClick={close}
                 onTouchStart={onTouchStart}
                 onTouchEnd={onTouchEnd}
             >
-                {hasMany && (
+                {hasMany && !isMobile && (
                     <>
                         <Button
                             variant="subtle"
@@ -166,14 +166,14 @@ const AttachmentPreviewContent = ({
                     <img
                         src={current.fileUrl}
                         alt={current.fileName}
-                        className="max-h-full max-w-[90%] object-contain"
+                        className="max-h-full md:max-w-[90%] object-contain"
                         onClick={(event) => event.stopPropagation()}
                     />
                 ) : current.kind === "video" ? (
                     <video
                         src={current.fileUrl}
                         controls
-                        className="max-h-full max-w-[90%]"
+                        className="max-h-full md:max-w-[90%]"
                         onClick={(event) => event.stopPropagation()}
                     />
                 ) : current.kind === "audio" ? (
@@ -203,7 +203,7 @@ const AttachmentPreviewContent = ({
                 ) : (
                     // No inline preview (non-previewable files, or a PDF paged
                     // into on mobile) — a download/open card, Google-Drive style
-                    <DownloadCard attachment={current} isMobile={isMobile} />
+                    <div className="px-3 md:px-0 w-full flex items-center justify-center"><DownloadCard attachment={current} isMobile={isMobile} /></div>
                 )}
             </div>
 
