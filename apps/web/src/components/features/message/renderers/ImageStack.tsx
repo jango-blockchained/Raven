@@ -63,15 +63,27 @@ export const ImageStack = ({ images, onImageClick }: { images: ImageFile[]; onIm
     const xLeft = ["-translate-x-4 group-hover:-translate-x-8", "-translate-x-6 group-hover:-translate-x-10", "-translate-x-8 group-hover:-translate-x-12"]
     const rotRight = ["rotate-3 group-hover:rotate-6", "rotate-6 group-hover:rotate-12", "rotate-6 group-hover:rotate-12"]
     const rotLeft = ["-rotate-3 group-hover:-rotate-6", "-rotate-6 group-hover:-rotate-12", "-rotate-6 group-hover:-rotate-12"]
-    // Vertical stays small and independently seeded (doesn't affect left/right balance).
-    const yJitter = ["translate-y-0", "-translate-y-1", "translate-y-2", "translate-y-1", "-translate-y-2"]
+    // Vertical is a depth LADDER, not jitter (iMessage/Instagram-style): each card
+    // steps progressively further down in the order it was sent, so every under-card's
+    // bottom edge peeks out below the one above it. Indexed by depth, not seeded —
+    // order is the whole point here.
+    const yByDepth = [
+        "translate-y-0",
+        "translate-y-3 group-hover:translate-y-5",
+        "translate-y-6 group-hover:translate-y-9",
+        "translate-y-9 group-hover:translate-y-12",
+    ]
     // Top card gets just a hint of tilt (seeded) so it reads natural, not rigid.
     const topTilt = ["rotate-1", "-rotate-1", "rotate-2", "-rotate-2"]
 
     return (
         // generous padding so the tilted/jittered corners + shadow have room and
-        // aren't clipped by neighbouring message rows
-        <div className="px-10 py-8">
+        // aren't clipped by neighbouring message rows. Sized for the HOVER extents,
+        // not the resting pile: the deepest card fans 48px down (y-12) and a 12°
+        // rotation adds ~25px of corner overhang on a box-filling card, plus the
+        // shadow. Asymmetric vertically — the ladder only steps DOWN; the top only
+        // sees rotation overhang + the top card's small lift.
+        <div className="px-12 pt-8 pb-20">
             <div
                 data-message-id={top.message_id}
                 // responsive width by breakpoint (standard scale); height follows
@@ -83,12 +95,13 @@ export const ImageStack = ({ images, onImageClick }: { images: ImageFile[]; onIm
                 {cards.map((image, index) => {
                     const n = norm[index]
                     const isTop = index === 0
-                    // Side alternates by depth (balanced), magnitude is seeded (varied).
+                    // Horizontal side alternates by depth (balanced) with seeded magnitude
+                    // (varied); vertical is the depth ladder — deeper card, lower peek.
                     const right = index % 2 === 1
                     const mag = hashString(image.name) % 3
                     const x = isTop ? "translate-x-0" : right ? xRight[mag] : xLeft[mag]
                     const r = isTop ? topTilt[hashString(image.name + ":t") % topTilt.length] : right ? rotRight[mag] : rotLeft[mag]
-                    const y = isTop ? "translate-y-0" : yJitter[hashString(image.name + ":y") % yJitter.length]
+                    const y = yByDepth[index]
                     // Top card lifts gently on hover; the rest fan via their palettes.
                     const hover = isTop ? "group-hover:-translate-y-1.5" : ""
                     return (
