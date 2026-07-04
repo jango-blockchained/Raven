@@ -128,7 +128,7 @@ export function ChannelSidebar() {
             ) : isEmpty ? (
                 <EmptyChannels />
             ) : (
-                <div ref={setScrollerRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1 py-2">
+                <div ref={setScrollerRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1 py-2 space-y-1">
                     <ul className="flex flex-col gap-1">
                         {groupedChannels.map(([groupName, groupChannels]) => (
                             <ChannelGroup
@@ -217,7 +217,7 @@ const WorkspaceSwitcher = ({ workspaceID }: { workspaceID?: string }) => {
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm">
                     {current && <WorkspaceLogo workspace={current} className="size-5 md:size-4.5" />}
-                    <span className="truncate text-ink-gray-8 font-medium text-xl md:text-sm">{current?.workspace_name || workspaceID}</span>
+                    <span className="truncate text-ink-gray-8 text-xl-medium md:text-sm">{current?.workspace_name || workspaceID}</span>
                     <ChevronDown className="size-4.5 md:size-4" />
                 </Button>
             </DropdownMenuTrigger>
@@ -247,7 +247,7 @@ const WorkspaceSwitcherItem = ({
     const unread = useWorkspaceUnread(workspace.name)
 
     return (
-        <DropdownMenuItem onClick={onSelect}>
+        <DropdownMenuItem onClick={onSelect} className="py-3">
             <WorkspaceLogo workspace={workspace} />
             <span className="truncate text-xl md:text-sm">{workspace.workspace_name}</span>
             {/* The current workspace shows the check; the others surface their unread */}
@@ -305,7 +305,7 @@ const ChannelGroup = ({
                 <CollapsibleTrigger asChild>
                     <button
                         type="button"
-                        className="flex h-8 w-full justify-between cursor-pointer select-none items-center gap-2 rounded-md px-2 text-sm text-ink-gray-7 outline-none ring-outline-gray-3 transition-colors hover:bg-surface-gray-2 hover:text-ink-gray-8 focus-visible:ring-2"
+                        className="flex py-2.5 md:py-1.5 w-full justify-between cursor-pointer select-none items-center gap-2 rounded md:px-2 px-3 text-ink-gray-7 outline-none ring-outline-gray-3 transition-colors hover:bg-surface-gray-3 hover:text-ink-gray-8 focus-visible:ring-2"
                     >
                         <div className="flex items-center gap-1">
                             <ChannelGroupLabel groupName={groupName} isHighlighted={!open && totalUnread > 0} />
@@ -324,7 +324,7 @@ const ChannelGroup = ({
                     </button>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                    <ul className="ml-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l border-outline-gray-1 pl-2 py-0.5">
+                    <ul className="md:ml-3.5 ml-4.5 flex min-w-0 translate-x-px flex-col gap-1 border-l border-outline-gray-1 dark:border-outline-gray-2 pl-2 py-0.5">
                         {channels.map((channel) => (
                             <li key={channel.name}>
                                 <ChannelRow channel={channel} workspaceID={workspaceID} />
@@ -349,8 +349,8 @@ export const ChannelGroupLabel = ({ groupName, isHighlighted = false }: { groupN
     if (groupName === "Favorites") {
         return (
             <span className="flex min-w-0 items-center gap-2">
-                <Star className="h-4 w-4 shrink-0 sm:text-ink-gray-6 text-ink-gray-7" />
-                <span className={cn("truncate leading-snug text-base md:text-sm", isHighlighted ? "text-ink-gray-10 font-medium" : "sm:text-ink-gray-7 text-ink-gray-8")}>{_("Favorites")}</span>
+                <Star className="h-4 w-4 shrink-0 text-ink-gray-6" />
+                <span className={cn("truncate leading-snug text-lg md:text-sm", isHighlighted ? "text-ink-gray-10 dark:text-ink-gray-10 font-medium" : "text-ink-gray-6 dark:text-ink-gray-7")}>{_("Favorites")}</span>
             </span>
         )
     }
@@ -364,7 +364,7 @@ export const ChannelGroupLabel = ({ groupName, isHighlighted = false }: { groupN
         <span className="flex min-w-0 items-center gap-1.5">
             {emoji && <span className="shrink-0 text-lg leading-none">{emoji}</span>}
             {/* leading-snug: avoid Safari clipping descenders on the truncated label (1.15 is too tight) */}
-            <span className={cn("truncate leading-snug text-base md:text-sm", isHighlighted ? "text-ink-gray-10 font-medium" : "sm:text-ink-gray-7 text-ink-gray-8")}>{nameWithoutEmoji}</span>
+            <span className={cn("truncate leading-snug text-lg md:text-sm", isHighlighted ? "text-ink-gray-10 font-medium" : "text-ink-gray-7")}>{nameWithoutEmoji}</span>
         </span>
     )
 }
@@ -379,14 +379,14 @@ const ChannelRow = ({ channel, workspaceID }: { channel: ChannelListItem; worksp
             to={`/${encodeURIComponent(workspaceID ?? "")}/${encodeURIComponent(channel.name)}`}
             className={({ isActive }) =>
                 cn(
-                    "flex min-w-0 select-none items-center gap-2 overflow-hidden rounded text-base px-3 md:px-2 sm:text-ink-gray-6 text-ink-gray-8 py-2 md:py-1.5",
+                    "flex min-w-0 select-none items-center gap-2 overflow-hidden rounded text-base px-3 md:px-2 text-ink-gray-6 dark:text-ink-gray-7 py-2.5 md:py-1.5",
                     // `transition` (not transition-colors) so box-shadow animates IN SYNC
                     // with the background — Virtuoso recycles rows on workspace switch, and
                     // transition-colors left the shadow popping while the bg cross-faded.
                     "outline-none ring-outline-gray-2 transition focus-visible:ring-2",
                     "hover:bg-surface-gray-3 active:bg-surface-gray-3",
-                    unread > 0 && !channel.muted && "sm:text-ink-gray-7 text-ink-gray-9",
-                    isActive && "bg-surface-elevation-3 shadow-sm text-ink-gray-8 hover:bg-surface-elevation-3 active:bg-surface-elevation-3",
+                    unread > 0 && !channel.muted && "text-ink-gray-7 dark:text-ink-gray-8",
+                    isActive && "bg-surface-elevation-3 shadow-sm text-ink-gray-8 dark:text-ink-gray-9 hover:bg-surface-elevation-3 active:bg-surface-elevation-3",
                 )
             }
         >

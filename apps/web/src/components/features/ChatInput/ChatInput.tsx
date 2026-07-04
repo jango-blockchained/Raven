@@ -329,8 +329,8 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                             // (EDITOR_MIN_H etc.) with a compact one-line-that-grows box — these values
                             // are mobile-specific and intentionally NOT tied to EDITOR_MIN_H.
                             <div className="flex items-center gap-1 px-1">
-                                <MobileComposerActions channelID={channelID} onToggleFormatting={() => setShowFormatting((v) => !v)} />
-                                <div className="flex-1 min-w-0 [&_.tiptap]:min-h-9 [&_.tiptap]:max-h-24 [&_.tiptap]:overflow-y-auto [&_.tiptap]:py-2">
+                                <MobileComposerActions channelID={channelID} />
+                                <div className="flex-1 min-w-0 [&_.tiptap]:min-h-9 [&_.tiptap]:max-h-64 [&_.tiptap]:overflow-y-auto [&_.tiptap]:py-2">
                                     <EditorContent editor={editor} />
                                 </div>
                                 <SendButton onSend={handleSend} loading={pendingSend} disabled={nothingToSend} />
