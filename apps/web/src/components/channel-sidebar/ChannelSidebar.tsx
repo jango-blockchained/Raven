@@ -349,8 +349,8 @@ export const ChannelGroupLabel = ({ groupName, isHighlighted = false }: { groupN
     if (groupName === "Favorites") {
         return (
             <span className="flex min-w-0 items-center gap-2">
-                <Star className="h-4 w-4 shrink-0 text-ink-gray-6" />
-                <span className={cn("truncate leading-snug text-base md:text-sm", isHighlighted ? "text-ink-gray-10 font-medium" : "text-ink-gray-7")}>{_("Favorites")}</span>
+                <Star className="h-4 w-4 shrink-0 sm:text-ink-gray-6 text-ink-gray-7" />
+                <span className={cn("truncate leading-snug text-base md:text-sm", isHighlighted ? "text-ink-gray-10 font-medium" : "sm:text-ink-gray-7 text-ink-gray-8")}>{_("Favorites")}</span>
             </span>
         )
     }
@@ -364,7 +364,7 @@ export const ChannelGroupLabel = ({ groupName, isHighlighted = false }: { groupN
         <span className="flex min-w-0 items-center gap-1.5">
             {emoji && <span className="shrink-0 text-lg leading-none">{emoji}</span>}
             {/* leading-snug: avoid Safari clipping descenders on the truncated label (1.15 is too tight) */}
-            <span className={cn("truncate leading-snug text-base md:text-sm", isHighlighted ? "text-ink-gray-10 font-medium" : "text-ink-gray-7")}>{nameWithoutEmoji}</span>
+            <span className={cn("truncate leading-snug text-base md:text-sm", isHighlighted ? "text-ink-gray-10 font-medium" : "sm:text-ink-gray-7 text-ink-gray-8")}>{nameWithoutEmoji}</span>
         </span>
     )
 }
@@ -379,13 +379,13 @@ const ChannelRow = ({ channel, workspaceID }: { channel: ChannelListItem; worksp
             to={`/${encodeURIComponent(workspaceID ?? "")}/${encodeURIComponent(channel.name)}`}
             className={({ isActive }) =>
                 cn(
-                    "flex min-w-0 select-none items-center gap-2 overflow-hidden rounded text-base px-3 md:px-2 text-ink-gray-6 py-2 md:py-1.5",
+                    "flex min-w-0 select-none items-center gap-2 overflow-hidden rounded text-base px-3 md:px-2 sm:text-ink-gray-6 text-ink-gray-8 py-2 md:py-1.5",
                     // `transition` (not transition-colors) so box-shadow animates IN SYNC
                     // with the background — Virtuoso recycles rows on workspace switch, and
                     // transition-colors left the shadow popping while the bg cross-faded.
                     "outline-none ring-outline-gray-2 transition focus-visible:ring-2",
                     "hover:bg-surface-gray-3 active:bg-surface-gray-3",
-                    unread > 0 && !channel.muted && "text-ink-gray-7",
+                    unread > 0 && !channel.muted && "sm:text-ink-gray-7 text-ink-gray-9",
                     isActive && "bg-surface-elevation-3 shadow-sm text-ink-gray-8 hover:bg-surface-elevation-3 active:bg-surface-elevation-3",
                 )
             }

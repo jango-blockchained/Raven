@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { NavLink, Navigate } from "react-router"
 import { toast } from "sonner"
-import { Bookmark, Bell, LogOut, Sun, Moon, SquarePen, SunMoon, ChevronDown } from "lucide-react"
+import { Bookmark, Bell, LogOut, Sun, Moon, SunMoon, ChevronDown, Edit } from "lucide-react"
 import useCurrentRavenUser from "@raven/lib/hooks/useCurrentRavenUser"
 import { useTheme } from "@components/theme-provider"
 import { useLogout } from "@hooks/useLogout"
@@ -14,12 +14,11 @@ import { UserAvatar, getStatusIndicatorColor } from "@components/features/messag
 import { cn } from "@lib/utils"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@components/ui/dropdown-menu"
 import { Switch } from "@components/ui/switch"
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@components/ui/alert-dialog"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@components/ui/alert-dialog"
 import { getErrorMessage } from "@lib/frappe"
 import { FrappeError } from "frappe-react-sdk"
 import _ from "@lib/translate"
 import { Separator } from "@components/ui/separator"
-import { Button } from "@components/ui/button"
 
 const Profile = () => {
     const { myProfile } = useCurrentRavenUser()
@@ -62,43 +61,28 @@ const Profile = () => {
         <div className="flex h-dvh flex-col overflow-hidden">
             <PageHeader title={_("Profile")} />
 
-            <div className="flex-1 overflow-y-auto p-2 ">
+            <div className="flex-1 overflow-y-auto p-2 space-y-4">
                 {/* Identity card */}
                 <div className="gap-1">
                     {myProfile && (
-                        <div className="flex w-full items-center gap-3 px-4 py-4 text-left">
-                            <UserAvatar user={myProfile} size="xl" className="rounded-full" showStatusIndicator />
+                        <div className="flex flex-col w-full items-center gap-4 px-4 py-4 text-left">
+                            <UserAvatar user={myProfile} size="2xl" className="rounded-full" showStatusIndicator />
                             <div className="flex min-w-0 flex-1 flex-col gap-2">
-                                <span className="truncate text-xl font-semibold text-ink-gray-9">{myProfile.full_name}</span>
+                                <span className="truncate text-4xl font-semibold text-ink-gray-9">{myProfile.full_name}</span>
                                 {myProfile.availability_status && (
-                                    <span className="flex items-center gap-1.5 text-base md:text-sm text-ink-gray-5">
+                                    <span className="flex items-center justify-center gap-1.5 text-base md:text-sm text-ink-gray-5">
                                         <span className={cn("size-2 shrink-0 rounded-full", getStatusIndicatorColor(myProfile.availability_status))} />
                                         <span className="truncate">{myProfile.availability_status}</span>
                                     </span>
                                 )}
                             </div>
-                            <Button
-                                isIconButton
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setEditOpen(true)}
-                                aria-label={_("Edit profile")}
-                            >
-                                <SquarePen className="size-4.5 md:size-4" />
-                            </Button>
                         </div>
                     )}
                     <div className="flex flex-col gap-1 px-4 pb-4">
-                        {myProfile?.custom_status && <span className="truncate text-base md:text-sm text-ink-gray-6">{myProfile.custom_status}</span>}
+                        {myProfile?.custom_status && <span className="truncate text-center text-lg md:text-sm text-ink-gray-6">{myProfile.custom_status}</span>}
                     </div>
                 </div>
-                <Separator className="my-2" />
-                <div className="mt-2 flex flex-col px-1">
-                    {/* Saved messages */}
-                    <NavLink to="/saved-messages">
-                        <ProfileRow icon={Bookmark} label={_("Saved messages")} chevron />
-                    </NavLink>
-
+                <div className="flex flex-col px-1 gap-3">
                     {/* Appearance — whole row opens the theme menu; icon + label reflect the choice */}
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -124,8 +108,16 @@ const Profile = () => {
                     <ProfileRow
                         icon={Bell}
                         label={_("Push notifications")}
-                        trailing={<Switch checked={pushOn} onCheckedChange={togglePush} />}
+                        trailing={<Switch size="md" checked={pushOn} onCheckedChange={togglePush} />}
                     />
+                    {/* Saved messages */}
+                    <NavLink to="/saved-messages">
+                        <ProfileRow icon={Bookmark} label={_("Saved messages")} chevron />
+                    </NavLink>
+
+                    <ProfileRow icon={Edit} label={_("Edit profile")} onClick={() => setEditOpen(true)} />
+
+                    <Separator />
 
                     {/* Log out */}
                     <ProfileRow icon={LogOut} label={_("Log out")} destructive onClick={() => setConfirmLogoutOpen(true)} />
@@ -140,6 +132,9 @@ const Profile = () => {
                         <AlertDialogTitle className="text-xl font-semibold">
                             {_("Log out of your account?")}
                         </AlertDialogTitle>
+                        <AlertDialogDescription className="sr-only">
+                            {_("Are you sure you want to log out of your account?")}
+                        </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>{_("Cancel")}</AlertDialogCancel>
