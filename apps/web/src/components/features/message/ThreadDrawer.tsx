@@ -44,10 +44,14 @@ export default function ThreadDrawer({
     threadID,
     parentChannelID,
     onClose,
+    initialMessageID,
 }: {
     threadID: string
     parentChannelID?: string
     onClose: () => void
+    /** Center the thread's first fetch on this message (notification click into a thread) —
+     *  see ChatStreamProps.initialMessageID. */
+    initialMessageID?: string | null
 }) {
     const parentIsDM = useChannelById(parentChannelID ?? "")?.is_direct_message === 1
     const threadInputRef = useRef<HTMLFormElement>(null)
@@ -146,7 +150,7 @@ export default function ThreadDrawer({
                 <ThreadRootMessage key={threadID} threadID={threadID ?? ""} parentID={parentChannelID} />
 
                 {/* Thread messages — ChatStream owns its own scroll/virtualization */}
-                {threadID && <ChatStream channelID={threadID} />}
+                {threadID && <ChatStream channelID={threadID} initialMessageID={initialMessageID} />}
 
                 {/* Message input — posts into the thread channel (or skeleton / not-member banner) */}
                 <div className="shrink-0">

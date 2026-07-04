@@ -12,13 +12,14 @@ import { Button } from "@components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@components/ui/empty"
 import { useChannelMessages } from "@stores/messages/useChannelMessages"
 import { channelMessagesStore } from "@stores/messages/store"
+import { claimWindowForTarget, releaseWindowClaim } from "@stores/messages/loaders"
 import { useChannelOutbox } from "@stores/messages/useChannelOutbox"
 import { useChannelReadTracker } from "@stores/unread/useChannelReadTracker"
 import { usePollRealtime } from "@hooks/usePollRealtime"
 import { useStreamScroll } from "./useStreamScroll"
 import { MessageActionMenu } from "./actions/MessageActionMenu"
 import { MessageActionDialogs } from "./actions/MessageActionDialogs"
-import { messageTargetAtom, messageActionTargetAtom } from "@utils/channelAtoms"
+import { messageTargetAtom, messageActionTargetAtom, makeMessageTarget } from "@utils/channelAtoms"
 import { ScrollViewportContext } from "@hooks/useHasBeenInView"
 import { createDateTracker, DateTrackerContext, FloatingDatePill, type DateOrderEntry } from "./messageDateTracker"
 import { cn } from "@lib/utils"
@@ -35,6 +36,13 @@ export type ChatStreamProps = {
     channelID: string
     /** Newline-separated pinned message ids (from the channel doc). */
     pinnedMessagesString?: string
+    /**
+     * Ask the stream to open centered on this message. Used by panes that don't have a
+     * ?message_id URL (the notifications/search/saved panes). Passing it here means the
+     * very first fetch is already centered on the message — one request instead of a
+     * plain "latest messages" fetch racing a second "around the message" fetch.
+     */
+    initialMessageID?: string | null
 }
 
 /**
@@ -44,11 +52,11 @@ export type ChatStreamProps = {
  * and scrolls on its own. Pages compose it next to their own headers, inputs,
  * and drawers (channel page, DM page, thread drawer, threads page).
  */
-export default function ChatStream({ channelID, pinnedMessagesString }: ChatStreamProps) {
+export default function ChatStream({ channelID, pinnedMessagesString, initialMessageID }: ChatStreamProps) {
     const [searchParams, setSearchParams] = useSearchParams()
-    // Deep link (?message_id= from notifications, search, shared URLs). Passed to
-    // the hook so the channel's FIRST fetch is already centered on the target.
-    const deepLinkMessageID = searchParams.get("message_id")
+    // Deep link (?message_id= from shared URLs) or a pane-provided target (notifications
+    // page). Passed to the hook so the channel's FIRST fetch is already centered on it.
+    const deepLinkMessageID = searchParams.get("message_id") ?? initialMessageID ?? null
 
     const {
         blocks,
@@ -65,39 +73,55 @@ export default function ChatStream({ channelID, pinnedMessagesString }: ChatStre
         firstUnreadMessage,
     } = useChannelMessages(channelID, pinnedMessagesString, deepLinkMessageID)
 
-    const [targetMessageID, setTargetMessageID] = useAtom(messageTargetAtom(channelID))
+    // The "scroll to this message" request (see MessageTarget in channelAtoms). All entry
+    // points — URL, notification click, reply click — set this same atom.
+    const [target, setTarget] = useAtom(messageTargetAtom(channelID))
+    const targetMessageID = target?.id ?? null
     const [highlightedID, setHighlightedID] = useState<string | null>(null)
     /** Message the action menu is acting on — highlighted so the user knows the target. */
     const actionTarget = useAtomValue(messageActionTargetAtom)
-    /** Tracks the one around-fetch attempted per target, so unknown ids fail gracefully. */
-    const attemptedFetchRef = useRef<string | null>(null)
 
-    // Deep links feed the same targeting path as reply clicks. Re-run when the
-    // message id changes too (not just the channel): a deep link into the channel
-    // you're already viewing — e.g. consecutive jumps from search — keeps the same
-    // channelID, so gating on channelID alone would skip the highlight.
+    // A URL deep link is just another way to request a jump: turn it into a target.
+    // Also claim the window right away (see loaders.ts) so nothing can replace the
+    // centered page while we navigate to it.
     useEffect(() => {
-        attemptedFetchRef.current = null
-        if (deepLinkMessageID) setTargetMessageID(deepLinkMessageID)
+        if (deepLinkMessageID) {
+            claimWindowForTarget(channelID, deepLinkMessageID)
+            setTarget(makeMessageTarget(deepLinkMessageID))
+        }
     }, [channelID, deepLinkMessageID])
 
-    // Out-of-window target: replace the window with a page around it — once.
-    // If the fetch lands without the target (deleted/foreign id), give up quietly.
+    // Make sure the target message is actually in the loaded window. If it isn't, fetch
+    // the page around it ONCE and wait for the result:
+    //  - message found  → done, the scroll engine (below) will center it.
+    //  - message absent → it was deleted or the id is wrong; drop the request quietly.
+    // The awaited promise is the only thing that decides "give up" — earlier versions
+    // guessed from re-render timing and kept abandoning jumps too early.
     useEffect(() => {
-        if (!targetMessageID) return
-        if (channelMessagesStore.getState(channelID).byId.has(targetMessageID)) return
-        if (attemptedFetchRef.current === targetMessageID) {
-            setTargetMessageID(null)
-            return
+        if (!target) return
+        claimWindowForTarget(channelID, target.id)
+        if (channelMessagesStore.getState(channelID).byId.has(target.id)) return
+        let stale = false
+        jumpToMessage(target.id).then((found) => {
+            // A newer request (or a channel switch) took over while we waited — leave it be.
+            if (!stale && !found) setTarget(null)
+        })
+        return () => {
+            stale = true
         }
-        attemptedFetchRef.current = targetMessageID
-        jumpToMessage(targetMessageID)
-    }, [targetMessageID, blocks])
+    }, [target, channelID])
+
+    // Give the window claim back when the user moves to another channel. It intentionally
+    // stays claimed after the scroll lands, so late background fetches still can't replace
+    // the page the user is reading. "Jump to present" releases it explicitly.
+    useEffect(() => {
+        return () => releaseWindowClaim(channelID)
+    }, [channelID])
 
     /** The scroll engine centered the target: highlight it and clean up the URL. */
     const onTargetSettled = useCallback(
         (messageID: string) => {
-            setTargetMessageID(null)
+            setTarget(null)
             setHighlightedID(messageID)
             if (searchParams.get("message_id") === messageID) {
                 const next = new URLSearchParams(searchParams)
@@ -105,7 +129,7 @@ export default function ChatStream({ channelID, pinnedMessagesString }: ChatStre
                 setSearchParams(next, { replace: true })
             }
         },
-        [searchParams, setSearchParams, setTargetMessageID],
+        [searchParams, setSearchParams, setTarget],
     )
 
     useEffect(() => {
@@ -223,10 +247,15 @@ export default function ChatStream({ channelID, pinnedMessagesString }: ChatStre
                                                     key={block.name}
                                                     data-message-id={block.messages[0].name}
                                                     data-batch-root=""
+                                                    // All member ids of this batch, space-separated. Some members have
+                                                    // no DOM node of their own (the caption text, images inside a
+                                                    // collapsed stack) — when the scroll engine can't find a message
+                                                    // by id, it scrolls to the batch that contains it via this attribute.
+                                                    data-batch-member={block.messages.map((member) => member.name).join(" ")}
                                                     className={cn(
                                                         "flex flex-col rounded-md transition-colors duration-700",
                                                         block.messages.some((member) => member.name === highlightedID) &&
-                                                        "bg-surface-amber-2",
+                                                        "bg-surface-amber-2 dark:bg-surface-gray-2",
                                                         block.messages.some((member) => member.name === actionTarget?.name) &&
                                                         "bg-surface-gray-2",
                                                     )}
@@ -247,7 +276,7 @@ export default function ChatStream({ channelID, pinnedMessagesString }: ChatStre
                                                     // after paint and break exact scroll compensation on prepend.
                                                     className={cn(
                                                         "flex flex-col rounded-md transition-colors duration-700",
-                                                        highlightedID === block.name && "bg-surface-amber-2",
+                                                        highlightedID === block.name && "bg-surface-amber-2 dark:bg-surface-gray-2",
                                                         actionTarget?.name === block.name && "bg-surface-gray-2",
                                                     )}
                                                 >

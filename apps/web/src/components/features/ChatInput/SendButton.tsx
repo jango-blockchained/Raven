@@ -19,6 +19,7 @@ const SendButton = ({ onSend, disabled, loading }: SendButtonProps) => {
             type="button"
             onClick={onSend}
             disabled={disabled}
+            variant={isMobile ? "solid" : "subtle"}
             loading={loading}
             loadingText={isMobile ? undefined : _("Sending...")}
             isIconButton={isMobile}

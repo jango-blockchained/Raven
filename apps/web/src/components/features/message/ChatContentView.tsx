@@ -20,6 +20,9 @@ export interface ChatContentViewProps {
     header?: React.ReactNode
     /** Newline-separated pinned message ids, passed through to the stream. */
     pinnedMessagesString?: string
+    /** Center the first fetch on this message — for panes that target a message without a
+     *  URL deep link (notifications page). See ChatStreamProps.initialMessageID. */
+    initialMessageID?: string | null
 }
 
 /**
@@ -33,6 +36,7 @@ export function ChatContentView({
     channelID,
     header,
     pinnedMessagesString,
+    initialMessageID,
 }: ChatContentViewProps) {
     const isMobile = useIsMobile()
     // Child route content (the thread drawer). Threads are routes; everything else in the rail is atom state.
@@ -87,7 +91,7 @@ export function ChatContentView({
             <Island className="flex-1">
                 <FileDropZone channelID={channelID} disabled={composerBlocked}>
                     {header}
-                    <ChatStream channelID={channelID} pinnedMessagesString={pinnedMessagesString} />
+                    <ChatStream channelID={channelID} pinnedMessagesString={pinnedMessagesString} initialMessageID={initialMessageID} />
                     <div className="shrink-0">
                         <ComposerArea gate={composerGate}>
                             {/* key by channel: remount per channel so the editor re-autofocuses and

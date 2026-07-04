@@ -59,8 +59,8 @@ export type ComposerGate = ReturnType<typeof useComposerGate>
 
 /** Placeholder while we work out whether you can post — keeps the refresh from flashing. */
 const ComposerSkeleton = () => (
-    <div className="px-3 pb-4 w-full">
-        <div className="md:h-[98px] h-24 w-full animate-pulse md:rounded-lg rounded-xl border border-outline-gray-2 bg-surface-gray-1" />
+    <div className="md:px-3 md:pb-3 w-full">
+        <div className="md:h-[98px] h-10 w-full animate-pulse md:rounded-lg rounded-xl border border-outline-gray-2 bg-surface-gray-1" />
     </div>
 )
 

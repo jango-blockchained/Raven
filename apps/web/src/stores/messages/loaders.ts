@@ -20,38 +20,92 @@ const inFlight = new Set<string>()
  * so a channel switch mid-flight cannot corrupt another channel's state.
  */
 
-/** Loads the window — latest messages, or around `baseMessage` when jumping to one. */
-export const loadInitialMessages = async (
+/** In-flight initial loads, keyed by channel + anchor message. If the same load is
+ *  requested twice, the second caller gets the first call's promise — so awaiting it
+ *  always means "that fetch has finished", never "someone else is fetching". */
+const inFlightInitial = new Map<string, Promise<void>>()
+
+/**
+ * Several things can request a channel's first page at almost the same time (a sidebar
+ * hover prefetch, the stream mounting, a jump to a specific message). Their responses
+ * come back in any order, and simply applying whichever lands last let a stale response
+ * overwrite the page the user actually asked for. So: each request takes a number, and
+ * a response is only applied if its number is still the channel's newest. Older
+ * responses are thrown away.
+ */
+const windowIntent = new Map<string, number>()
+
+/**
+ * Channels where the user is currently being navigated to a specific message (deep
+ * link / notification / reply click). While a channel is in this map, "plain" first-page
+ * loads (ones not centered on a message) are refused entirely — they would replace the
+ * page containing the target with the latest page and break the navigation. Set by
+ * ChatStream; removed when the user leaves the channel or clicks "jump to present".
+ */
+const targetClaims = new Map<string, string>()
+
+export const claimWindowForTarget = (channelID: string, messageID: string) => {
+    targetClaims.set(channelID, messageID)
+}
+
+export const releaseWindowClaim = (channelID: string) => {
+    targetClaims.delete(channelID)
+}
+
+/** Loads the window — latest messages, or around `baseMessage` when jumping to one.
+ *  Resolves when the fetch has settled (page applied, discarded as stale, or failed). */
+export const loadInitialMessages = (
     client: FrappeCallClient,
     channelID: string,
     baseMessage?: string,
-) => {
-    // Keyed per base message so a jump-to-message isn't swallowed by an in-flight initial load
-    const key = `${channelID}:initial:${baseMessage ?? ""}`
-    if (inFlight.has(key)) return
-    inFlight.add(key)
-    channelMessagesStore.startLoading(channelID)
-    try {
-        const response = await client.get<PageResponse>("raven.api.chat_stream.get_messages", {
-            channel_id: channelID,
-            limit: PAGE_SIZE,
-            base_message: baseMessage,
-            // We track last_visit ourselves (useChannelReadTracker), so the fetch must
-            // not also write it — that GET-time write can deadlock with a concurrent send.
-            update_last_visit: false,
-            // Center the window on the first unread message (for the "New messages" divider)
-            // unless we're jumping to a specific message — an explicit jump wins.
-            anchor_to_unread: !baseMessage,
-        })
-        channelMessagesStore.setInitialPage(channelID, response.message)
-        // Baseline the read tracker with the server's last_visit so it won't re-post a
-        // watermark already recorded (opening a caught-up channel writes nothing).
-        channelUnreadStore.setServerWatermark(channelID, response.message.last_visit)
-    } catch (error) {
-        channelMessagesStore.failLoading(channelID, errorMessage(error))
-    } finally {
-        inFlight.delete(key)
+): Promise<void> => {
+    // The user is being navigated to a specific message in this channel — a plain
+    // (uncentered) load would replace that page, so refuse it (see targetClaims).
+    if (!baseMessage && targetClaims.has(channelID)) {
+        return Promise.resolve()
     }
+
+    // Keyed per anchor message, so a jump-to-message isn't mistaken for a duplicate of a
+    // plain load that's already in flight (and vice versa).
+    const key = `${channelID}:initial:${baseMessage ?? ""}`
+    const existing = inFlightInitial.get(key)
+    if (existing) return existing
+
+    // Take the channel's next request number. If another initial load starts after this
+    // one, ours becomes stale and its response will be thrown away (see windowIntent).
+    const token = (windowIntent.get(channelID) ?? 0) + 1
+    windowIntent.set(channelID, token)
+
+    channelMessagesStore.startLoading(channelID)
+    const run = (async () => {
+        try {
+            const response = await client.get<PageResponse>("raven.api.chat_stream.get_messages", {
+                channel_id: channelID,
+                limit: PAGE_SIZE,
+                base_message: baseMessage,
+                // We track last_visit ourselves (useChannelReadTracker), so the fetch must
+                // not also write it — that GET-time write can deadlock with a concurrent send.
+                update_last_visit: false,
+                // Center the window on the first unread message (for the "New messages" divider)
+                // unless we're jumping to a specific message — an explicit jump wins.
+                anchor_to_unread: !baseMessage,
+            })
+            // A newer initial load started while we were fetching — discard this response.
+            if (windowIntent.get(channelID) !== token) return
+            channelMessagesStore.setInitialPage(channelID, response.message)
+            // Baseline the read tracker with the server's last_visit so it won't re-post a
+            // watermark already recorded (opening a caught-up channel writes nothing).
+            channelUnreadStore.setServerWatermark(channelID, response.message.last_visit)
+        } catch (error) {
+            // Same staleness rule for failures — don't show an error for a superseded fetch.
+            if (windowIntent.get(channelID) !== token) return
+            channelMessagesStore.failLoading(channelID, errorMessage(error))
+        } finally {
+            inFlightInitial.delete(key)
+        }
+    })()
+    inFlightInitial.set(key, run)
+    return run
 }
 
 /**
@@ -134,6 +188,9 @@ export const catchUpNewerMessages = async (client: FrappeCallClient, channelID: 
 
 /** Discards the detached window and refetches the live edge. */
 export const jumpToLatestMessages = async (client: FrappeCallClient, channelID: string) => {
+    // The user explicitly asked for the latest messages — lift the "navigating to a
+    // message" claim first, or the plain load below would be refused.
+    releaseWindowClaim(channelID)
     channelMessagesStore.reset(channelID)
     await loadInitialMessages(client, channelID)
 }

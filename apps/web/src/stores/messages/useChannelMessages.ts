@@ -62,9 +62,14 @@ export const useChannelMessages = (
     const loadOlder = useCallback(() => loadOlderMessages(client, channelID), [channelID])
     const loadNewer = useCallback(() => loadNewerMessages(client, channelID), [channelID])
     const jumpToLatest = useCallback(() => jumpToLatestMessages(client, channelID), [channelID])
-    /** Replaces the window with a page centered on the given message. */
+    /** Replaces the window with the page around the given message. Resolves true if the
+     *  message is in the window once the fetch finishes; false means it isn't there
+     *  (deleted, or the id doesn't belong to this channel) — the caller can stop trying. */
     const jumpToMessage = useCallback(
-        (messageID: string) => loadInitialMessages(client, channelID, messageID),
+        async (messageID: string) => {
+            await loadInitialMessages(client, channelID, messageID)
+            return channelMessagesStore.getState(channelID).byId.has(messageID)
+        },
         [channelID],
     )
 

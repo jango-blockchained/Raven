@@ -3,7 +3,7 @@ import { useSetAtom } from "jotai"
 import ChannelHeader from "@components/features/channel/ChannelHeader/ChannelHeader"
 import { DMChannelHeader } from "@components/features/dm-channel/DMChannelHeader"
 import { ChatContentView } from "@components/features/message/ChatContentView"
-import { messageTargetAtom } from "@utils/channelAtoms"
+import { messageTargetAtom, makeMessageTarget } from "@utils/channelAtoms"
 import { Empty, EmptyHeader, EmptyDescription } from "@components/ui/empty"
 import _ from "@lib/translate"
 import { Island } from "@components/layout/Island"
@@ -41,12 +41,12 @@ export default function NotificationChat({ selected }: { selected: SelectedNotif
     const channelID = selected?.channelID ?? ""
     const setMessageTarget = useSetAtom(messageTargetAtom(channelID))
 
-    // Seed the per-channel target atom so ChatStream/useStreamScroll jumps to
-    // the notification's message. ChatStream resets the atom after settling,
-    // so a fresh notification click always re-fires this effect.
+    // Tell the chat stream to scroll to the notification's message. makeMessageTarget
+    // creates a fresh request object each time, so clicking the same notification again
+    // still re-triggers the jump (a plain id would be ignored as an unchanged value).
     useEffect(() => {
         if (!selected) return
-        setMessageTarget(selected.messageID)
+        setMessageTarget(makeMessageTarget(selected.messageID))
     }, [selected, setMessageTarget])
 
     if (!selected) return <NotificationsEmptyState />
@@ -55,7 +55,7 @@ export default function NotificationChat({ selected }: { selected: SelectedNotif
         return <div className="flex min-h-0 min-w-0 flex-1 flex-row gap-1 p-0 md:p-1">
             {/* Chat island: header + stream + input */}
             <Island className="flex-1">
-                <ThreadDrawer threadID={selected.channelID} onClose={() => { }} />
+                <ThreadDrawer threadID={selected.channelID} onClose={() => { }} initialMessageID={selected.messageID} />
             </Island>
         </div>
     }
@@ -70,6 +70,9 @@ export default function NotificationChat({ selected }: { selected: SelectedNotif
         <ChatContentView
             channelID={selected.channelID}
             header={header}
+            // Open the channel already centered on the notification's message (one fetch,
+            // no race with a plain "latest messages" load).
+            initialMessageID={selected.messageID}
         />
     )
 }

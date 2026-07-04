@@ -58,7 +58,7 @@ export const MobileComposerActions = ({
                                 key={row.label}
                                 variant="ghost"
                                 size="lg"
-                                className="w-full justify-start gap-3 text-xl-normal py-6"
+                                className="w-full justify-start gap-3 text-xl-normal py-5"
                                 onClick={() => {
                                     setSheetOpen(false)
                                     row.onClick()

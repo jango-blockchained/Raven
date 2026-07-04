@@ -17,12 +17,21 @@ export type PollDrawerData = {
 export const pollDrawerAtom = atomFamily((_channelID: string) => atom<PollDrawerData>(null))
 
 /**
- * Message id the chat stream should navigate to (reply click, ?message_id deep
- * link, pinned/search results later). The stream consumes it: scrolls directly
- * when the message is in the loaded window, fetches around it otherwise, then
- * highlights it and resets this to null.
+ * "Scroll to this message" request for the chat stream (set by a reply click, a
+ * ?message_id deep link, or a notification click). The stream scrolls to the message —
+ * fetching the page around it first if needed — highlights it, then resets this to null.
+ *
+ * It's an object (id + timestamp) rather than a plain id string on purpose: setting the
+ * same id twice must still count as a new request. With a plain string, clicking the
+ * same notification again was a same-value write that React/jotai ignored, so nothing
+ * happened. A fresh object always re-triggers the effects.
  */
-export const messageTargetAtom = atomFamily((_channelID: string) => atom<string | null>(null))
+export type MessageTarget = { id: string; ts: number }
+
+export const messageTargetAtom = atomFamily((_channelID: string) => atom<MessageTarget | null>(null))
+
+/** Always use this to set messageTargetAtom — it mints a fresh object (see above). */
+export const makeMessageTarget = (id: string): MessageTarget => ({ id, ts: Date.now() })
 
 /**
  * The message the action menu (desktop context menu / mobile bottom sheet) is
