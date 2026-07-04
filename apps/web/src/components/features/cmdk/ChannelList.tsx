@@ -7,14 +7,14 @@ import { useMemo } from 'react'
 import { defaultFilter } from 'cmdk'
 import _ from '@lib/translate'
 import { Badge } from '@components/ui/badge'
-import { useChannelList } from "@stores/channels/useChannelList"
+import { useChannels } from "@stores/channels/useChannelList"
 
 /** Cap on candidates handed to cmdk: it scores + React reconciles every item per keystroke,
  *  so an unbounded list janks at thousands of channels. Nobody scrolls past ~50 results. */
 const MAX_RESULTS = 50
 
 const ChannelList = ({ text }: { text: string }) => {
-    const { channels } = useChannelList()
+    const { channels } = useChannels()
     const navigate = useNavigate()
     const setOpen = useSetAtom(commandMenuOpenAtom)
 

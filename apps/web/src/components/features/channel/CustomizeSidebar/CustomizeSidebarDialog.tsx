@@ -1,8 +1,7 @@
 import { Button } from "@components/ui/button"
-import { DialogDescription, DialogHeader, DialogTitle } from "@components/ui/dialog"
 import { SidebarPreview } from "./SidebarPreview"
 import { useGroupedChannels } from "@raven/lib/hooks/useGroupedChannels"
-import { useChannelList } from "@stores/channels/useChannelList"
+import { useChannels } from "@stores/channels/useChannelList"
 import useCurrentRavenUser from "@raven/lib/hooks/useCurrentRavenUser"
 import { useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/tabs"
@@ -19,7 +18,7 @@ import { SettingsPanelContent, SettingsPanelDescription, SettingsPanelHeader, Se
 
 export const CustomizeSidebarDialog = ({ onClose }: { onClose?: () => void }) => {
 
-    const { channels } = useChannelList()
+    const { channels } = useChannels()
     const { myProfile, mutate } = useCurrentRavenUser()
     const [activeTab, setActiveTab] = useState('channels')
 

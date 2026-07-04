@@ -1,6 +1,6 @@
 import { CommandGroup, CommandItem } from '@components/ui/command'
 import { UserAvatar } from '@components/features/message/UserAvatar'
-import { useChannelList } from "@stores/channels/useChannelList"
+import { useDMChannels } from "@stores/channels/useChannelList"
 import { useNavigate } from 'react-router-dom'
 import { useSetAtom } from 'jotai'
 import { commandMenuOpenAtom } from './atoms'
@@ -24,7 +24,7 @@ const UserList = ({ text }: { text: string }) => {
     // AND resolved async (items landed a render behind cmdk's search); this is synchronous
     // and only re-filters when a user actually changes.
     const usersById = useUsersById()
-    const { dmChannels } = useChannelList()
+    const { dmChannels } = useDMChannels()
 
     const filteredUsers = useMemo(() => {
         if (!text) return []

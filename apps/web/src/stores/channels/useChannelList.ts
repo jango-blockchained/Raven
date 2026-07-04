@@ -3,15 +3,33 @@ import type { ChannelListItem } from "@raven/types/common/ChannelListItem"
 import { channelStore } from "./store"
 
 /**
- * The channel list, read from the store. Re-renders when the list changes (add /
- * remove / rename / archive / DM-preview). Arrays are reference-stable between
- * changes, so downstream `useMemo`s over them stay valid.
+ * BOTH lists. Prefer useChannels / useDMChannels unless you genuinely need both:
+ * this hook re-renders its consumer on ANY list change — including the DM-preview
+ * patch that fires on every incoming DM message.
  */
 export const useChannelList = () => {
     const channels = useSyncExternalStore(channelStore.subscribe, channelStore.getChannels)
     const dmChannels = useSyncExternalStore(channelStore.subscribe, channelStore.getDMChannels)
     const isLoading = !useSyncExternalStore(channelStore.subscribe, channelStore.isLoaded)
     return { channels, dmChannels, isLoading }
+}
+
+/**
+ * Channels ONLY. The store keeps the two list refs independent — a DM-preview patch
+ * (every incoming DM message, the store's hottest write) replaces only dmChannels —
+ * so consumers of this hook bail out of those and re-render only on channel changes.
+ */
+export const useChannels = () => {
+    const channels = useSyncExternalStore(channelStore.subscribe, channelStore.getChannels)
+    const isLoading = !useSyncExternalStore(channelStore.subscribe, channelStore.isLoaded)
+    return { channels, isLoading }
+}
+
+/** DM channels ONLY — the mirror of useChannels (no wake-ups on channel-list changes). */
+export const useDMChannels = () => {
+    const dmChannels = useSyncExternalStore(channelStore.subscribe, channelStore.getDMChannels)
+    const isLoading = !useSyncExternalStore(channelStore.subscribe, channelStore.isLoaded)
+    return { dmChannels, isLoading }
 }
 
 /**

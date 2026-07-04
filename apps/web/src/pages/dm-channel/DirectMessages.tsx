@@ -1,6 +1,6 @@
 import { Outlet, Navigate, useMatch } from "react-router-dom"
 import { DMSidebar } from "@components/dm-sidebar/DMSidebar"
-import { useChannelList } from "@stores/channels/useChannelList"
+import { useDMChannels } from "@stores/channels/useChannelList"
 import { useIsMobile } from "@hooks/use-mobile"
 import _ from "@lib/translate"
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@components/ui/empty"
@@ -21,7 +21,7 @@ export function DirectMessagesEmptyState() {
 }
 
 export function DirectMessagesIndex() {
-    const { dmChannels, isLoading } = useChannelList()
+    const { dmChannels, isLoading } = useDMChannels()
     const isMobile = useIsMobile()
 
     if (isMobile) return null

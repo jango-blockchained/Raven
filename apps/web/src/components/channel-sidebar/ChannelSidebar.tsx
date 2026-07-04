@@ -27,7 +27,7 @@ import { CustomizeSidebarButton } from "@components/features/channel/CustomizeSi
 import { MobileSearchButton } from "@components/features/header/QuickSearch/SearchButton"
 import { useWorkspaces, type WorkspaceFields } from "@hooks/useWorkspaces"
 import { lastChannelAtom, lastWorkspaceAtom } from "@utils/lastVisitedAtoms"
-import { useChannelList } from "@stores/channels/useChannelList"
+import { useChannels } from "@stores/channels/useChannelList"
 import { usePrefetchChannel, setChannelListScrolling } from "@stores/messages/usePrefetchChannel"
 import { useGroupedChannels } from "@raven/lib/hooks/useGroupedChannels"
 import useCurrentRavenUser from "@raven/lib/hooks/useCurrentRavenUser"
@@ -50,7 +50,7 @@ interface GroupsState {
  * it, so the heading visually belongs to the sidebar surface.
  */
 export function ChannelSidebar() {
-    const { channels, isLoading } = useChannelList()
+    const { channels, isLoading } = useChannels()
     const { myProfile } = useCurrentRavenUser()
     const { workspaceID } = useParams()
     const { groupedChannels, ungroupedChannels } = useGroupedChannels(
