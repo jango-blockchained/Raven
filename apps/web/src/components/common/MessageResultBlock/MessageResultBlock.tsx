@@ -86,7 +86,7 @@ const MessageResultBlockInner = ({ message, user, channel, dmChannel, peer, work
                         )}
                     </div>
                     <div className="mt-1 [&_p]:my-0">
-                        <MessageContent message={message} />
+                        <MessageContent message={message} showLinkPreview={false} />
                     </div>
                 </div>
             </div>

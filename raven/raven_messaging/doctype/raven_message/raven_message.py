@@ -99,6 +99,8 @@ class RavenMessage(Document):
 		self.remove_empty_trailing_paragraphs(soup)
 		self.extract_mentions(soup)
 
+		self.links = ""
+
 		for link in soup.find_all("a"):
 			href = link.get("href")
 			if href:
@@ -108,6 +110,7 @@ class RavenMessage(Document):
 					preview.deferred_insert()
 
 				self.append("links_table", {"url": href})
+				self.links += f"{href}\n"
 
 		# Spoilers (||text||) must not leak in the derived preview (DM list, push
 		# notifications, search) — replace each spoiler's text with a placeholder

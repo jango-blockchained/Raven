@@ -41,7 +41,7 @@ export const BaseThreadMessage = ({
                         {user?.full_name || user?.name || _("User")}
                     </div>
                     <div className="[&_p]:my-0">
-                        <MessageContent message={thread as unknown as Message} />
+                        <MessageContent message={thread as unknown as Message} showLinkPreview={false} />
                     </div>
                 </div>
             </div>
