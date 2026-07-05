@@ -162,7 +162,7 @@ export default function Threads() {
                     {/* The Outlet is null when no thread route is open — hide the empty
                         layer then, so it can't sit over the list and eat taps. */}
                     <div className={cn("absolute inset-0 z-10 flex flex-col bg-surface-base", !hasThread && "hidden")}>
-                        <Outlet context={{ parentChannelID }} />
+                        <Outlet context={{ parentChannelID, showOpenChannel: true }} />
                     </div>
                 </div>
                 {hasThread ? null : <AppMobileFooter />}
@@ -181,7 +181,7 @@ export default function Threads() {
                     <Island className="w-full h-full shrink-0">
                         <div className="flex flex-col flex-1 min-h-0">
                             {hasThread ? (
-                                <Outlet context={{ parentChannelID }} />
+                                <Outlet context={{ parentChannelID, showOpenChannel: true }} />
                             ) : (
                                 <Empty className="h-full">
                                     <EmptyHeader>

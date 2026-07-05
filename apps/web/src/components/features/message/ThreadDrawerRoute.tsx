@@ -15,7 +15,7 @@ import type { Message } from "@raven/types/common/Message"
  */
 export default function ThreadDrawerRoute() {
     const { threadID } = useParams<{ threadID: string }>()
-    const { parentChannelID: ctxParent } = useOutletContext<{ parentChannelID?: string }>()
+    const { parentChannelID: ctxParent, showOpenChannel } = useOutletContext<{ parentChannelID?: string, showOpenChannel?: boolean }>()
     const navigate = useNavigate()
 
     // The channel/DM views pass the parent via context; the threads page passes it via nav
@@ -38,5 +38,5 @@ export default function ThreadDrawerRoute() {
     }, [navigate, parentChannelID])
 
     if (!threadID) return null
-    return <ThreadDrawer threadID={threadID} parentChannelID={parentChannelID} onClose={onClose} />
+    return <ThreadDrawer threadID={threadID} parentChannelID={parentChannelID} onClose={onClose} showOpenChannel={showOpenChannel} />
 }

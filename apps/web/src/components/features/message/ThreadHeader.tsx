@@ -40,7 +40,7 @@ export const ThreadHeader = ({ onClose, onOpenChannel, onLeave, onRequestDelete,
     // host's close handler, which routes to the right parent.
     const goBack = useMobileBack(onClose)
 
-    return <div className="flex items-center justify-between pl-2 pr-4 md:px-4 py-0 md:py-2 border-b shrink-0">
+    return <div className="flex items-center justify-between pl-2 pr-4 md:pl-4 md:pr-2 py-0 md:py-2 border-b shrink-0">
         <div className="flex min-w-0 items-center gap-1">
             <div className="flex items-center justify-center md:hidden">
                 <Button variant="ghost" size="lg" isIconButton onClick={goBack} aria-label={_("Back")}>
@@ -50,7 +50,7 @@ export const ThreadHeader = ({ onClose, onOpenChannel, onLeave, onRequestDelete,
             <h2 className="md:text-base md:font-medium text-xl-medium text-ink-gray-8">{_("Thread")}</h2>
         </div>
         <div className="flex items-center gap-2">
-            {onOpenChannel && (
+            {onOpenChannel && !isMobile && (
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <Button variant="ghost" size={isMobile ? "lg" : "sm"} isIconButton onClick={onOpenChannel} aria-label={_("Open channel")}>
