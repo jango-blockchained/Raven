@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactElement } from "react"
+import { useEffect, useMemo, useRef, useState, type ReactElement } from "react"
 import { Play, Link2, Video } from "lucide-react"
 import { cn } from "@lib/utils"
 import { useTheme } from "@components/theme-provider"
@@ -75,15 +75,20 @@ const BrandIcon = ({ brand, className }: { brand: BrandSpec; className?: string 
  * OAuth integration with server-side unfurl instead (Slack-style).
  */
 export const MessageLinkPreview = ({ message }: { message: Message }) => {
-    if (message.hide_link_preview) return null
-    const href = firstLink(message.links)
-    if (!href) return null
-
-    for (const render of PROVIDERS) {
-        const embed = render(href)
-        if (embed) return embed
-    }
-    return null
+    const href = message.hide_link_preview ? undefined : firstLink(message.links)
+    // Memoised on the URL — two wins for the stream:
+    //   1. the provider walk (URL parse × matcher chain) runs once per link,
+    //      not on every render of every link-bearing message;
+    //   2. re-renders (a reaction landing, a pin) reuse the SAME element, so
+    //      React bails out of reconciling the whole embed subtree.
+    return useMemo(() => {
+        if (!href) return null
+        for (const render of PROVIDERS) {
+            const embed = render(href)
+            if (embed) return embed
+        }
+        return null
+    }, [href])
 }
 
 /** First non-empty line — the only link that gets a preview (Slack behaviour). */

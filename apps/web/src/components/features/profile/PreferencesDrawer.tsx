@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useAtom, useAtomValue, useSetAtom } from "jotai"
 import Picker from "@emoji-mart/react"
 import { useFrappePostCall } from "frappe-react-sdk"
-import { ArrowDownAzIcon, ClockIcon } from "lucide-react"
+import { ArrowDownAzIcon, ClockIcon, ImagesIcon, LayoutPanelLeftIcon } from "lucide-react"
 import useCurrentRavenUser from "@raven/lib/hooks/useCurrentRavenUser"
 import { Drawer, DrawerContent, DrawerTitle } from "@components/ui/drawer"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@components/ui/select"
@@ -11,7 +11,7 @@ import { Button } from "@components/ui/button"
 import { cn } from "@lib/utils"
 import { useTheme } from "@components/theme-provider"
 import { customEmojiCategoriesAtom } from "@lib/emojiMart"
-import { DoubleTapReactionAtom, QuickEmojisAtom, type QuickEmoji, type TimeFormat, timeFormatAtom } from "@utils/preferences"
+import { DoubleTapReactionAtom, QuickEmojisAtom, type QuickEmoji, type TimeFormat, timeFormatAtom, imageGroupingLayoutAtom } from "@utils/preferences"
 import { errorResponseToast } from "@components/ui/error-banner"
 import _ from "@lib/translate"
 
@@ -44,6 +44,8 @@ export const PreferencesDrawer = ({ open, onOpenChange }: { open: boolean; onOpe
      * reaction, or null = the settings list.
      */
     const [pickingSlot, setPickingSlot] = useState<number | "double-tap" | null>(null)
+
+    const [imageGrouping, setImageGrouping] = useAtom(imageGroupingLayoutAtom)
 
     const updateValue = (fieldname: string, value: string | number) => {
         if (!myProfile?.name) return
@@ -149,6 +151,24 @@ export const PreferencesDrawer = ({ open, onOpenChange }: { open: boolean; onOpe
                                         <SelectContent>
                                             <SelectItem className="py-2.5" value="12-hour">{_("12 Hour (e.g. 2:00 PM)")}</SelectItem>
                                             <SelectItem className="py-2.5" value="24-hour">{_("24 Hour (e.g. 14:00)")}</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                }
+                            />
+
+                            <PrefRow
+                                label={_("Image group layout")}
+                                control={
+                                    <Select
+                                        value={imageGrouping}
+                                        onValueChange={(value) => setImageGrouping(value as "stack" | "grid")}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder={_("Select image group layout")} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem className="py-2.5" value="stack"><ImagesIcon /> {_("Stack")}</SelectItem>
+                                            <SelectItem className="py-2.5" value="grid"><LayoutPanelLeftIcon /> {_("Grid")}</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 }

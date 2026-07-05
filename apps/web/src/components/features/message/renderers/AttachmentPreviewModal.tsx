@@ -1,4 +1,4 @@
-import { useRef } from "react"
+import { useEffect, useRef } from "react"
 import { useAtomValue, useSetAtom } from "jotai"
 import { useHotkeys } from "react-hotkeys-hook"
 import { toast } from "sonner"
@@ -8,6 +8,7 @@ import { Button } from "@components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@components/ui/tooltip"
 import { MediaLightbox } from "./MediaLightbox"
 import { MediaPreviewHeader } from "./MediaPreviewHeader"
+import { ZoomableImage } from "./ZoomableImage"
 import { AudioPlayer } from "./AudioPlayer"
 import { useUser } from "@hooks/useUser"
 import { useIsMobile } from "@hooks/use-mobile"
@@ -68,6 +69,21 @@ const AttachmentPreviewContent = ({
 
     // Escape is handled by the dialog; arrows page through the set
     const hasMany = attachments.length > 1
+
+    // Keep the selected thumbnail visible in the (overflowable) filmstrip:
+    // jump to it on open, glide to it while paging. openedRef distinguishes
+    // the two — this content stays mounted across closes (close-flash fix),
+    // so "on open" is the false→true flip, not mount.
+    const activeThumbRef = useRef<HTMLDivElement>(null)
+    const openedRef = useRef(false)
+    useEffect(() => {
+        if (!open) {
+            openedRef.current = false
+            return
+        }
+        activeThumbRef.current?.scrollIntoView({ inline: "center", block: "nearest", behavior: openedRef.current ? "smooth" : "auto" })
+        openedRef.current = true
+    }, [index, open])
     useHotkeys("left", () => step(-1), { enabled: open && hasMany, preventDefault: true }, [open, hasMany])
     useHotkeys("right", () => step(1), { enabled: open && hasMany, preventDefault: true }, [open, hasMany])
 
@@ -163,12 +179,10 @@ const AttachmentPreviewContent = ({
                 )}
 
                 {current.kind === "image" ? (
-                    <img
-                        src={current.fileUrl}
-                        alt={current.fileName}
-                        className="max-h-full md:max-w-[90%] object-contain"
-                        onClick={(event) => event.stopPropagation()}
-                    />
+                    // Zoomable (wheel / pinch / double-tap / drag-pan). Keyed by URL so
+                    // paging remounts it at 1x. While zoomed it stops touch events, which
+                    // is what suspends this container's swipe-paging.
+                    <ZoomableImage key={current.fileUrl} src={current.fileUrl} alt={current.fileName} />
                 ) : current.kind === "video" ? (
                     <video
                         src={current.fileUrl}
@@ -212,11 +226,19 @@ const AttachmentPreviewContent = ({
                 tiles stop propagation so clicking one only selects. */}
             {hasMany && (
                 <div className="shrink-0 p-3" onClick={close}>
-                    <div className="flex max-w-full justify-center gap-2 overflow-x-auto">
+                    {/* Centering lives on the INNER w-max wrapper, not the scroller:
+                        justify-center on an overflowing scroller clips the leading
+                        thumbs past the scroll origin — unreachable by scrolling OR
+                        scrollIntoView (the "selected image missing on open" bug).
+                        w-max + mx-auto centers short strips and scrolls long ones
+                        from a true zero. scroll-fade-x dims the overflow edges. */}
+                    <div className="max-w-full overflow-x-auto scroll-fade-x">
+                        <div className="mx-auto flex w-max gap-2">
                         {attachments.map((attachment, thumbIndex) => (
                             <Tooltip key={attachment.id}>
                                 <TooltipTrigger asChild>
                                     <div
+                                        ref={thumbIndex === index ? activeThumbRef : undefined}
                                         className={cn(
                                             "flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-md border-2 bg-surface-gray-2 transition-all duration-200",
                                             thumbIndex === index
@@ -243,6 +265,7 @@ const AttachmentPreviewContent = ({
                                 <TooltipContent>{attachment.fileName}</TooltipContent>
                             </Tooltip>
                         ))}
+                        </div>
                     </div>
                 </div>
             )}

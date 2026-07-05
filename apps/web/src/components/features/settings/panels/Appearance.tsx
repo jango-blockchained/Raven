@@ -327,17 +327,17 @@ const ImageGroupingBehaviour = () => {
         <div className="flex flex-col">
             <SettingsFormLabel htmlFor="sort_channels_by">{_("Image group layout")}</SettingsFormLabel>
             <SettingsFormDescription>
-                {_("Decide how a group of images should appear in the chat stream.")}
+                {_("Decide how a group of images should appear in the chat stream. 4+ images always use the carousel.")}
             </SettingsFormDescription>
         </div>
         <div className="min-w-40 flex justify-end">
             <Select onValueChange={(value) => setImageGrouping(value as "stack" | "grid")} value={imageGrouping}>
                 <SelectTrigger id="time_format" className="min-w-32">
-                    <SelectValue placeholder={_("Select sort order")} />
+                    <SelectValue placeholder={_("Select image group layout")} />
                 </SelectTrigger>
                 <SelectContent>
                     <SelectItem value="stack"><ImagesIcon /> {_("Stack")}</SelectItem>
-                    <SelectItem value="grid"><LayoutPanelLeftIcon /> {_("Grid/Carousel")}</SelectItem>
+                    <SelectItem value="grid"><LayoutPanelLeftIcon /> {_("Grid")}</SelectItem>
                 </SelectContent>
             </Select>
         </div>

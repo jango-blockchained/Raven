@@ -48,7 +48,7 @@ export const PollOptionBar: React.FC<PollOptionBarProps> = ({
                         )}
                         style={{ width: `${percentage}%` }}
                     />
-                    <div className="relative z-10 text-ellipsis overflow-hidden flex items-center flex-1 px-3.5 py-1.5 gap-2">
+                    <div className="relative z-10 text-ellipsis overflow-hidden flex items-center flex-1 md:px-3 px-2.5 py-1.5 gap-2">
                         <span
                             className={cn(
                                 "truncate text-sm leading-snug",
@@ -59,7 +59,7 @@ export const PollOptionBar: React.FC<PollOptionBarProps> = ({
                         </span>
                         {isCurrentUserVote && !isMobile && <CheckCircle className="size-3 text-ink-gray-9" />}
                     </div>
-                    <div className={cn("relative z-10 flex items-center sm:gap-2 gap-1", showVoters ? "pr-1" : "pr-2")}>
+                    <div className={cn("relative z-10 flex items-center sm:gap-2 gap-1", showVoters && option.voters && option.voters.length > 0 ? "pr-1" : "pr-2")}>
                         {option.votes !== undefined && (
                             <span className="text-xs-medium text-ink-gray-6 flex items-center gap-1">
                                 <span>
