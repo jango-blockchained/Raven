@@ -11,10 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@components/ui/dropdown-menu"
 import { useState } from "react"
-import { BiSolidCircle } from "react-icons/bi"
-import { MdWatchLater } from "react-icons/md"
-import { FaCircleDot, FaCircleMinus } from "react-icons/fa6"
-import { RotateCcw } from "lucide-react"
+import { CircleDotIcon, CircleMinusIcon, ClockIcon, RotateCcw, UserCircleIcon } from "lucide-react"
 import { Smile } from "lucide-react"
 import {
   Popover,
@@ -29,28 +26,28 @@ const getStatusText = (status: AvailabilityStatus) => {
     case "Available":
       return (
         <span className="flex items-center gap-2">
-          <BiSolidCircle className="text-green-500 text-xs" />
+          <UserCircleIcon className="text-green-500 text-xs" />
           Available
         </span>
       )
     case "Away":
       return (
         <span className="flex items-center gap-2">
-          <MdWatchLater className="text-[#FFAA33] text-sm" />
+          <ClockIcon className="text-[#FFAA33] text-sm" />
           Away
         </span>
       )
     case "Do not disturb":
       return (
         <span className="flex items-center gap-2">
-          <FaCircleMinus className="text-[#D22B2B] text-xs" />
+          <CircleMinusIcon className="text-[#D22B2B] text-xs" />
           Do not disturb
         </span>
       )
     case "Invisible":
       return (
         <span className="flex items-center gap-2">
-          <FaCircleDot className="text-ink-gray-4 text-xs" />
+          <CircleDotIcon className="text-ink-gray-4 text-xs" />
           Invisible
         </span>
       )
