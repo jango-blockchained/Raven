@@ -65,13 +65,13 @@ export const MessageHoverToolbar = ({
             className="absolute right-4 z-40 flex items-center gap-0.5 rounded-md border border-outline-gray-2 bg-surface-base p-0.5 shadow-xs"
             style={{ top }}
         >
-            {quickEmojis.map((emoji) => (
+            {quickEmojis.slice(0, 4).map((emoji) => (
                 <Button
                     key={emoji.id}
                     variant="ghost"
                     size={isMobile ? "lg" : "md"}
                     isIconButton
-                    aria-label={`${_("React with")} ${emoji}`}
+                    aria-label={`${_("React with {0}", [emoji.native ? emoji.native : emoji.id ?? ""])}`}
                     onClick={() => toggleReaction(message, emoji.native ? emoji.native : emoji.src ?? "", emoji.src ? true : false, emoji.id)}
                 >
                     {emoji.src ? (

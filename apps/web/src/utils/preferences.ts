@@ -44,4 +44,11 @@ interface QuickEmoji {
 }
 
 /** Favourite emojis offered as one-tap message reactions. */
-export const QuickEmojisAtom = atomWithStorage<QuickEmoji[]>("raven-quick-emojis-list", [{ id: "👍", native: "👍" }, { id: "✅", native: "✅" }, { id: "👀", native: "👀" }, { id: "🎉", native: "🎉" }])
+export const QuickEmojisAtom = atomWithStorage<QuickEmoji[]>("raven-quick-emojis-list", [
+    { id: "👍", native: "👍" },
+    { id: "✅", native: "✅" },
+    { id: "👀", native: "👀" },
+    { id: "🎉", native: "🎉" },
+    { id: "🔥", native: "🔥" },
+    { id: "🤔", native: "🤔" },
+])

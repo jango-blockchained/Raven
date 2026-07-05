@@ -295,6 +295,28 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Touch devices: nothing is finger-selectable except text-entry surfaces — the
+   app behaves like a native one (long-press = message actions; copy lives in
+   the action sheet). This must be GLOBAL, not per-region: when only a subtree
+   is select-none, iOS long-press starts a selection just OUTSIDE it (WebKit
+   walks to the nearest selectable ancestor) — observed as "the whole screen
+   gets selected", or the open drawer's contents on a longer hold. */
+@media (pointer: coarse) {
+  body {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  input,
+  textarea,
+  [contenteditable="true"],
+  [contenteditable=""] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+}
+
 .lucide {
   stroke-linecap: round;
   stroke-linejoin: round;

@@ -4,6 +4,7 @@ import { Button } from "@components/ui/button"
 import { cn } from "@lib/utils"
 import _ from "@lib/translate"
 import { RepliedMessagePreview, type RepliedMessageDetails } from "@components/features/message/renderers/RepliedMessagePreview"
+import { useIsMobile } from "@hooks/use-mobile"
 
 /** Map the live target Message to the snapshot shape the shared preview expects. */
 const toDetails = (message: Message): RepliedMessageDetails => ({
@@ -29,12 +30,14 @@ export const ReplyPreviewBanner = ({
     onCancel: () => void
     showFormatting: boolean
 }) => {
+
+    const isMobile = useIsMobile()
     return (
         <div className={cn("flex items-start gap-2 bg-surface-gray-1 px-3 py-2.5", showFormatting && "m-2 rounded")}>
             <div className="min-w-0 flex-1 border-l-2 border-outline-gray-3 pl-2">
                 <RepliedMessagePreview details={toDetails(message)} />
             </div>
-            <Button type="button" variant="ghost" size="xs" isIconButton aria-label={_("Cancel reply")} onClick={onCancel}>
+            <Button type="button" variant="ghost" size={isMobile ? "lg" : "xs"} isIconButton aria-label={_("Cancel reply")} onClick={onCancel}>
                 <X />
             </Button>
         </div>

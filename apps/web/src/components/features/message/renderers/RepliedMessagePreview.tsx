@@ -29,21 +29,21 @@ export const RepliedMessagePreview = ({ details }: { details: RepliedMessageDeta
 
     return (
         <div className="flex flex-col gap-1">
-            <span className="text-xs-medium text-ink-gray-5">
+            <span className="md:text-xs-medium text-sm-medium text-ink-gray-5">
                 {_("Replying to {0}", [user?.full_name || user?.name || details.owner])}
             </span>
             <div className="text-xs text-ink-gray-5">
                 {details.message_type === "Poll" && (
                     <span className="flex items-center gap-1">
                         <ChartColumnIcon className="h-3.5 w-3.5" />
-                        <span className="line-clamp-1 text-p-sm">Poll: {details.content.split("\n")[0]}</span>
+                        <span className="line-clamp-1 md:text-p-sm text-p-lg">Poll: {details.content.split("\n")[0]}</span>
                     </span>
                 )}
 
                 {details.message_type === "File" && (
                     <span className="flex items-center gap-2">
                         <FileTypeIcon fileType={getFileExtension(details.file ?? "")} size="md" />
-                        <span className="line-clamp-2 text-p-sm">{getFileName(details.file)}</span>
+                        <span className="line-clamp-2 md:text-p-sm text-p-lg">{getFileName(details.file)}</span>
                     </span>
                 )}
 
@@ -57,12 +57,12 @@ export const RepliedMessagePreview = ({ details }: { details: RepliedMessageDeta
                                 <img src={details.file} alt={getFileName(details.file)} className="w-full h-full object-cover rounded-lg" />
                             </HoverCardContent>
                         </HoverCard>
-                        <span className="line-clamp-2 text-p-sm">{getFileName(details.file)}</span>
+                        <span className="line-clamp-2 md:text-p-sm text-p-lg">{getFileName(details.file)}</span>
                     </span>
                 )}
 
                 {details.text && (
-                    <span className="line-clamp-2 text-p-sm">{parse(details.content)}</span>
+                    <span className="line-clamp-2 md:text-p-sm text-p-lg">{parse(details.content)}</span>
                 )}
             </div>
         </div>
