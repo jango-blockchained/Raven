@@ -22,9 +22,10 @@ import { useIsMobile } from "@hooks/use-mobile"
 interface DMChannelHeaderProps {
     /** Peer user info (name, avatar). When from API this can extend to peer_user_id, etc. */
     peer: UserData
-    /** Hide the drawer-opening actions (name dropdown, pins). Off in the
-     * notifications/search/saved panes: too narrow for the drawer rail, and the
-     * drawers resolve their channel from the URL, which doesn't match there. */
+    /** Hide the drawer-opening actions (name dropdown, pins). Off on DESKTOP in the
+     * notifications/search/saved panes, purely for space: the pane is too narrow for
+     * the drawer rail those actions open. (Mobile panes keep them — drawers are
+     * bottom sheets there, and they resolve their channel via CurrentChannelContext.) */
     showActions?: boolean
     /** Show an "Open channel" button that navigates to the DM's full page —
      * provided by panes (notifications/search/saved) as the way out of the pane. */

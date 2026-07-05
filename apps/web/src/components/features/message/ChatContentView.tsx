@@ -13,6 +13,7 @@ import { pollDrawerAtom, channelDrawerAtom } from "@utils/channelAtoms"
 import { useIsMobile } from "@hooks/use-mobile"
 import _ from "@lib/translate"
 import { cn } from "@lib/utils"
+import { CurrentChannelContext } from "@hooks/useCurrentChannelID"
 
 export interface ChatContentViewProps {
     /** Channel or DM channel id (useCurrentChannelID is used by ThreadDrawer/ChatInput etc.) */
@@ -76,9 +77,15 @@ export function ChatContentView({
     const drawerWidth = hasThread && !showsOverlay ? "w-1/2" : "w-96 max-w-[45%]"
 
     return (
-        // Canvas gutter: p-1 reveals the gray content-column behind as the
-        // frame; gap-1 separates the islands. Full-bleed (p-0) on mobile.
-        // relative: the mobile thread layer below positions against this row.
+        // CurrentChannelContext: everything inside this chat view — headers, drawers
+        // (rail + mobile sheets), stream — resolves "the current channel" from here,
+        // not the URL. The URL only knows the channel on channel/DM routes; this view
+        // also renders in the notification/search/saved panes, where URL-derived ids
+        // came back empty and broke the drawers.
+        <CurrentChannelContext.Provider value={channelID}>
+        {/* Canvas gutter: p-1 reveals the gray content-column behind as the
+            frame; gap-1 separates the islands. Full-bleed (p-0) on mobile.
+            relative: the mobile thread layer below positions against this row. */}
         <div className="relative flex min-h-0 min-w-0 flex-1 flex-row gap-1 p-0 md:p-1">
             {/* Chat island: header + stream + input. inert while the mobile thread layer
                 covers it, so focus/screen readers can't land in the hidden channel. */}
@@ -153,5 +160,6 @@ export function ChatContentView({
                 </>
             )}
         </div>
+        </CurrentChannelContext.Provider>
     )
 }

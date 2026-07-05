@@ -1,6 +1,6 @@
 import { useContext, useMemo } from "react"
 import { getDefaultStore, useSetAtom } from "jotai"
-import { useNavigate, useParams } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import { FrappeConfig, FrappeContext } from "frappe-react-sdk"
 import { toast } from "sonner"
 import {
@@ -96,11 +96,6 @@ export const useMessageActions = (message: Message | null): MessageAction[][] =>
     const setDialog = useSetAtom(messageDialogAtom)
     const navigate = useNavigate()
     const { call } = useContext(FrappeContext) as FrappeConfig
-    // A thread is itself a channel whose id === the parent message id, so a thread
-    // reply's channel_id equals the route's threadID. react-router scopes this param
-    // to the thread route's subtree, so the channel stream never sees it — letting us
-    // tell "inside a thread" apart from "inside a channel" without prop-drilling.
-    const { threadID } = useParams()
     // Pinned state lives on the channel, and pinning doesn't change the message object —
     // so subscribe to the channel's pinned string here. Without this, reopening the menu
     // on the same (unchanged) message would return the memo's stale "Pin" label.
@@ -111,7 +106,6 @@ export const useMessageActions = (message: Message | null): MessageAction[][] =>
 
         const isOwner = currentUser === message.owner && !message.is_bot_message
         const hasReactions = Object.keys(JSON.parse(message.message_reactions || "{}")).length > 0
-        const inThread = message.channel_id === threadID
 
         // Respond: reply + thread creation (join/mute need membership context we don't load here)
         const respond: MessageAction[] = [
@@ -124,24 +118,37 @@ export const useMessageActions = (message: Message | null): MessageAction[][] =>
             },
         ]
         // Create thread only inside a channel: not on a message that already has one
-        // (is_thread), and not on a thread reply (inThread). The thread's id IS the
-        // message id; a batch threads off its last/newest member (already this target).
-        if (!message.is_thread && !inThread) {
+        // (is_thread), and only when the message's channel is a real channel/DM in the
+        // store. The store check is what excludes thread replies EVERYWHERE (channel
+        // thread route, threads page, notification/search panes): a thread is a channel
+        // the channel store never holds, so an unknown channel_id means "inside a
+        // thread". The thread's id IS the message id; a batch threads off its newest member.
+        const parentChannel = channelStore.getChannel(message.channel_id)
+        if (!message.is_thread && parentChannel) {
             respond.push({
                 id: "create-thread",
                 label: _("Create thread"),
                 icon: MessageSquareText,
                 onSelect: () => {
                     const threadID = message.name
-                    // Strip any open /thread/... so we navigate from the channel base.
-                    const base = window.location.pathname.split("/thread")[0]?.replace(`/${import.meta.env.VITE_BASE_NAME}`, "")
+                    // Thread route under the message's REAL channel — the current path is
+                    // useless in panes (notifications/search/saved carry no channel base).
+                    const base = parentChannel.is_direct_message === 1
+                        ? `/dm-channel/${encodeURIComponent(parentChannel.name)}`
+                        : `/${encodeURIComponent(parentChannel.workspace ?? "")}/${encodeURIComponent(parentChannel.name)}`
+                    // Coming from elsewhere (a pane)? The channel opens fresh — also select
+                    // the new thread's root message in it (same rule as the thread pill).
+                    const pathname = window.location.pathname.replace(`/${import.meta.env.VITE_BASE_NAME}`, "")
+                    const target = pathname.startsWith(base)
+                        ? `${base}/thread/${threadID}`
+                        : `${base}/thread/${threadID}?message_id=${encodeURIComponent(threadID)}`
                     call.post("raven.api.threads.create_thread", { message_id: threadID })
                         .then(() => {
                             // Reflect the new thread on the parent (shows the pill) and seed an
                             // empty reply count, then open it.
                             channelMessagesStore.messageEdited(message.channel_id, threadID, { is_thread: 1 })
                             seedThreadMeta(threadID, 0)
-                            navigate(`${base}/thread/${threadID}`)
+                            navigate(target)
                         })
                         .catch((e) => errorResponseToast(_("Could not create thread"), e))
                 },
@@ -270,5 +277,5 @@ export const useMessageActions = (message: Message | null): MessageAction[][] =>
         }
 
         return [respond, clipboard, organize, owner].filter((group) => group.length > 0)
-    }, [message, currentUser, setDialog, navigate, call, threadID, pinnedString])
+    }, [message, currentUser, setDialog, navigate, call, pinnedString])
 }

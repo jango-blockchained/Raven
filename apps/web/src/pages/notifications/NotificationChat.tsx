@@ -105,9 +105,10 @@ export function NotificationPane({
     }
     const canOpenChannel = isDirectMessage || !!channel?.workspace
 
-    // showActions={false}: the pane is too narrow for the drawer rail the header's
-    // actions (pins / members / files…) would open, and those drawers resolve their
-    // channel from the URL — which doesn't match under /notifications.
+    // showActions={false} trims the header for the narrow desktop pane (no room for
+    // the drawer rail). The headers themselves keep the actions on MOBILE regardless —
+    // drawers are bottom sheets there (no space cost, correctly keyed via
+    // CurrentChannelContext) — so no breakpoint handling is needed here.
     const header = isDirectMessage
         ? peer
             ? <DMChannelHeader peer={peer} channelID={channelID} showActions={false} onOpenChannel={openChannel} />

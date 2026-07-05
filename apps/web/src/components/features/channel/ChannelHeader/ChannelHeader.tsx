@@ -18,9 +18,10 @@ interface ChannelHeaderProps {
      * a `/:workspaceID/:id` route (eg. notifications view) and `useCurrentChannelID`
      * would otherwise fall back to `"general"`. */
     channelID: string
-    /** Hide the drawer-opening actions (menu, pins, members, star). Off in the
-     * notifications/search/saved panes: the pane is too narrow for the drawer rail,
-     * and the drawers resolve their channel from the URL, which doesn't match there. */
+    /** Hide the drawer-opening actions (menu, pins, members, star). Off on DESKTOP in
+     * the notifications/search/saved panes, purely for space: the pane is too narrow
+     * for the drawer rail those actions open. (Mobile panes keep them — drawers are
+     * bottom sheets there, and they resolve their channel via CurrentChannelContext.) */
     showActions?: boolean
     /** Show an "Open channel" button that navigates to the channel's full page —
      * provided by panes (notifications/search/saved) as the way out of the pane. */

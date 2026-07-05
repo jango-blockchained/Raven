@@ -127,7 +127,7 @@ export const BatchMessageItem = ({
                 {content}
             </MessageSenderLayout>
 
-            {threadMember && <MessageThreadPill threadID={threadMember.name} />}
+            {threadMember && <MessageThreadPill threadID={threadMember.name} channelID={threadMember.channel_id} />}
         </MessageRow>
     )
 }
