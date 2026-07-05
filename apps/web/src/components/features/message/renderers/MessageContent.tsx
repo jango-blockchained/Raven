@@ -29,7 +29,9 @@ export const MessageBody = ({ content }: { content?: string | null }) => {
     if (!content) return null
     const trimmed = content.trim()
     if (!trimmed) return null
-    if (trimmed.startsWith('<') && !trimmed.startsWith('<mark')) return <RichTextRenderer html={trimmed} />
+    // jumbomoji: emoji-only messages render big in the stream (not in compact
+    // contexts like notifications, which use RichTextRenderer directly).
+    if (trimmed.startsWith('<') && !trimmed.startsWith('<mark')) return <RichTextRenderer html={trimmed} jumbomoji />
     return <SearchTextRenderer content={trimmed} />
 }
 

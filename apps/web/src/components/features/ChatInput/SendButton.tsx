@@ -18,6 +18,11 @@ const SendButton = ({ onSend, disabled, loading }: SendButtonProps) => {
             size={isMobile ? "lg" : "sm"}
             type="button"
             onClick={onSend}
+            // Never steal focus from the editor: if the user is typing (keyboard
+            // open), tapping Send keeps it open naturally — no programmatic
+            // focus() needed, which couldn't tell whether the keyboard was open
+            // and would pop it on file-only sends too.
+            onMouseDown={(e) => e.preventDefault()}
             disabled={disabled}
             variant={isMobile ? "solid" : "subtle"}
             loading={loading}

@@ -418,6 +418,16 @@
   @apply my-0 inline-block h-[1.4em] w-auto rounded-none object-contain align-text-bottom;
 }
 
+/* Jumbomoji — a message that is ONLY emojis (≤4; RichTextRenderer decides)
+   renders them big, Slack/iMessage-style. One rule covers both kinds: native
+   emojis scale with font-size, and custom emojis (.emoji) are em-sized (1.4em)
+   so they follow along. The class is computed synchronously from the stored
+   HTML, so row height stays deterministic for the scroll engine. */
+.tiptap--jumbomoji p {
+  font-size: 2rem;
+  line-height: 1.25;
+}
+
 /* Tables — framed and horizontally scrollable, matching the ui/ Table look
    (rounded outline frame, gray header, row dividers; see ui/table.tsx). The frame
    lives on a wrapper, not the table, so it can scroll wide tables instead of

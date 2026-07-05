@@ -231,8 +231,13 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
         saveDraft(channelID, "")
         // The message is sent — stop broadcasting "typing" right away.
         stopTyping()
-        editor.commands.focus()
-    }, [editor, files, channelID, currentUser, call, setFiles, replyTo, setReplyTo, persistDraft, stopTyping])
+        // Desktop only: refocus so the next message can be typed immediately.
+        // On mobile, sending must never CHANGE keyboard state: SendButton keeps
+        // the keyboard open by not stealing focus (mousedown preventDefault),
+        // and a file-only send with the keyboard closed — including a held send
+        // dispatched later by the uploads-settled effect — must not pop it.
+        if (!isMobile) editor.commands.focus()
+    }, [editor, files, channelID, currentUser, call, setFiles, replyTo, setReplyTo, persistDraft, stopTyping, isMobile])
 
     const handleSend = useCallback(() => {
         if (!editor) return
