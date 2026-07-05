@@ -54,7 +54,7 @@ export const InputFileList = ({ channelID }: InputFilesProps) => {
     if (files.length === 0) return null
 
     return (
-        <div className='flex gap-2 flex-wrap px-2 pt-2 pb-2 md:pb-0'>
+        <div className='flex gap-2 flex-wrap px-2 md:pt-2 pt-0 pb-2 md:pb-0'>
             {files.map((file) => (
                 <FileItem key={file.id} file={file} onRemove={onRemove} onPreview={onPreview} />
             ))}

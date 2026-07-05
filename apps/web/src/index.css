@@ -35,10 +35,34 @@
    A responsive `md:` variant inside @apply-in-@utility gets flattened to an
    unconditional rule (always desktop size) — so we set font-size directly. */
 @utility text-content {
-  font-size: var(--text-base);          /* mobile 14px */
-  @media (width >= 48rem) {
-    font-size: var(--text-sm);        /* desktop 13px */
+  font-size: var(--text-base);
+  /* mobile 14px */
+  @media (width >=48rem) {
+    font-size: var(--text-sm);
+    /* desktop 13px */
   }
+}
+
+/* Typing-indicator dots: a gentle lift + fade wave, staggered per dot via
+   [animation-delay:…]. Tailwind's animate-bounce throws the dot half its own
+   height — far too loud next to 12px text. */
+@keyframes typing-dot {
+
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.35;
+  }
+
+  30% {
+    transform: translateY(-2px);
+    opacity: 1;
+  }
+}
+
+@utility animate-typing-dot {
+  animation: typing-dot 1.2s ease-in-out infinite;
 }
 
 /* scroll-fade (from shadcn): masks a scroll container's edges so content fades out at the
@@ -53,6 +77,7 @@
   inherits: false;
   initial-value: 0px;
 }
+
 @property --scroll-fade-b {
   syntax: "<length-percentage>";
   inherits: false;
@@ -60,50 +85,55 @@
 }
 
 @keyframes scroll-fade-reveal-t {
-  from { --scroll-fade-t: 0px; }
-  to { --scroll-fade-t: var(--_scroll-fade-size-t); }
+  from {
+    --scroll-fade-t: 0px;
+  }
+
+  to {
+    --scroll-fade-t: var(--_scroll-fade-size-t);
+  }
 }
+
 @keyframes scroll-fade-reveal-b {
-  from { --scroll-fade-b: var(--_scroll-fade-size-b); }
-  to { --scroll-fade-b: 0px; }
+  from {
+    --scroll-fade-b: var(--_scroll-fade-size-b);
+  }
+
+  to {
+    --scroll-fade-b: 0px;
+  }
 }
 
 @utility scroll-fade {
-  --_scroll-fade-size-t: var(
-    --scroll-fade-t-size,
-    var(--scroll-fade-size, min(12%, calc(var(--spacing) * 10)))
-  );
-  --_scroll-fade-size-b: var(
-    --scroll-fade-b-size,
-    var(--scroll-fade-size, min(12%, calc(var(--spacing) * 10)))
-  );
+  --_scroll-fade-size-t: var(--scroll-fade-t-size,
+      var(--scroll-fade-size, min(12%, calc(var(--spacing) * 10))));
+  --_scroll-fade-size-b: var(--scroll-fade-b-size,
+      var(--scroll-fade-size, min(12%, calc(var(--spacing) * 10))));
   /* Eased (smoothstep) alpha ramp, sampled finely so it reads as a smooth curve, NOT fading all
      the way to transparent: the edge floors at 0.25 (content dims, never vanishes — softer, and
      images don't disappear), ramping up to a full 1 for the message body. The opaque end MUST be
      1 or every message would be permanently dimmed. Stops collapse to the edge when the size
      animates to 0 (reveal preserved: no dimming of the true first/last message at rest). Tune the
      floor — higher (≈0.4) = subtler dim, lower (≈0.1) = stronger fade. */
-  --scroll-fade-block: linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 0.25) 0,
-    rgba(0, 0, 0, 0.282) calc(var(--scroll-fade-t, 0px) * 0.125),
-    rgba(0, 0, 0, 0.367) calc(var(--scroll-fade-t, 0px) * 0.25),
-    rgba(0, 0, 0, 0.487) calc(var(--scroll-fade-t, 0px) * 0.375),
-    rgba(0, 0, 0, 0.625) calc(var(--scroll-fade-t, 0px) * 0.5),
-    rgba(0, 0, 0, 0.763) calc(var(--scroll-fade-t, 0px) * 0.625),
-    rgba(0, 0, 0, 0.883) calc(var(--scroll-fade-t, 0px) * 0.75),
-    rgba(0, 0, 0, 0.968) calc(var(--scroll-fade-t, 0px) * 0.875),
-    rgba(0, 0, 0, 1) var(--scroll-fade-t, 0px),
-    rgba(0, 0, 0, 1) calc(100% - var(--scroll-fade-b, 0px)),
-    rgba(0, 0, 0, 0.968) calc(100% - var(--scroll-fade-b, 0px) * 0.875),
-    rgba(0, 0, 0, 0.883) calc(100% - var(--scroll-fade-b, 0px) * 0.75),
-    rgba(0, 0, 0, 0.763) calc(100% - var(--scroll-fade-b, 0px) * 0.625),
-    rgba(0, 0, 0, 0.625) calc(100% - var(--scroll-fade-b, 0px) * 0.5),
-    rgba(0, 0, 0, 0.487) calc(100% - var(--scroll-fade-b, 0px) * 0.375),
-    rgba(0, 0, 0, 0.367) calc(100% - var(--scroll-fade-b, 0px) * 0.25),
-    rgba(0, 0, 0, 0.282) calc(100% - var(--scroll-fade-b, 0px) * 0.125),
-    rgba(0, 0, 0, 0.25) 100%
-  );
+  --scroll-fade-block: linear-gradient(to bottom,
+      rgba(0, 0, 0, 0.25) 0,
+      rgba(0, 0, 0, 0.282) calc(var(--scroll-fade-t, 0px) * 0.125),
+      rgba(0, 0, 0, 0.367) calc(var(--scroll-fade-t, 0px) * 0.25),
+      rgba(0, 0, 0, 0.487) calc(var(--scroll-fade-t, 0px) * 0.375),
+      rgba(0, 0, 0, 0.625) calc(var(--scroll-fade-t, 0px) * 0.5),
+      rgba(0, 0, 0, 0.763) calc(var(--scroll-fade-t, 0px) * 0.625),
+      rgba(0, 0, 0, 0.883) calc(var(--scroll-fade-t, 0px) * 0.75),
+      rgba(0, 0, 0, 0.968) calc(var(--scroll-fade-t, 0px) * 0.875),
+      rgba(0, 0, 0, 1) var(--scroll-fade-t, 0px),
+      rgba(0, 0, 0, 1) calc(100% - var(--scroll-fade-b, 0px)),
+      rgba(0, 0, 0, 0.968) calc(100% - var(--scroll-fade-b, 0px) * 0.875),
+      rgba(0, 0, 0, 0.883) calc(100% - var(--scroll-fade-b, 0px) * 0.75),
+      rgba(0, 0, 0, 0.763) calc(100% - var(--scroll-fade-b, 0px) * 0.625),
+      rgba(0, 0, 0, 0.625) calc(100% - var(--scroll-fade-b, 0px) * 0.5),
+      rgba(0, 0, 0, 0.487) calc(100% - var(--scroll-fade-b, 0px) * 0.375),
+      rgba(0, 0, 0, 0.367) calc(100% - var(--scroll-fade-b, 0px) * 0.25),
+      rgba(0, 0, 0, 0.282) calc(100% - var(--scroll-fade-b, 0px) * 0.125),
+      rgba(0, 0, 0, 0.25) 100%);
   -webkit-mask-image: var(--scroll-fade-mask, var(--scroll-fade-block));
   mask-image: var(--scroll-fade-mask, var(--scroll-fade-block));
   -webkit-mask-composite: source-in;
@@ -145,48 +175,48 @@
 
   /** ----- Espresso Design System ----- **/
   --font-sans: "InterVariable",
-  ui-sans-serif,
-  system-ui,
-  sans-serif,
-  "Apple Color Emoji",
-  "Segoe UI Emoji",
-  "Segoe UI Symbol",
-  "Noto Color Emoji";
+    ui-sans-serif,
+    system-ui,
+    sans-serif,
+    "Apple Color Emoji",
+    "Segoe UI Emoji",
+    "Segoe UI Symbol",
+    "Noto Color Emoji";
   --font-sans--font-optical-sizing: auto;
   --font-sans--font-variation-settings: "opsz" 24;
   --font-numeric: "InterVariable",
-  ui-monospace,
-  SFMono-Regular,
-  Menlo,
-  Monaco,
-  Consolas,
-  "Liberation Mono",
-  "Courier New",
-  monospace;
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    "Courier New",
+    monospace;
   --font-numeric--font-feature-settings: "calt",
-  "cv01",
-  "cv03",
-  "cv04",
-  "cv09",
-  "cv11",
-  "zero";
+    "cv01",
+    "cv03",
+    "cv04",
+    "cv09",
+    "cv11",
+    "zero";
   --font-numeric--font-optical-sizing: auto;
   --font-numeric--font-variation-settings: "opsz" 24;
 
   --font-mono: ui-monospace,
-  Menlo,
-  Monaco,
-  'Cascadia Mono',
-  'Segoe UI Mono',
-  'Roboto Mono',
-  'Oxygen Mono',
-  'Ubuntu Mono',
-  'Source Code Pro',
-  'Fira Mono',
-  'Droid Sans Mono',
-  'Consolas',
-  'Courier New',
-  monospace;
+    Menlo,
+    Monaco,
+    'Cascadia Mono',
+    'Segoe UI Mono',
+    'Roboto Mono',
+    'Oxygen Mono',
+    'Ubuntu Mono',
+    'Source Code Pro',
+    'Fira Mono',
+    'Droid Sans Mono',
+    'Consolas',
+    'Courier New',
+    monospace;
 
 
   /** Type scale (--text-* / --text-p-* + font weights) is generated into
@@ -201,11 +231,11 @@
       are generated into styles/espresso-effects.css. These are app-specific. **/
   --shadow-switch: 0px 3px 3px 0px rgba(0, 0, 0, 0.05);
   --shadow-checkbox-hover: 0px 1px 2px 0px rgba(0, 0, 0, 0.06),
-  0px 1px 3px 0px rgba(0, 0, 0, 0.1);
+    0px 1px 3px 0px rgba(0, 0, 0, 0.1);
 
   --shadow-textarea-active: 0px 1px 4px 0px rgba(0, 0, 0, 0.1);
   --shadow-chat-area: 0px 0px 4px 0px rgba(0, 0, 0, 0.08),
-  0px 0.25px 1px 0px rgba(0, 0, 0, 0.25);
+    0px 0.25px 1px 0px rgba(0, 0, 0, 0.25);
 
   /** Spacing **/
   --spacing-4.5: 1.125rem;

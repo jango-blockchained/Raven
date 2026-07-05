@@ -19,6 +19,8 @@ import { ReplyPreviewBanner } from "./ReplyPreviewBanner"
 import { MentionWarningBanner } from "./MentionWarningBanner"
 import { MobileComposerActions } from "./MobileComposerActions"
 import { loadDraft, saveDraft } from "./draft"
+import { useTypingEmitter } from "@stores/typing/useTypingEmitter"
+import { TypingIndicator } from "./TypingIndicator"
 import { useIsMobile } from "@hooks/use-mobile"
 import { useIsKeyboardOpen } from "@hooks/useIsKeyboardOpen"
 import { enqueueSend } from "@stores/messages/messageSender"
@@ -174,6 +176,24 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
         }
     }, [editor, persistDraft])
 
+    // Broadcast this user's typing state off editor updates. Ref-based — adds
+    // ZERO re-renders per keystroke (see useTypingEmitter); a hard stop fires on
+    // send and on unmount/channel switch (inside the hook). Emptying the input
+    // (select-all delete, backspace to nothing) also reads as "stopped typing" —
+    // there's no draft left that anyone is waiting on.
+    const { onUserType, stopTyping } = useTypingEmitter(channelID)
+    useEffect(() => {
+        if (!editor) return
+        const onUpdate = () => {
+            if (editor.isEmpty) stopTyping()
+            else onUserType()
+        }
+        editor.on("update", onUpdate)
+        return () => {
+            editor.off("update", onUpdate)
+        }
+    }, [editor, onUserType, stopTyping])
+
     /** Build the optimistic batch, clear the composer, and fire the request. */
     const dispatchSend = useCallback(() => {
         if (!editor) return
@@ -208,8 +228,10 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
         // Drop the saved draft (and any pending debounced write of the old text).
         persistDraft.cancel()
         saveDraft(channelID, "")
+        // The message is sent — stop broadcasting "typing" right away.
+        stopTyping()
         editor.commands.focus()
-    }, [editor, files, channelID, currentUser, call, setFiles, replyTo, setReplyTo, persistDraft])
+    }, [editor, files, channelID, currentUser, call, setFiles, replyTo, setReplyTo, persistDraft, stopTyping])
 
     const handleSend = useCallback(() => {
         if (!editor) return
@@ -301,8 +323,10 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                 e.preventDefault()
                 handleSend()
             }}
-            className={cn("md:px-3 md:pb-3 w-full flex flex-col gap-2")}
+            className={cn("md:px-3 md:pb-3 pt-1 w-full flex flex-col gap-2")}
         >
+            {/* Fixed-height strip (always reserved, so typers never shift layout) */}
+            <TypingIndicator channelID={channelID} />
             {/* Warning banner is only shown for primary channels, not DMs, threads in DMs. */}
             {!isDM && mentionedIds.length > 0 && <MentionWarningBanner channelID={parentChannelID ?? channelID} mentionedIds={mentionedIds} isThread={parentChannelID ? true : false} />}
             {/* Outer wrapper carries data-raven-editor and is the popup anchor: the
