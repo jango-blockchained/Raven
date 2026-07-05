@@ -47,11 +47,11 @@ export const ProfileRow = forwardRef<HTMLButtonElement, ProfileRowProps>(functio
             type={interactive ? "button" : undefined}
             onClick={onClick}
             className={cn(
-                "flex w-full items-center gap-3 bg-surface-gray-1 rounded-md px-3 py-4 md:py-2 text-left select-none transition-colors outline-none focus-visible:outline-none",
+                "flex w-full items-center gap-3 bg-surface-gray-1 p-3.5 md:py-2 text-left select-none transition-colors outline-none focus-visible:outline-none",
                 // `data-[state=open]` covers asChild-trigger rows, where the menu opens on
                 // pointer-down and would otherwise mask the :active highlight.
                 pressable && "active:bg-surface-gray-3 data-[state=open]:bg-surface-gray-3",
-                destructive ? "text-ink-red-8" : "text-ink-gray-8",
+                destructive ? "text-ink-red-8 bg-surface-red-1 active:bg-surface-red-2 data-[state=open]:bg-surface-red-2" : "text-ink-gray-8",
                 className,
             )}
             {...rest}

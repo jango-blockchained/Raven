@@ -219,11 +219,11 @@ const WorkspaceSwitcher = ({ workspaceID }: { workspaceID?: string }) => {
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size={isMobile ? "lg" : "sm"}>
                     {current && <WorkspaceLogo workspace={current} className="size-5 md:size-4.5" />}
-                    <span className="truncate text-ink-gray-8 text-xl-medium md:text-sm">{current?.workspace_name || workspaceID}</span>
-                    <ChevronDown className="size-4.5 md:size-4" />
+                    <span className="truncate text-ink-gray-8 text-lg-medium md:text-sm">{current?.workspace_name || workspaceID}</span>
+                    <ChevronDown className="size-4" />
                 </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" sideOffset={4} className="min-w-52">
+            <DropdownMenuContent align="start" sideOffset={4} className="min-w-64">
                 {workspaces.filter(w => w.workspace_member_name).map((workspace) => (
                     <WorkspaceSwitcherItem
                         key={workspace.name}
@@ -249,9 +249,9 @@ const WorkspaceSwitcherItem = ({
     const unread = useWorkspaceUnread(workspace.name)
 
     return (
-        <DropdownMenuItem onClick={onSelect} className="py-3">
+        <DropdownMenuItem onClick={onSelect} className="py-2">
             <WorkspaceLogo workspace={workspace} />
-            <span className="truncate text-xl md:text-sm">{workspace.workspace_name}</span>
+            <span className="truncate text-lg md:text-sm">{workspace.workspace_name}</span>
             {/* The current workspace shows the check; the others surface their unread */}
             {isCurrent ? (
                 <Check className="ml-auto h-4 w-4 text-ink-gray-8" />

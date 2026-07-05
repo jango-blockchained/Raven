@@ -37,7 +37,7 @@ export const EnterKeyBehaviourAtom = atomWithStorage<EnterKeyBehaviour>(
     { getOnInit: true },
 )
 
-interface QuickEmoji {
+export interface QuickEmoji {
     id: string
     src?: string,
     native?: string
@@ -52,3 +52,14 @@ export const QuickEmojisAtom = atomWithStorage<QuickEmoji[]>("raven-quick-emojis
     { id: "🔥", native: "🔥" },
     { id: "🤔", native: "🤔" },
 ])
+
+/**
+ * The reaction toggled by double-tapping a message on mobile. getOnInit so the
+ * first double-tap after load already uses the stored choice.
+ */
+export const DoubleTapReactionAtom = atomWithStorage<QuickEmoji>(
+    "raven-double-tap-reaction",
+    { id: "👍", native: "👍" },
+    undefined,
+    { getOnInit: true },
+)

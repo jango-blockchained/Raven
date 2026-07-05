@@ -22,7 +22,7 @@ import { useToggleReaction } from "./useToggleReaction"
 import { hapticTick } from "@utils/haptics"
 import { SmilePlus } from "lucide-react"
 import type { Message } from "@raven/types/common/Message"
-import { QuickEmojisAtom } from "@utils/preferences"
+import { DoubleTapReactionAtom, QuickEmojisAtom } from "@utils/preferences"
 
 /** Two taps on the same message within this window open the quick-action toolbar. */
 const DOUBLE_TAP_MS = 300
@@ -32,8 +32,6 @@ const LONG_PRESS_MS = 450
 /** Finger drift beyond this cancels the long-press — it's a scroll, not a hold. */
 const LONG_PRESS_SLOP_PX = 10
 
-/** Double-tapping a message on mobile toggles this reaction (Instagram-style). */
-const DOUBLE_TAP_REACTION = "👍"
 
 /**
  * Selections this soon after the menu opened are the tail of the opening
@@ -212,8 +210,14 @@ export const MessageActionMenu = ({ channelID, children }: { channelID: string; 
         action.onSelect()
     }
 
-    /** Mobile: double tap on a message quick-reacts (👍) — the toolbar is desktop-only now. */
+    /**
+     * Mobile: double tap on a message quick-reacts (Instagram-style) — the
+     * toolbar is desktop-only now. The emoji is the user's choice
+     * (DoubleTapReactionAtom, set in the profile's Preferences drawer; 👍 by
+     * default), which can be a custom emoji (src + id) too.
+     */
     const toggleReaction = useToggleReaction()
+    const doubleTapReaction = useAtomValue(DoubleTapReactionAtom)
     const onClick = (event: React.MouseEvent) => {
         if (!isMobile) return
         const element = event.target as HTMLElement
@@ -226,7 +230,8 @@ export const MessageActionMenu = ({ channelID, children }: { channelID: string; 
         lastTapRef.current = { messageID: block.message.name, time: event.timeStamp }
         if (last.messageID === block.message.name && event.timeStamp - last.time < DOUBLE_TAP_MS) {
             lastTapRef.current = { messageID: "", time: 0 }
-            toggleReaction(block.message, DOUBLE_TAP_REACTION)
+            if (doubleTapReaction.src) toggleReaction(block.message, doubleTapReaction.src, true, doubleTapReaction.id)
+            else toggleReaction(block.message, doubleTapReaction.native ?? doubleTapReaction.id)
             hapticTick()
         }
     }
