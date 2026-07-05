@@ -3,6 +3,7 @@ import Profile from "./pages/settings/Profile"
 import MobileProfile from "@pages/profile/Profile"
 import Channel from "@pages/workspace/Channel"
 import Notifications from "@pages/notifications/Notifications"
+import NotificationChatRoute from "@pages/notifications/NotificationChatRoute"
 import SavedMessages from "@pages/saved-messages/SavedMessages"
 import Search from "@pages/search/Search"
 import Threads from "@pages/threads/Threads"
@@ -109,7 +110,9 @@ function App() {
                     <Route path="thread/:threadID" element={<ThreadDrawerRoute />} />
                   </Route>
                 </Route>
-                <Route path="notifications" element={<Notifications />} />
+                <Route path="notifications" element={<Notifications />}>
+                  <Route path=":channelID/:messageID" element={<NotificationChatRoute />} />
+                </Route>
                 <Route path="threads" element={<Threads />}>
                   <Route path=":threadID" element={<ThreadDrawerRoute />} />
                 </Route>

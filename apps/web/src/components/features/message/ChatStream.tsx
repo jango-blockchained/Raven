@@ -43,6 +43,13 @@ export type ChatStreamProps = {
      * plain "latest messages" fetch racing a second "around the message" fetch.
      */
     initialMessageID?: string | null
+    /**
+     * Ignore the URL's ?message_id — it belongs to ANOTHER stream on the page. The
+     * thread drawer sets this: a channel can be open with a thread beside it, and the
+     * URL's message target must only drive the channel's stream, not the thread's
+     * (the thread would otherwise try to fetch around a message it doesn't contain).
+     */
+    disableURLTarget?: boolean
 }
 
 /**
@@ -52,11 +59,11 @@ export type ChatStreamProps = {
  * and scrolls on its own. Pages compose it next to their own headers, inputs,
  * and drawers (channel page, DM page, thread drawer, threads page).
  */
-export default function ChatStream({ channelID, pinnedMessagesString, initialMessageID }: ChatStreamProps) {
+export default function ChatStream({ channelID, pinnedMessagesString, initialMessageID, disableURLTarget = false }: ChatStreamProps) {
     const [searchParams, setSearchParams] = useSearchParams()
     // Deep link (?message_id= from shared URLs) or a pane-provided target (notifications
     // page). Passed to the hook so the channel's FIRST fetch is already centered on it.
-    const deepLinkMessageID = searchParams.get("message_id") ?? initialMessageID ?? null
+    const deepLinkMessageID = (disableURLTarget ? null : searchParams.get("message_id")) ?? initialMessageID ?? null
 
     const {
         blocks,
@@ -123,13 +130,14 @@ export default function ChatStream({ channelID, pinnedMessagesString, initialMes
         (messageID: string) => {
             setTarget(null)
             setHighlightedID(messageID)
-            if (searchParams.get("message_id") === messageID) {
+            // Only the stream that OWNS the URL target may clean it up.
+            if (!disableURLTarget && searchParams.get("message_id") === messageID) {
                 const next = new URLSearchParams(searchParams)
                 next.delete("message_id")
                 setSearchParams(next, { replace: true })
             }
         },
-        [searchParams, setSearchParams, setTarget],
+        [searchParams, setSearchParams, setTarget, disableURLTarget],
     )
 
     useEffect(() => {

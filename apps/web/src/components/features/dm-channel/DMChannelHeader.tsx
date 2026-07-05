@@ -9,10 +9,11 @@ import {
 } from "@components/ui/dropdown-menu"
 import { UserAvatar } from "@components/features/message/UserAvatar"
 import { OnLeaveBadge } from "@components/common/OnLeaveBadge"
-import { Bot, ChevronDown, ChevronLeft, Files, Link, MessageSquareText, Pin, SearchIcon, User, UserX } from "lucide-react"
+import { ArrowUpRight, Bot, ChevronDown, ChevronLeft, Files, Link, MessageSquareText, Pin, SearchIcon, User, UserX } from "lucide-react"
 import { useSetAtom } from "jotai"
 import { commandMenuOpenAtom } from "@components/features/cmdk/atoms"
-import { useNavigate } from "react-router-dom"
+import { useMatch } from "react-router-dom"
+import { useMobileBack } from "@hooks/useMobileBack"
 import { type DrawerType } from "@utils/channelAtoms"
 import { useOpenChannelDrawer } from "@hooks/useChannelDrawer"
 import { UserData } from "@db"
@@ -22,12 +23,23 @@ import { useChannel } from "@hooks/useChannel"
 interface DMChannelHeaderProps {
     /** Peer user info (name, avatar). When from API this can extend to peer_user_id, etc. */
     peer: UserData
+    /** Hide the drawer-opening actions (name dropdown, pins). Off in the
+     * notifications/search/saved panes: too narrow for the drawer rail, and the
+     * drawers resolve their channel from the URL, which doesn't match there. */
+    showActions?: boolean
+    /** Show an "Open channel" button that navigates to the DM's full page —
+     * provided by panes (notifications/search/saved) as the way out of the pane. */
+    onOpenChannel?: () => void
     /** DM channel id (for drawer state) */
     channelID: string
 }
 
-export function DMChannelHeader({ peer, channelID }: DMChannelHeaderProps) {
-    const navigate = useNavigate()
+export function DMChannelHeader({ peer, channelID, showActions = true, onOpenChannel }: DMChannelHeaderProps) {
+    // Mobile back: pop history, so it lands wherever this chat was opened from
+    // (DM list, notifications, …). The cold-start fallback comes from the route
+    // this header is rendered under.
+    const inNotifications = !!useMatch("/notifications/*")
+    const goBack = useMobileBack(inNotifications ? "/notifications" : "/dm-channel")
     const displayName = peer.full_name || peer.name
     const setDrawerType = useOpenChannelDrawer(channelID)
     const setCommandMenuOpen = useSetAtom(commandMenuOpenAtom)
@@ -47,22 +59,29 @@ export function DMChannelHeader({ peer, channelID }: DMChannelHeaderProps) {
             // mobile so list ↔ channel navigation doesn't jump the header
             className="flex h-11 w-full shrink-0 items-center justify-between border-b border-outline-gray-2 bg-surface-base px-2"
         >
-            <div className="flex items-center gap-1 md:hidden">
+            <div className="flex items-center justify-center md:hidden">
                 <Button
                     variant="ghost"
-                    size="md"
+                    size="lg"
                     isIconButton
-                    onClick={() => navigate('/dm-channel')}
+                    onClick={goBack}
                     aria-label={_('Back')}
                 >
-                    <ChevronLeft />
+                    <ChevronLeft className="size-6" />
                 </Button>
             </div>
 
             {/* Left: Avatar/Name dropdown + pinned chip */}
             <div className="flex items-center gap-2 min-w-0">
                 <div className="flex items-center gap-1">
-                    <DropdownMenu>
+                    {!showActions && (
+                        // Plain identity (same look as the dropdown trigger) — no menu.
+                        <div className="flex items-center gap-2 min-w-0 max-w-60 px-1.5 py-1">
+                            <UserAvatar user={peer} size="sm" />
+                            <span className="text-lg md:text-sm font-medium truncate">{displayName}</span>
+                        </div>
+                    )}
+                    {showActions && <DropdownMenu>
                         <DropdownMenuTrigger asChild className="px-1.5">
                             <Button
                                 variant="ghost"
@@ -115,7 +134,7 @@ export function DMChannelHeader({ peer, channelID }: DMChannelHeaderProps) {
                                 </DropdownMenuSubContent>
                             </DropdownMenuSub> */}
                         </DropdownMenuContent>
-                    </DropdownMenu>
+                    </DropdownMenu>}
 
                     {isBot && (
                         <Badge size="md" variant="subtle" theme="violet">
@@ -136,7 +155,7 @@ export function DMChannelHeader({ peer, channelID }: DMChannelHeaderProps) {
                         </Badge>
                     )}
 
-                    {pinnedCount > 0 && (
+                    {showActions && pinnedCount > 0 && (
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <Button variant="ghost" size="sm" className="gap-2" onClick={() => openTab("pins")}>
@@ -153,14 +172,25 @@ export function DMChannelHeader({ peer, channelID }: DMChannelHeaderProps) {
                 </div>
             </div>
 
-            {/* Right: Command menu (mobile) + Call */}
-            <div className="items-center gap-1 ml-auto md:hidden flex">
+            {/* Right: Open channel (panes) + command menu (mobile) + Call */}
+            <div className="items-center gap-1 ml-auto flex">
+                {onOpenChannel && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="sm" isIconButton onClick={onOpenChannel} aria-label={_("Open channel")}>
+                                <ArrowUpRight />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{_("Open channel")}</TooltipContent>
+                    </Tooltip>
+                )}
                 <Button
                     variant="ghost"
                     size="md"
                     isIconButton
                     onClick={() => setCommandMenuOpen(true)}
                     aria-label={_("Command Menu")}
+                    className="md:hidden"
                 >
                     <SearchIcon />
                 </Button>

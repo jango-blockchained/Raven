@@ -1,4 +1,5 @@
 import { useRef, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { useFrappePostCall, useFrappeDeleteDoc } from "frappe-react-sdk"
 import { useHotkeys } from "react-hotkeys-hook"
 import { useAtom } from "jotai"
@@ -45,6 +46,7 @@ export default function ThreadDrawer({
     parentChannelID,
     onClose,
     initialMessageID,
+    showOpenChannel = false,
 }: {
     threadID: string
     parentChannelID?: string
@@ -52,9 +54,28 @@ export default function ThreadDrawer({
     /** Center the thread's first fetch on this message (notification click into a thread) —
      *  see ChatStreamProps.initialMessageID. */
     initialMessageID?: string | null
+    /** Show the header's "Open channel" button. Only for hosts where the parent channel
+     *  is NOT already visible beside the thread (threads page, notification/search panes) —
+     *  redundant on the channel/DM routes. */
+    showOpenChannel?: boolean
 }) {
-    const parentIsDM = useChannelById(parentChannelID ?? "")?.is_direct_message === 1
+    const parentChannel = useChannelById(parentChannelID ?? "")
+    const parentIsDM = parentChannel?.is_direct_message === 1
     const threadInputRef = useRef<HTMLFormElement>(null)
+
+    // "Open channel": go to the parent channel with this thread still open and the
+    // thread's ROOT message selected there (the thread id IS the root message id).
+    // Unavailable until the parent channel is known (e.g. a cold deep-link still resolving).
+    const navigate = useNavigate()
+    const onOpenChannel =
+        parentChannelID && (parentIsDM || parentChannel?.workspace)
+            ? () => {
+                const base = parentIsDM
+                    ? `/dm-channel/${encodeURIComponent(parentChannelID)}`
+                    : `/${encodeURIComponent(parentChannel?.workspace ?? "")}/${encodeURIComponent(parentChannelID)}`
+                navigate(`${base}/thread/${encodeURIComponent(threadID)}?message_id=${encodeURIComponent(threadID)}`)
+            }
+            : undefined
 
     // Gate the actions by your membership in the thread (already in the members store, seeded by
     // the pill / get_thread_details). Only members can leave; only thread admins can delete.
@@ -138,6 +159,7 @@ export default function ThreadDrawer({
             <FileDropZone channelID={threadID ?? ""} disabled={composerGate.state !== "composer"}>
                 <ThreadHeader
                     onClose={onClose}
+                    onOpenChannel={showOpenChannel ? onOpenChannel : undefined}
                     onLeave={onLeaveThread}
                     onRequestDelete={() => setConfirmDelete(true)}
                     leaving={leaving}
@@ -149,8 +171,10 @@ export default function ThreadDrawer({
                     Keyed by thread so its expand state resets when you switch threads. */}
                 <ThreadRootMessage key={threadID} threadID={threadID ?? ""} parentID={parentChannelID} />
 
-                {/* Thread messages — ChatStream owns its own scroll/virtualization */}
-                {threadID && <ChatStream channelID={threadID} initialMessageID={initialMessageID} />}
+                {/* Thread messages — ChatStream owns its own scroll/virtualization.
+                    disableURLTarget: the URL's ?message_id belongs to the CHANNEL's stream
+                    (a channel + thread can be open together) — never to the thread's. */}
+                {threadID && <ChatStream channelID={threadID} initialMessageID={initialMessageID} disableURLTarget />}
 
                 {/* Message input — posts into the thread channel (or skeleton / not-member banner) */}
                 <div className="shrink-0">
