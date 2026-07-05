@@ -12,6 +12,7 @@ import { useComposerGate, ComposerArea } from "@components/features/ChatInput/co
 import { pollDrawerAtom, channelDrawerAtom } from "@utils/channelAtoms"
 import { useIsMobile } from "@hooks/use-mobile"
 import _ from "@lib/translate"
+import { cn } from "@lib/utils"
 
 export interface ChatContentViewProps {
     /** Channel or DM channel id (useCurrentChannelID is used by ThreadDrawer/ChatInput etc.) */
@@ -74,21 +75,14 @@ export function ChatContentView({
     const showsOverlay = !!pollDrawerData || hasContextDrawer
     const drawerWidth = hasThread && !showsOverlay ? "w-1/2" : "w-96 max-w-[45%]"
 
-    // On mobile a thread takes over the whole content area (its own full-bleed surface)
-    if (isMobile && threadDrawer) {
-        return (
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-surface-base">
-                {threadDrawer}
-            </div>
-        )
-    }
-
     return (
         // Canvas gutter: p-1 reveals the gray content-column behind as the
         // frame; gap-1 separates the islands. Full-bleed (p-0) on mobile.
-        <div className="flex min-h-0 min-w-0 flex-1 flex-row gap-1 p-0 md:p-1">
-            {/* Chat island: header + stream + input */}
-            <Island className="flex-1">
+        // relative: the mobile thread layer below positions against this row.
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-row gap-1 p-0 md:p-1">
+            {/* Chat island: header + stream + input. inert while the mobile thread layer
+                covers it, so focus/screen readers can't land in the hidden channel. */}
+            <Island className="flex-1" inert={isMobile && hasThread ? true : undefined}>
                 <FileDropZone channelID={channelID} disabled={composerBlocked}>
                     {header}
                     <ChatStream channelID={channelID} pinnedMessagesString={pinnedMessagesString} initialMessageID={initialMessageID} />
@@ -120,6 +114,18 @@ export function ChatContentView({
                         threadDrawer
                     )}
                 </Island>
+            )}
+
+            {/* Mobile: the thread is a full-screen LAYER above the channel (stacked
+                navigation, same as the sidebars) — the channel stays mounted underneath,
+                so going back (chevron or iOS back-swipe) reveals it instantly at the same
+                scroll position instead of rebuilding it. Hidden (the outlet is null) when
+                no thread is open, so it can't cover the channel. Renders the outlet only
+                on mobile — desktop renders it in the side rail above. */}
+            {isMobile && (
+                <div className={cn("absolute inset-0 z-10 flex min-h-0 flex-col overflow-hidden bg-surface-base", !hasThread && "hidden")}>
+                    {threadDrawer}
+                </div>
             )}
 
             {/* Mobile: same drawers, presented as bottom sheets */}

@@ -45,13 +45,16 @@ export const ThreadButton = ({ participants, messageCount, threadID }: ThreadBut
 
     // TODO: Handle routing when this is clicked on the notifications/search page since we need to then go to the channel's thread route.
     // Thread route is sibling to the channel: strip any open `/thread/...` to get the
-    // channel base, then point at this thread. `replace` so the back button still exits
-    // the channel rather than cycling threads. Closing the channel drawer is a click
+    // channel base, then point at this thread. Closing the channel drawer is a click
     // side-effect (navigating to a thread shouldn't leave the members/files drawer open).
+    const inThread = location.pathname.includes("/thread/")
     const to = `${location.pathname.split("/thread")[0]}/thread/${threadID}`
 
     return (
-        <NavLink to={to} replace onClick={openThread} className={({ isActive }) => cn(className, isActive && "text-ink-gray-9")}>
+        // Push on the FIRST thread open, so one back closes the thread and returns to the
+        // channel (an unconditional `replace` made back skip straight past the channel).
+        // Replace when a thread is already open, so back never cycles through threads.
+        <NavLink to={to} replace={inThread} onClick={openThread} className={({ isActive }) => cn(className, isActive && "text-ink-gray-9")}>
             {content}
         </NavLink>
     )
