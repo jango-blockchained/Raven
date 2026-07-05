@@ -43,6 +43,28 @@
   }
 }
 
+/* Mobile page-stack transition: a stacked layer (an open chat/thread over its list)
+   slides in from the right like a native push. The layers stay mounted and toggle
+   `hidden` — browsers restart CSS animations when display flips from none, so the
+   slide re-plays on every open with no JS. Desktop (md+) never animates these, and
+   going BACK is deliberately instant: the iOS back-swipe is already animated by the
+   OS, and our first live frame must simply match its snapshot. */
+@utility animate-layer-in {
+  @media (width < 48rem) and (prefers-reduced-motion: no-preference) {
+    animation: layer-slide-in 220ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+}
+
+@keyframes layer-slide-in {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
 /* Typing-indicator dots: a gentle lift + fade wave, staggered per dot via
    [animation-delay:…]. Tailwind's animate-bounce throws the dot half its own
    height — far too loud next to 12px text. */

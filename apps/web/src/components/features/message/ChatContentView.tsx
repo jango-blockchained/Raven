@@ -123,7 +123,7 @@ export function ChatContentView({
                 no thread is open, so it can't cover the channel. Renders the outlet only
                 on mobile — desktop renders it in the side rail above. */}
             {isMobile && (
-                <div className={cn("absolute inset-0 z-10 flex min-h-0 flex-col overflow-hidden bg-surface-base", !hasThread && "hidden")}>
+                <div className={cn("absolute inset-0 z-10 flex min-h-0 flex-col overflow-hidden bg-surface-base animate-layer-in", !hasThread && "hidden")}>
                     {threadDrawer}
                 </div>
             )}

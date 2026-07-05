@@ -64,7 +64,7 @@ export default function DirectMessages() {
                 none is. Desktop: a normal flex column beside the list. */}
             <div className={cn(
                 "flex min-w-0 min-h-0 flex-col bg-surface-gray-1",
-                "max-md:absolute max-md:inset-0 max-md:z-10",
+                "max-md:absolute max-md:inset-0 max-md:z-10 animate-layer-in",
                 !id && "max-md:hidden",
                 "md:flex-1",
             )}>

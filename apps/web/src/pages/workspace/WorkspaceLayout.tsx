@@ -44,7 +44,7 @@ const WorkspaceLayout = () => {
                 <div
                     className={cn(
                         'flex min-w-0 min-h-0 flex-col bg-surface-sidebar',
-                        'max-md:absolute max-md:inset-0 max-md:z-10',
+                        'max-md:absolute max-md:inset-0 max-md:z-10 animate-layer-in',
                         !hasChannelOpen && 'max-md:hidden',
                         'md:flex-1',
                     )}

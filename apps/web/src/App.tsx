@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
+import { createBrowserRouter, createRoutesFromElements, RouterProvider, Route, Navigate } from "react-router-dom"
 import Profile from "./pages/settings/Profile"
 import MobileProfile from "@pages/profile/Profile"
 import Channel from "@pages/workspace/Channel"
@@ -60,6 +60,54 @@ const IndexRedirect = () => {
 }
 
 
+/**
+ * Data router (createBrowserRouter) rather than the declarative <BrowserRouter>:
+ * React Router's View Transitions integration (`viewTransition` on links/navigate,
+ * used for the desktop content cross-fade) only runs in data mode — declarative mode
+ * silently ignores it. Same route tree; a data router must be created ONCE at module
+ * scope, not per render.
+ */
+const router = createBrowserRouter(
+  createRoutesFromElements(
+    <Route path="/" element={<AppShell />}>
+      <Route index element={<IndexRedirect />} />
+      {/* Workspace: channels and settings only; search is global at /search above */}
+      <Route path=":workspaceID" element={<WorkspaceLayout />}>
+        <Route index element={<WorkspaceRedirect />} />
+        <Route path=":id" element={<Channel />}>
+          <Route path="thread/:threadID" element={<ThreadDrawerRoute />} />
+        </Route>
+      </Route>
+      <Route path="dm-channel" element={<DirectMessages />}>
+        <Route index element={<DirectMessagesIndex />} />
+        <Route path=":id" element={<DirectMessage />}>
+          <Route path="thread/:threadID" element={<ThreadDrawerRoute />} />
+        </Route>
+      </Route>
+      <Route path="notifications" element={<Notifications />}>
+        <Route path=":channelID/:messageID" element={<NotificationChatRoute />} />
+      </Route>
+      <Route path="threads" element={<Threads />}>
+        <Route path=":threadID" element={<ThreadDrawerRoute />} />
+      </Route>
+      <Route path="search" element={<SearchLayout />}>
+        <Route index element={<Search />} />
+      </Route>
+      <Route path="saved-messages" element={<SavedMessages />} />
+      <Route path="profile" element={<MobileProfile />} />
+      {/* <Route path="settings" element={<AppSettings />}>
+        <Route index element={<Navigate to="profile" replace />} />
+        <Route path="profile" element={<Profile />} />
+        <Route path="preferences" element={<Preferences />} />
+        <Route path="workspaces" element={<WorkspaceList />} />
+        <Route path="channels" element={<ManageChannels />} />
+        <Route path="emojis" element={<CustomEmojiList />} />
+      </Route> */}
+    </Route>,
+  ),
+  { basename: import.meta.env.VITE_BASE_NAME },
+)
+
 function App() {
 
   useEffect(() => {
@@ -93,46 +141,8 @@ function App() {
           }}
           siteName={getSiteName()}
         >
-          <BrowserRouter basename={import.meta.env.VITE_BASE_NAME}>
-            <Routes>
-              <Route path="/" element={<AppShell />}>
-                <Route index element={<IndexRedirect />} />
-                {/* Workspace: channels and settings only; search is global at /search above */}
-                <Route path=":workspaceID" element={<WorkspaceLayout />}>
-                  <Route index element={<WorkspaceRedirect />} />
-                  <Route path=":id" element={<Channel />}>
-                    <Route path="thread/:threadID" element={<ThreadDrawerRoute />} />
-                  </Route>
-                </Route>
-                <Route path="dm-channel" element={<DirectMessages />}>
-                  <Route index element={<DirectMessagesIndex />} />
-                  <Route path=":id" element={<DirectMessage />}>
-                    <Route path="thread/:threadID" element={<ThreadDrawerRoute />} />
-                  </Route>
-                </Route>
-                <Route path="notifications" element={<Notifications />}>
-                  <Route path=":channelID/:messageID" element={<NotificationChatRoute />} />
-                </Route>
-                <Route path="threads" element={<Threads />}>
-                  <Route path=":threadID" element={<ThreadDrawerRoute />} />
-                </Route>
-                <Route path="search" element={<SearchLayout />}>
-                  <Route index element={<Search />} />
-                </Route>
-                <Route path="saved-messages" element={<SavedMessages />} />
-                <Route path="profile" element={<MobileProfile />} />
-                {/* <Route path="settings" element={<AppSettings />}>
-                  <Route index element={<Navigate to="profile" replace />} />
-                  <Route path="profile" element={<Profile />} />
-                  <Route path="preferences" element={<Preferences />} />
-                  <Route path="workspaces" element={<WorkspaceList />} />
-                  <Route path="channels" element={<ManageChannels />} />
-                  <Route path="emojis" element={<CustomEmojiList />} />
-                </Route> */}
-              </Route>
-            </Routes>
-            <Toaster />
-          </BrowserRouter>
+          <RouterProvider router={router} />
+          <Toaster />
         </FrappeProvider>
       </TooltipProvider>
     </LucideProvider>

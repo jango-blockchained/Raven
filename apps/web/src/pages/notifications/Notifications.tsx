@@ -197,7 +197,7 @@ export default function Notifications() {
                     open, hidden when none is. Desktop: a normal column beside the list. */}
                 <div className={cn(
                     "flex min-w-0 min-h-0 flex-col bg-surface-gray-1",
-                    "max-md:absolute max-md:inset-0 max-md:z-10",
+                    "max-md:absolute max-md:inset-0 max-md:z-10 animate-layer-in",
                     !hasSelection && "max-md:hidden",
                     "md:flex-1",
                 )}>
