@@ -355,14 +355,15 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                             // deliberately replace the editor surface's default EDITOR_CLASS heights
                             // (EDITOR_MIN_H etc.) with a compact one-line-that-grows box — these values
                             // are mobile-specific and intentionally NOT tied to EDITOR_MIN_H.
-                            <div className={cn("flex items-end gap-1 px-2 py-2 border-t border-outline-gray-2 bg-surface-elevation-1", isMobile && (keyboardOpen ? "pb-0" : "pb-4"))}>
+                            // Unequal paddings are added to make the entire thing optically balanced since the Plus button is bare (ghost) and does not have a structure.
+                            <div className={cn("flex items-end gap-0 pe-2 ps-1 py-2 border-t border-outline-gray-2 bg-surface-base", isMobile && (keyboardOpen ? "pb-0" : ""))}>
                                 <div className="flex items-center justify-center h-10">
                                     <MobileComposerActions channelID={channelID} />
                                 </div>
-                                <div className="flex-1 min-w-0 dark:bg-surface-elevation-3 bg-surface-gray-1 rounded-2xl [&_.tiptap]:min-h-10 [&_.tiptap]:max-h-64 [&_.tiptap]:overflow-y-auto [&_.tiptap]:py-2">
+                                <div className="flex-1 min-w-0 dark:bg-surface-elevation-2 bg-surface-gray-1 rounded-2xl [&_.tiptap]:min-h-10 [&_.tiptap]:max-h-64 [&_.tiptap]:overflow-y-auto [&_.tiptap]:py-2">
                                     <EditorContent editor={editor} />
                                 </div>
-                                <div className="flex items-center justify-center h-10">
+                                <div className="flex items-center justify-center h-10 ms-1.5">
                                     <SendButton onSend={handleSend} loading={pendingSend} disabled={nothingToSend} />
                                 </div>
 

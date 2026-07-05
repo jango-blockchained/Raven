@@ -1,5 +1,5 @@
 import { Button } from "@components/ui/button"
-import { SendIcon } from "lucide-react"
+import { SendHorizontalIcon, SendIcon } from "lucide-react"
 import { useIsMobile } from "@hooks/use-mobile"
 import _ from "@lib/translate"
 
@@ -29,7 +29,7 @@ const SendButton = ({ onSend, disabled, loading }: SendButtonProps) => {
             {/* While loading the Button shows its own spinner; don't also render content. */}
             {!loading && (
                 <>
-                    <SendIcon />
+                    {isMobile ? <SendHorizontalIcon /> : <SendIcon />}
                     {!isMobile && <span>{_("Send")}</span>}
                 </>
             )}
