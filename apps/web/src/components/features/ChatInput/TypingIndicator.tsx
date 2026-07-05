@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { useFrappeEventListener } from "frappe-react-sdk"
 import { useUser } from "@hooks/useUser"
 import { useUserCookieData } from "@hooks/useUserCookieData"
 import type { UserData } from "@db"
@@ -7,9 +8,38 @@ import { cn } from "@lib/utils"
 import { GroupedAvatars } from "@components/ui/grouped-avatars"
 import { useChannelTypers } from "@stores/typing/useChannelTypers"
 
+type AIEventData = { channel_id: string; text?: string; bot?: string }
+
+/**
+ * Live "AI is thinking" status for a channel (ported from v2's AIEvent). The
+ * backend publishes ai_event / ai_event_clear to the channel's DOC room, which
+ * the message store's warm-channel doc_subscribe already joins — no extra room
+ * work here, just listeners. Local state (not a store): only the open channel's
+ * strip cares, and it resets on channel switch.
+ */
+const useAIEvent = (channelID: string): { text: string; bot?: string } => {
+    const [event, setEvent] = useState<{ text: string; bot?: string }>({ text: "" })
+
+    useFrappeEventListener("ai_event", (data: AIEventData) => {
+        if (data?.channel_id === channelID) setEvent({ text: data.text ?? "", bot: data.bot })
+    })
+    useFrappeEventListener("ai_event_clear", (data: AIEventData) => {
+        if (data?.channel_id === channelID) setEvent({ text: "" })
+    })
+
+    // The indicator isn't remounted per channel — drop a stale event on switch.
+    useEffect(() => {
+        setEvent({ text: "" })
+    }, [channelID])
+
+    return event
+}
+
 /**
  * "X is typing" strip for a channel: stacked avatars of the typers (max 3),
- * their names, and an animated dot wave in place of the literal "…".
+ * their names, and an animated dot wave in place of the literal "…". While an
+ * AI bot is working (ai_event), the strip shows the bot's avatar + its status
+ * text in a shimmer instead — that takes precedence over human typers.
  *
  * ALWAYS rendered at a fixed height, in normal flow — a constant reservation
  * can't shift the composer or the stream, and (unlike the earlier absolute
@@ -26,7 +56,11 @@ export const TypingIndicator = ({ channelID }: { channelID: string }) => {
     const typers = useChannelTypers(channelID)
     const { name: currentUser } = useUserCookieData()
     const others = useMemo(() => typers.filter((user) => user !== currentUser), [typers, currentUser])
-    const active = others.length > 0
+    const aiEvent = useAIEvent(channelID)
+    const botUser = useUser(aiEvent.bot)
+    // An active AI event owns the strip — the bot is about to reply, which is
+    // more useful than knowing a human is also drafting.
+    const active = others.length > 0 && !aiEvent.text
 
     // Exit animation: the RENDERED list lags the live one. While active they're
     // synced; when the live list empties, the last typers stay rendered with the
@@ -59,7 +93,12 @@ export const TypingIndicator = ({ channelID }: { channelID: string }) => {
 
     return (
         <div className="flex h-5 items-center px-3 md:px-1" aria-live="polite">
-            {shown.length > 0 && (
+            {aiEvent.text ? (
+                <div className="flex min-w-0 items-center gap-2 duration-200 animate-in fade-in slide-in-from-bottom-1">
+                    {botUser && <GroupedAvatars users={[botUser]} size="xs" />}
+                    <span className="truncate text-xs text-shimmer">{aiEvent.text}</span>
+                </div>
+            ) : shown.length > 0 && (
                 <div
                     className={cn(
                         "flex min-w-0 items-center gap-2 duration-200",

@@ -65,6 +65,32 @@
   animation: typing-dot 1.2s ease-in-out infinite;
 }
 
+/* AI-event text shimmer (shadcn-style): a highlight sweeping across muted text
+   via background-clip. Built from ink tokens so it works in both themes. */
+@keyframes text-shimmer {
+  from {
+    background-position: 150% center;
+  }
+
+  to {
+    background-position: -50% center;
+  }
+}
+
+@utility text-shimmer {
+  background: linear-gradient(90deg,
+      var(--color-ink-gray-5) 0%,
+      var(--color-ink-gray-5) 40%,
+      var(--color-ink-gray-9) 50%,
+      var(--color-ink-gray-5) 60%,
+      var(--color-ink-gray-5) 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: text-shimmer 1.8s linear infinite;
+}
+
 /* scroll-fade (from shadcn): masks a scroll container's edges so content fades out at the
    top/bottom instead of cutting off hard. The scroll-timeline keyframes reveal each edge's
    fade only when there's content to scroll in that direction — no fade on the first row when
