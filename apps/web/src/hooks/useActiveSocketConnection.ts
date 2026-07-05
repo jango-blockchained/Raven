@@ -33,7 +33,7 @@ export const useActiveSocketConnection = () => {
                         toast.error(_("Realtime events aren't working. Please refresh the page."), {
                             duration: 5000,
                             id: "socket-connection-error",
-                            position: "top-center",
+                            position: "top-right",
                         })
                         toastShown.current = true
                     }

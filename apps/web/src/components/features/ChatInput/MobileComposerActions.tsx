@@ -1,5 +1,5 @@
 import { useRef, useState } from "react"
-import { Plus, Camera, Images, BarChart3, FileBox, type LucideIcon, FilesIcon } from "lucide-react"
+import { Plus, Camera, Images, FileBox, type LucideIcon, FilesIcon, ChartBar } from "lucide-react"
 import { Button } from "@components/ui/button"
 import { Drawer, DrawerContent, DrawerTitle, DrawerTrigger } from "@components/ui/drawer"
 import { useAttachFile } from "./useFileInput"
@@ -8,11 +8,11 @@ import AttachFrappeDocumentDialog from "./AttachFrappeDocumentDialog"
 import _ from "@lib/translate"
 
 /**
- * Mobile composer overflow: a single "+" opens a bottom sheet. Three source
- * tiles on top (camera / photo library / files), action rows below (poll,
- * document). The poll/document dialogs are driven in controlled mode (their
- * triggers live here as sheet rows); every attach path funnels through the
- * shared useAttachFile, so size/type validation still applies.
+ * Mobile composer overflow: a single "+" opens a bottom sheet of circle icon
+ * tiles (camera / photos / files / document / poll — WhatsApp-style). The
+ * poll/document dialogs are driven in controlled mode (they live OUTSIDE the
+ * sheet, so closing it before opening them is safe); every attach path funnels
+ * through the shared useAttachFile, so size/type validation still applies.
  *
  * The tiles are three hidden file inputs whose ATTRIBUTES steer the OS picker:
  *   - camera:  accept="image/*,video/*" + capture — straight to the camera,
@@ -42,15 +42,12 @@ export const MobileComposerActions = ({
         e.target.value = ""
     }
 
-    const sources: { icon: LucideIcon; label: string; inputRef: React.RefObject<HTMLInputElement | null> }[] = [
-        { icon: Camera, label: _("Camera"), inputRef: cameraInputRef },
-        { icon: Images, label: _("Photos"), inputRef: galleryInputRef },
-        { icon: FilesIcon, label: _("Files"), inputRef: fileInputRef },
-    ]
-
-    const rows: { icon: LucideIcon; label: string; onClick: () => void }[] = [
-        { icon: BarChart3, label: _("Create a poll"), onClick: () => setPollOpen(true) },
-        { icon: FileBox, label: _("Attach a document"), onClick: () => setDocOpen(true) },
+    const tiles: { icon: LucideIcon; label: string; onSelect: () => void }[] = [
+        { icon: Camera, label: _("Camera"), onSelect: () => cameraInputRef.current?.click() },
+        { icon: Images, label: _("Photos"), onSelect: () => galleryInputRef.current?.click() },
+        { icon: FilesIcon, label: _("Files"), onSelect: () => fileInputRef.current?.click() },
+        { icon: ChartBar, label: _("Poll"), onSelect: () => setPollOpen(true) },
+        { icon: FileBox, label: _("Document"), onSelect: () => setDocOpen(true) },
     ]
 
     return (
@@ -67,39 +64,23 @@ export const MobileComposerActions = ({
                 </DrawerTrigger>
                 <DrawerContent>
                     <DrawerTitle className="sr-only">{_("Composer actions")}</DrawerTitle>
-                    <div className="flex flex-col gap-1 p-3 pb-10">
-                        {/* Attachment sources — tiles, WhatsApp-style */}
-                        <div className="grid grid-cols-3 gap-2 pb-2">
-                            {sources.map((source) => (
-                                <button
-                                    key={source.label}
-                                    type="button"
-                                    className="flex flex-col items-center justify-center gap-2 rounded-xl bg-surface-gray-1 py-5 transition-colors active:bg-surface-gray-3 dark:bg-surface-elevation-2 dark:active:bg-surface-elevation-3"
-                                    onClick={() => {
-                                        setSheetOpen(false)
-                                        source.inputRef.current?.click()
-                                    }}
-                                >
-                                    <source.icon className="size-6 text-ink-gray-7" />
-                                    <span className="text-sm text-ink-gray-7">{source.label}</span>
-                                </button>
-                            ))}
-                        </div>
-
-                        {rows.map((row) => (
-                            <Button
-                                key={row.label}
-                                variant="ghost"
-                                size="lg"
-                                className="w-full justify-start gap-3 text-xl-normal py-5 active:bg-surface-gray-3 dark:active:bg-surface-elevation-3 text-ink-gray-7 font-normal"
+                    {/* Circle icon tiles, WhatsApp-style — every option is an icon */}
+                    <div className="grid grid-cols-4 gap-x-2 gap-y-6 px-4 pt-6 pb-[calc(2.5rem+env(safe-area-inset-bottom))]">
+                        {tiles.map((tile) => (
+                            <button
+                                key={tile.label}
+                                type="button"
+                                className="flex flex-col items-center gap-2"
                                 onClick={() => {
                                     setSheetOpen(false)
-                                    row.onClick()
+                                    tile.onSelect()
                                 }}
                             >
-                                <row.icon />
-                                {row.label}
-                            </Button>
+                                <span className="flex size-14 items-center justify-center rounded-full bg-surface-gray-2 transition-colors active:bg-surface-gray-4 dark:bg-surface-elevation-3 dark:active:bg-surface-gray-4">
+                                    <tile.icon className="size-6 text-ink-gray-7" />
+                                </span>
+                                <span className="text-xs text-ink-gray-6">{tile.label}</span>
+                            </button>
                         ))}
                     </div>
                 </DrawerContent>

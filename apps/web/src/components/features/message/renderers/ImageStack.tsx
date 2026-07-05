@@ -5,12 +5,15 @@ import { type ImageFile } from "./ImageMessage"
 import { ReservedImage } from "./ReservedImage"
 
 /**
- * Mobile: each card starts this fraction of the pile's height below the previous
- * one — a true Instagram cascade, one photo after the other with only the seam
- * (~20%) overlapping. The container grows to hold the whole run, so padding
- * stays a thin tilt/shadow budget instead of scaling with the throw.
+ * Mobile: each card overlaps the PREVIOUS card by this fraction of that card's
+ * own height. Run offsets accumulate over the cards' ACTUAL heights — not
+ * multiples of the tallest card — so mixed portrait/landscape batches keep a
+ * consistent seam, and the container ends exactly at the last card's bottom
+ * edge. (The old ladder stepped by the TALLEST card's height, so a short
+ * landscape card after a tall portrait one left phantom container space below
+ * the last image — it looked like runaway padding.)
  */
-const MOBILE_STEP = 0.6
+const MOBILE_OVERLAP = 0.4
 
 /** Tiny deterministic string hash — same input always yields the same index. */
 const hashString = (s: string) => {
@@ -48,27 +51,32 @@ const zByDepth = ["z-30", "z-20", "z-10", "z-0"]
 // ladder doing the peeking, letting the side gutters shrink and the
 // container widen. md+ keeps the wider fan, and all hover growth is gated
 // behind md: so sticky-hover on touch can never fire it.
+// Desktop hover leads with TRANSLATION (the pile visibly spreads sideways)
+// while rotation grows gently — a fan of photos sliding apart, not just
+// twisting in place. Values are hand-tuned per bucket, deliberately uneven
+// between sides for a more organic fan; every hover value must EXCEED its
+// rest value or that bucket won't move when the pile fans.
 const xRight = [
-    "translate-x-2 md:translate-x-4 md:group-hover:translate-x-8",
-    "translate-x-2.5 md:translate-x-6 md:group-hover:translate-x-10",
-    "translate-x-3 md:translate-x-8 md:group-hover:translate-x-12",
+    "translate-x-2 md:translate-x-6 md:group-hover:translate-x-12",
+    "translate-x-2.5 md:translate-x-9 md:group-hover:translate-x-22",
+    "translate-x-3 md:translate-x-12 md:group-hover:translate-x-20",
 ]
 const xLeft = [
-    "-translate-x-2 md:-translate-x-4 md:group-hover:-translate-x-8",
-    "-translate-x-2.5 md:-translate-x-6 md:group-hover:-translate-x-10",
-    "-translate-x-3 md:-translate-x-8 md:group-hover:-translate-x-12",
+    "-translate-x-2 md:-translate-x-6 md:group-hover:-translate-x-14",
+    "-translate-x-2.5 md:-translate-x-9 md:group-hover:-translate-x-16",
+    "-translate-x-3 md:-translate-x-14 md:group-hover:-translate-x-20",
 ]
 // Mobile tilt is barely-there (±1-2°): cascade photos are mostly visible, so
 // a pile-sized tilt would read as sloppy rather than casual.
 const rotRight = [
     "rotate-2 md:rotate-3 md:group-hover:rotate-6",
-    "rotate-6 md:rotate-6 md:group-hover:rotate-12",
+    "rotate-3 md:rotate-6 md:group-hover:rotate-9",
     "rotate-4 md:rotate-6 md:group-hover:rotate-12",
 ]
 const rotLeft = [
-    "-rotate-2 md:-rotate-3 md:group-hover:-rotate-6",
-    "-rotate-4 md:-rotate-6 md:group-hover:-rotate-12",
-    "-rotate-6 md:-rotate-6 md:group-hover:-rotate-12",
+    "-rotate-3 md:-rotate-3 md:group-hover:-rotate-6",
+    "-rotate-4 md:-rotate-6 md:group-hover:-rotate-9",
+    "-rotate-2 md:-rotate-6 md:group-hover:-rotate-9",
 ]
 // Desktop vertical is a depth LADDER, not jitter: each card steps progressively
 // further down in the order it was sent, so every under-card's bottom edge peeks
@@ -76,12 +84,14 @@ const rotLeft = [
 // point here. md-only: mobile's vertical run comes from top offsets instead.
 const yByDepth = [
     "translate-y-0",
-    "md:translate-y-3 md:group-hover:translate-y-5",
-    "md:translate-y-6 md:group-hover:translate-y-9",
-    "md:translate-y-9 md:group-hover:translate-y-12",
+    "md:translate-y-4 md:group-hover:translate-y-6",
+    "md:translate-y-8 md:group-hover:translate-y-12",
+    "md:translate-y-12 md:group-hover:translate-y-16",
 ]
-// Top card gets just a hint of tilt (seeded) so it reads natural, not rigid.
-const topTilt = ["rotate-2", "-rotate-2", "rotate-4", "-rotate-4"]
+// Top card gets just a hint of tilt so it reads natural, not rigid. Its SIDE
+// comes from the batch's alternation (below) — only the magnitude is seeded.
+const topTiltRight = ["rotate-2", "rotate-4"]
+const topTiltLeft = ["-rotate-2", "-rotate-4"]
 
 /**
  * EXPERIMENT — iOS-style stacked photos.
@@ -93,8 +103,8 @@ const topTilt = ["rotate-2", "-rotate-2", "rotate-4", "-rotate-4"]
  * a touch. Clicking opens the existing viewer at the top (newest) image — the
  * rest are reachable from there as before.
  *
- * On MOBILE the pile relaxes into an Instagram-style vertical run: each deeper
- * card sits a step lower (MOBILE_STEP of the pile height), keeping the tilt and
+ * On MOBILE the pile relaxes into an Instagram-style vertical run: each card
+ * sits below the previous one with a MOBILE_OVERLAP seam, keeping the tilt and
  * a hint of sideways jitter — vertical space is cheap on a phone, horizontal
  * isn't, and there's no hover to fan the pile open.
  *
@@ -125,27 +135,41 @@ export const ImageStack = ({ images, onImageClick }: { images: ImageFile[]; onIm
     // tallest fills the height — peek in both axes, nothing cut off.
     //
     // On mobile the container is TALLER than the bounding box: it holds the whole
-    // vertical run (bounding box + one MOBILE_STEP per under-card), and cards are
-    // placed top-down at their run offsets instead of centered — still purely from
-    // stored dims, so message heights stay deterministic.
+    // vertical run, and cards are placed top-down at their run offsets instead of
+    // centered. Each card's offset is the previous card's offset + its ACTUAL
+    // height minus the overlap (see MOBILE_OVERLAP) — still purely from stored
+    // dims, so message heights stay deterministic.
     const norm = cards.map(unitDims)
     const boxW = Math.max(...norm.map((n) => n.w))
     const boxH = Math.max(...norm.map((n) => n.h))
-    const runH = boxH * (1 + (isMobile ? MOBILE_STEP * (cards.length - 1) : 0))
+    let acc = 0
+    const tops = norm.map((n) => {
+        const top = acc
+        acc += n.h * (1 - MOBILE_OVERLAP)
+        return top
+    })
+    const runH = isMobile ? tops[tops.length - 1] + norm[norm.length - 1].h : boxH
+
+    /** Which side the TOP card leans — random per batch, alternated down the pile. */
+    const startRight = hashString(cards[0].name + ":side") % 2 === 0
 
 
     return (
-        // padding = clipping budget, sized per breakpoint. Mobile's run lives INSIDE
-        // the container, so its padding is just a thin tilt/shadow budget. md+ is
-        // sized for the HOVER fan: the deepest card fans 48px down and a 12° rotation
-        // adds ~25px of corner overhang on a box-filling card, plus the shadow.
-        // Asymmetric vertically — the ladder only steps DOWN; the top only sees
-        // rotation overhang + the top card's small hover lift.
+        // padding = clipping budget, sized per breakpoint — and it's also LAYOUT
+        // space, so it must stay tight: in a mixed batch it becomes the gap before
+        // the doc pills below. Mobile's run lives INSIDE the container, so the only
+        // real overhang is the bottom card's tilt corner (~9px at 4° on a full-width
+        // card) + the shadow-md blur — pb-4 covers it. md+ is sized for the HOVER
+        // fan: cards slide up to 88px sideways (x-22) and 64px down (y-16), a 9°
+        // rotation adds ~19px of corner overhang on a box-filling card, plus the
+        // shadow — hence md:px-20 / md:pb-24. Asymmetric
+        // vertically — the ladder only steps DOWN; the top only sees rotation
+        // overhang + the top card's small hover lift.
         <div
             // contain: the padded wrapper's bounds ARE the pile's clipping budget,
             // so paint containment is free — and it scopes invalidation/raster of
             // the rotated, shadowed cards away from the rest of the stream.
-            className="px-6 pt-4 pb-8 md:px-12 md:pt-8 md:pb-20 [contain:layout_paint]"
+            className="px-6 pt-3 pb-4 md:px-20 md:pt-8 md:pb-24 [contain:layout_paint]"
         >
             <div
                 data-message-id={top.message_id}
@@ -169,11 +193,17 @@ export const ImageStack = ({ images, onImageClick }: { images: ImageFile[]; onIm
                     // each seam overlap Instagram-style: newer over older.
                     const depth = cards.length - 1 - index
                     const isTop = depth === 0
-                    // Horizontal side alternates by depth (balanced) with seeded magnitude (varied).
-                    const right = depth % 2 === 1
+                    // Tilt sides alternate STRICTLY through the whole pile, top card
+                    // included: the batch seeds which side the top card leans (random
+                    // per batch, stable), and each card beneath flips the one above —
+                    // so two images never lean the same way. Magnitudes stay seeded
+                    // per image, so the amount of tilt still varies.
+                    const right = depth % 2 === 0 ? startRight : !startRight
                     const mag = hashString(image.name) % 3
                     const x = isTop ? "translate-x-0" : right ? xRight[mag] : xLeft[mag]
-                    const r = isTop ? topTilt[hashString(image.name + ":t") % topTilt.length] : right ? rotRight[mag] : rotLeft[mag]
+                    const r = isTop
+                        ? (right ? topTiltRight : topTiltLeft)[hashString(image.name + ":t") % topTiltRight.length]
+                        : right ? rotRight[mag] : rotLeft[mag]
                     const y = yByDepth[depth]
                     // Top card lifts gently on hover (desktop only); the rest fan via their palettes.
                     const hover = isTop ? "md:group-hover:-translate-y-1.5" : ""
@@ -198,7 +228,7 @@ export const ImageStack = ({ images, onImageClick }: { images: ImageFile[]; onIm
                             style={{
                                 width: `${(n.w / boxW) * 100}%`,
                                 height: `${(n.h / runH) * 100}%`,
-                                top: isMobile ? `${((index * MOBILE_STEP * boxH) / runH) * 100}%` : undefined,
+                                top: isMobile ? `${(tops[index] / runH) * 100}%` : undefined,
                             }}
                             // Mobile cascade: photos are individually visible, so a tap opens
                             // THE tapped photo (desktop's pile keeps container-click → top).
