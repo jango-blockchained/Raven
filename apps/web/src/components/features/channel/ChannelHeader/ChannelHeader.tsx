@@ -51,6 +51,8 @@ const ChannelHeader = ({ channelID, showActions = true, onOpenChannel }: Channel
         setDrawerType('pins')
     }
 
+    const shouldShowActions = isMobile ? true : showActions
+
     return (
         <div
             className="flex w-full shrink-0 items-center justify-between border-b border-outline-gray-2 bg-surface-base h-11 px-2"
@@ -70,7 +72,7 @@ const ChannelHeader = ({ channelID, showActions = true, onOpenChannel }: Channel
             {/* Left side */}
             <div className="flex items-center gap-2 min-w-0 flex-1">
                 <div className="flex items-center gap-0.5 min-w-0">
-                    {showActions && (
+                    {shouldShowActions && (
                         <div className="items-center justify-center hidden md:flex">
                             <Tooltip>
                                 <TooltipTrigger asChild>
@@ -85,7 +87,7 @@ const ChannelHeader = ({ channelID, showActions = true, onOpenChannel }: Channel
                         </div>
                     )}
 
-                    {showActions ? (
+                    {shouldShowActions ? (
                         <ChannelMenu channelID={channelID} />
                     ) : (
                         // Plain title (same look as ChannelMenu's trigger) — no dropdown.
@@ -95,7 +97,7 @@ const ChannelHeader = ({ channelID, showActions = true, onOpenChannel }: Channel
                         </div>
                     )}
 
-                    {showActions && pinnedCount > 0 && <Tooltip>
+                    {shouldShowActions && pinnedCount > 0 && <Tooltip>
                         <TooltipTrigger asChild>
                             <Button variant="ghost" size={isMobile ? "md" : "sm"} onClick={onOpenPins} aria-label={_('View Pinned Messages')}>
                                 <Pin className="size-4.5 md:size-4" />
@@ -112,7 +114,7 @@ const ChannelHeader = ({ channelID, showActions = true, onOpenChannel }: Channel
 
             {/* Right side */}
             <div className="flex items-center gap-1 ml-auto shrink-0 pl-1">
-                {onOpenChannel && (
+                {onOpenChannel && !isMobile && (
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <Button variant="ghost" size={isMobile ? "lg" : "sm"} isIconButton onClick={onOpenChannel} aria-label={_('Open channel')}>
@@ -122,7 +124,7 @@ const ChannelHeader = ({ channelID, showActions = true, onOpenChannel }: Channel
                         <TooltipContent>{_('Open channel')}</TooltipContent>
                     </Tooltip>
                 )}
-                {showActions && <ChannelMembers onClick={onOpenMembers} channelID={channelID} />}
+                {shouldShowActions && <ChannelMembers onClick={onOpenMembers} channelID={channelID} />}
             </div>
         </div>
     )

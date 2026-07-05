@@ -49,7 +49,7 @@ const ChannelMenu = ({ channelID }: { channelID: string }) => {
                             {channel.channel_name}
                         </span>
                     </div>
-                    <ChevronDown className="size-4.5 md:size-4 shrink-0" />
+                    <ChevronDown className="hidden md:block shrink-0" />
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-64">
