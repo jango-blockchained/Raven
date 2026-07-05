@@ -1,4 +1,5 @@
-import { LogOut, Bell, SettingsIcon } from "lucide-react"
+import { LogOut, Bell, SettingsIcon, Loader2 } from "lucide-react"
+import { useLogout } from "@hooks/useLogout"
 import { UserAvatar } from "@components/features/message/UserAvatar"
 import { Button } from "@components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@components/ui/dropdown-menu"
@@ -35,11 +36,7 @@ const NavUserMenu = () => {
         }
     }, [myProfile, userCookieData])
 
-    const logout = () => {
-        // TODO: Implement logout
-
-        // Log the user out, clear locsl storage keys, clear cache keys
-    }
+    const { logout, isLoggingOut } = useLogout()
 
     // TODO: Implement notifications toggle
 
@@ -83,9 +80,15 @@ const NavUserMenu = () => {
                     <span>{_("Enable Notifications")}</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive">
-                    <LogOut className="h-4 w-4" />
-                    <span>{_("Log out")}</span>
+                {/* preventDefault keeps the menu open (spinner visible) while logout
+                    runs; success hard-redirects to /login, failure toasts. */}
+                <DropdownMenuItem
+                    variant="destructive"
+                    disabled={isLoggingOut}
+                    onSelect={(e) => { e.preventDefault(); logout() }}
+                >
+                    {isLoggingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
+                    <span>{isLoggingOut ? _("Logging out…") : _("Log out")}</span>
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>

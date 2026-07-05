@@ -1,8 +1,13 @@
-// Push-only service worker for v3 web. No offline caching.
-// Firebase config is passed in via the ?config= query string appended by
-// frappePushNotification.appendConfigToServiceWorkerURL() in main.tsx.
-importScripts("https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js")
-importScripts("https://www.gstatic.com/firebasejs/10.9.0/firebase-messaging-compat.js")
+// Push-only service worker for v3 web. No offline caching, and — unlike v2 —
+// NO Firebase: Raven Cloud sends data-only FCM messages, which arrive here as
+// standard Web Push events. firebase-messaging-sw's only jobs (parse payload,
+// skip display when a tab is visible, show the notification) are ~40 lines, so
+// we do them ourselves. That removes the CDN importScripts and the ?config=
+// query-string dance — the SW URL is static, so it updates purely on code change.
+//
+// CONTRACT: the server must keep pushes DATA-ONLY (title/body inside `data`).
+// A top-level `notification` key would rely on FCM SDK auto-display we no
+// longer have.
 
 // OFFLINE PRECACHE — DISABLED (push-only). vite-plugin-pwa injects the precache manifest
 // at self.__WB_MANIFEST. With injectManifest.globPatterns = [] it injects [], so nothing
@@ -15,53 +20,75 @@ importScripts("https://www.gstatic.com/firebasejs/10.9.0/firebase-messaging-comp
 const _precacheManifest = self.__WB_MANIFEST // injection point; inert while globs are empty
 void _precacheManifest
 
-const jsonConfig = new URL(location).searchParams.get("config")
+self.addEventListener("push", (event) => {
+    if (!event.data) return
 
-function isChrome() {
-    return navigator.userAgent.toLowerCase().includes("chrome")
-}
-
-try {
-    firebase.initializeApp(JSON.parse(jsonConfig))
-    const messaging = firebase.messaging()
-
-    messaging.onBackgroundMessage((payload) => {
-        const notificationTitle = payload.data.title
-        const notificationOptions = {
-            body: payload.data.body || "",
-        }
-        if (payload.data.notification_icon) {
-            notificationOptions["icon"] = payload.data.notification_icon
-        }
-        if (payload.data.raven_message_type === "Image") {
-            notificationOptions["image"] = payload.data.content
-        }
-        if (payload.data.creation) {
-            notificationOptions["timestamp"] = payload.data.creation
-        }
-
-        const url = `${payload.data.base_url}/raven/${payload.data.channel_id}`
-        if (isChrome()) {
-            notificationOptions["data"] = { url: url }
-        } else {
-            notificationOptions["actions"] = [{ action: url, title: "View" }]
-        }
-        self.registration.showNotification(notificationTitle, notificationOptions)
-    })
-
-    if (isChrome()) {
-        self.addEventListener("notificationclick", (event) => {
-            event.stopImmediatePropagation()
-            event.notification.close()
-            if (event.notification.data && event.notification.data.url) {
-                clients.openWindow(event.notification.data.url)
-            }
-        })
+    // FCM wraps the message as { data: {...}, from, priority, ... }
+    let payload
+    try {
+        payload = event.data.json()
+    } catch {
+        return
     }
-} catch (error) {
-    console.log("Failed to initialize Firebase", error)
-}
+    const data = payload?.data ?? {}
 
+    event.waitUntil(
+        (async () => {
+            // If the app is visible in some window, the realtime socket already
+            // surfaced this message in-app — showing a system notification too
+            // would double-notify. (Skipping display on a visible client is
+            // also what firebase-messaging-sw does, so Chrome's userVisibleOnly
+            // expectations are satisfied.) includeUncontrolled because our
+            // scope (/assets/raven/raven_v3/) doesn't control the app's pages.
+            const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true })
+            if (windows.some((client) => client.visibilityState === "visible")) return
+
+            // Raven Cloud flattens title/body into `data` for web pushes; the
+            // notification-key fallback covers older payload shapes.
+            const title = data.title || payload?.notification?.title
+            if (!title) return
+
+            /** @type {NotificationOptions} */
+            const options = {
+                body: data.body || payload?.notification?.body || "",
+                // One notification per channel: a newer push replaces the older
+                // one instead of stacking (matches the server's `tag` intent).
+                tag: data.channel_id || undefined,
+                // Fully-formed by the server (handles workspaces + threads).
+                data: { url: data.message_url || data.click_action || data.base_url },
+            }
+            const icon = data.notification_icon || data.image
+            if (icon) options.icon = icon
+            if (data.raven_message_type === "Image" && data.content) options.image = data.content
+            if (data.creation) options.timestamp = Number(data.creation)
+
+            await self.registration.showNotification(title, options)
+        })(),
+    )
+})
+
+self.addEventListener("notificationclick", (event) => {
+    event.notification.close()
+    const url = event.notification.data?.url
+    if (!url) return
+
+    event.waitUntil(
+        (async () => {
+            const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true })
+            const existing = windows.find((client) => new URL(client.url).origin === self.location.origin)
+            if (existing) {
+                // Our scope doesn't control app pages, so WindowClient.navigate()
+                // would reject — focus + postMessage instead; the app listens
+                // (usePushNotificationNavigation) and routes client-side.
+                await existing.focus()
+                existing.postMessage({ type: "raven:notification-click", url })
+            } else {
+                await self.clients.openWindow(url)
+            }
+        })(),
+    )
+})
+
+// Activate updated SW versions immediately — there are no in-flight caches to
+// coordinate. clients.claim() is pointless here (our scope controls no pages).
 self.skipWaiting()
-self.clients.claim()
-console.log("Service Worker Initialized")

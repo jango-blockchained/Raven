@@ -1,0 +1,195 @@
+/**
+ * Web push via Raven Cloud (v3+).
+ *
+ * v3 only supports the "Raven" (Raven Cloud) push service — the Frappe Cloud
+ * relay remains for v2 clients. Raven Cloud puts the Firebase client config +
+ * VAPID key straight into boot (see raven/boot.py), so unlike v2 there are no
+ * network round-trips to a relay server to fetch config.
+ *
+ * This module replaces v2's FrappePushNotification class (frappe-push-notification.js),
+ * which leaked memory: its onMessage() discarded Firebase's unsubscribe function and
+ * was re-invoked on every MainPage mount, so observers piled up forever on a global
+ * singleton. v3 avoids the API entirely — Firebase's ONLY job here is minting the FCM
+ * token. Foreground messages are ignored (the realtime socket already handles in-app
+ * notifications) and background display is done by sw.js handling raw `push` events,
+ * so neither the page nor the worker ever registers an FCM message listener.
+ *
+ * Firebase is loaded via dynamic import only when needed (enable toggle, or startup
+ * refresh for already-subscribed devices) — users who never enable push never
+ * download the chunk.
+ */
+
+// v2 stored the token under this exact key (`firebase_token_${projectName}`).
+// Reusing it means devices that enabled push on v2 stay "enabled" after the v3
+// upgrade: the startup refresh re-mints the token and re-subscribes if it changed
+// (which self-heals relay-era tokens minted under a different Firebase project).
+const TOKEN_STORAGE_KEY = "firebase_token_raven"
+
+/**
+ * The SW's scope (/assets/raven/raven_v3/) doesn't control the app's pages, so
+ * navigator.serviceWorker.ready would never resolve — we must hold on to the
+ * registration ourselves and hand it to getToken() explicitly.
+ */
+let swRegistration: Promise<ServiceWorkerRegistration | null> = Promise.resolve(null)
+
+type FirebaseClientConfig = {
+    projectId: string
+    appId: string
+    apiKey: string
+    authDomain: string
+    messagingSenderId: string
+}
+
+/** Boot-provided push config; null unless the site uses Raven Cloud. */
+const getBootPushConfig = (): { config: FirebaseClientConfig; vapidKey: string } | null => {
+    const boot = window.frappe?.boot
+    if (boot?.push_notification_service !== "Raven") return null
+    if (!boot.firebase_client_config || !boot.vapid_public_key) return null
+    try {
+        const config = typeof boot.firebase_client_config === "string"
+            ? JSON.parse(boot.firebase_client_config)
+            : boot.firebase_client_config
+        return { config, vapidKey: boot.vapid_public_key }
+    } catch (e) {
+        console.error("Invalid firebase_client_config in boot", e)
+        return null
+    }
+}
+
+/** The site is on Raven Cloud and shipped us a usable client config. */
+export const isRavenPushConfigured = (): boolean => getBootPushConfig() !== null
+
+/**
+ * The browser can do web push AT ALL. Notably false in iOS Safari browser tabs —
+ * Apple only exposes PushManager to home-screen web apps (16.4+), so this hides
+ * the toggle until the PWA is installed.
+ */
+export const isPushSupportedByBrowser = (): boolean =>
+    "serviceWorker" in navigator && "Notification" in window && "PushManager" in window
+
+/** Whether THIS device has push enabled (source of truth: the stored token). */
+export const isPushEnabled = (): boolean => localStorage.getItem(TOKEN_STORAGE_KEY) !== null
+
+/** Lazily create the Firebase Messaging instance from boot config. */
+const getMessagingInstance = async () => {
+    const cfg = getBootPushConfig()
+    if (!cfg) throw new Error("Push notifications are not configured on this site")
+    const [{ initializeApp, getApps }, { getMessaging, isSupported }] = await Promise.all([
+        import("firebase/app"),
+        import("firebase/messaging"),
+    ])
+    if (!(await isSupported())) throw new Error("Push notifications are not supported on this device")
+    // initializeApp twice with the same name throws — reuse the app across calls
+    const app = getApps()[0] ?? initializeApp(cfg.config)
+    return { messaging: getMessaging(app), vapidKey: cfg.vapidKey }
+}
+
+/** POST to a whitelisted raven.api.notification method (plain fetch — no hook context here). */
+const callNotificationAPI = async (method: "subscribe" | "unsubscribe", body: Record<string, string | undefined>) => {
+    const response = await fetch(`/api/method/raven.api.notification.${method}`, {
+        method: "POST",
+        body: JSON.stringify(body),
+        headers: {
+            "Content-Type": "application/json",
+            ...(window.csrf_token ? { "X-Frappe-CSRF-Token": window.csrf_token } : {}),
+        },
+    })
+    if (!response.ok) throw new Error(`Failed to ${method} push token (${response.status})`)
+}
+
+/**
+ * Register the push service worker. Called once from main.tsx after boot is
+ * available. The URL is static — config never rides on the query string (v2's
+ * ?config= trick), so the SW only updates when its code changes.
+ */
+export const registerPushServiceWorker = () => {
+    if (!("serviceWorker" in navigator)) return
+    swRegistration = navigator.serviceWorker
+        .register("/assets/raven/raven_v3/sw.js", { type: "classic" })
+        .catch((e) => {
+            console.error("Failed to register service worker", e)
+            return null
+        })
+}
+
+/**
+ * Mint (or re-mint) the FCM token and make sure the server knows about it.
+ * FCM rotates tokens, so this also runs at startup for subscribed devices.
+ */
+const mintAndSyncToken = async (): Promise<void> => {
+    const registration = await swRegistration
+    if (!registration) throw new Error("Service worker is not registered")
+    const { messaging, vapidKey } = await getMessagingInstance()
+    const { getToken } = await import("firebase/messaging")
+    const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration })
+
+    const oldToken = localStorage.getItem(TOKEN_STORAGE_KEY)
+    if (oldToken === token) return
+
+    // Token rotated (or first enable): drop the stale server record, register the new one.
+    if (oldToken) await callNotificationAPI("unsubscribe", { fcm_token: oldToken }).catch(() => { })
+    await callNotificationAPI("subscribe", {
+        fcm_token: token,
+        environment: "Web",
+        device_information: navigator.userAgent,
+    })
+    localStorage.setItem(TOKEN_STORAGE_KEY, token)
+}
+
+/**
+ * Enable push for this device. Must be called from a user gesture (the profile
+ * toggle) — iOS refuses permission prompts outside one.
+ *
+ * @returns false if the user denied the permission prompt, true on success.
+ * @throws when unsupported/unconfigured or the token/subscribe calls fail.
+ */
+export const enablePush = async (): Promise<boolean> => {
+    const permission = await Notification.requestPermission()
+    if (permission !== "granted") return false
+    await mintAndSyncToken()
+    return true
+}
+
+/** Disable push for this device: delete the FCM token + the server record. Best-effort. */
+export const disablePush = async (): Promise<void> => {
+    const token = localStorage.getItem(TOKEN_STORAGE_KEY)
+    if (!token) return
+    // Clear local state first — the device should read "disabled" even if the
+    // network calls below fail (the server token then dies as an FCM zombie).
+    localStorage.removeItem(TOKEN_STORAGE_KEY)
+    try {
+        const { messaging } = await getMessagingInstance()
+        const { deleteToken } = await import("firebase/messaging")
+        await deleteToken(messaging)
+    } catch (e) {
+        console.error("Failed to delete FCM token", e)
+    }
+    try {
+        await callNotificationAPI("unsubscribe", { fcm_token: token })
+    } catch (e) {
+        console.error("Failed to unsubscribe push token", e)
+    }
+}
+
+/**
+ * Startup init: register the SW, then — only for devices that already enabled
+ * push — refresh the (possibly rotated) FCM token off the critical path.
+ */
+export const initPushNotifications = () => {
+    if (!isPushSupportedByBrowser()) return
+    registerPushServiceWorker()
+
+    if (!isPushEnabled() || !isRavenPushConfigured()) return
+    if (Notification.permission !== "granted") {
+        // Permission was revoked in browser settings — our token is dead.
+        localStorage.removeItem(TOKEN_STORAGE_KEY)
+        return
+    }
+    // requestIdleCallback is missing in Safari; a timeout keeps it off first paint.
+    const refresh = () => mintAndSyncToken().catch((e) => console.error("Push token refresh failed", e))
+    if (typeof window.requestIdleCallback === "function") {
+        window.requestIdleCallback(refresh)
+    } else {
+        window.setTimeout(refresh, 3000)
+    }
+}

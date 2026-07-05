@@ -26,6 +26,7 @@ import { useUnreadThreadsSync } from "@stores/threads/useUnreadThreads"
 import { useNotificationsRealtime } from "@stores/notifications/useNotificationsRealtime"
 import { useUnreadNotificationsSync } from "@hooks/useNotifications"
 import { useReportActiveState } from "@stores/presence/useReportActiveState"
+import { usePushNotificationNavigation } from "@hooks/usePushNotificationNavigation"
 import DocumentTitle from "./DocumentTitle"
 import RavenSettingsDialog from "@components/features/settings/SettingsDialog"
 
@@ -125,7 +126,9 @@ const AppListeners = ({ children }: { children: React.ReactNode }) => {
     // Seeds + reconciles the unread-notification id set (badge = set size; ids are marked
     // read as their messages scroll into view — markNotificationsReadOnView)
     useUnreadNotificationsSync()
-    // TODO: Push notification listener
+    // Focus-and-route when a push notification is clicked while a window exists
+    // (sw.js posts the target URL instead of opening a duplicate tab)
+    usePushNotificationNavigation()
     // TODO: App update listener
 
     if (!isReady) {

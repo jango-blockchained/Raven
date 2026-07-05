@@ -20,6 +20,7 @@ import { Switch } from "@components/ui/switch"
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@components/ui/alert-dialog"
 import { Button } from "@components/ui/button"
 import { getErrorMessage } from "@lib/frappe"
+import { enablePush, disablePush, isPushEnabled } from "@lib/push"
 import { FrappeError } from "frappe-react-sdk"
 import _ from "@lib/translate"
 import { Separator } from "@components/ui/separator"
@@ -34,26 +35,20 @@ const Profile = () => {
     const [prefsOpen, setPrefsOpen] = useState(false)
     const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false)
 
-    // Seed from the injected push helper; toggling calls enable/disable and re-reads.
-    const [pushOn, setPushOn] = useState<boolean>(() => {
-        // @ts-expect-error - frappePushNotification is injected in main.tsx
-        return Boolean(window.frappePushNotification?.isNotificationEnabled?.())
-    })
+    // Source of truth for "enabled on this device" is the stored FCM token (lib/push).
+    const [pushOn, setPushOn] = useState<boolean>(() => isPushEnabled())
 
     const togglePush = (next: boolean) => {
-        // @ts-expect-error - frappePushNotification is injected in main.tsx
-        const helper = window.frappePushNotification
-        if (!helper) return
         if (next) {
             toast.promise(
-                helper.enableNotification().then((data: { permission_granted: boolean }) => {
-                    if (!data.permission_granted) { setPushOn(false); throw new Error(_("Permission denied for push notifications")) }
+                enablePush().then((granted) => {
+                    if (!granted) { setPushOn(false); throw new Error(_("Permission denied for push notifications")) }
                     setPushOn(true)
                 }),
                 { loading: _("Enabling…"), success: _("Push notifications enabled"), error: (e: Error) => e.message },
             )
         } else {
-            helper.disableNotification()
+            disablePush()
                 .then(() => { setPushOn(false); toast.info(_("Push notifications disabled")) })
                 .catch((e: unknown) => toast.error(_("There was an error"), { description: getErrorMessage(e as FrappeError) }))
         }
