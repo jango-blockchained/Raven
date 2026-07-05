@@ -97,8 +97,8 @@ export default function Notifications() {
                                     {unreadCount > 0 && (
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="sm" isIconButton aria-label={_("More options")}>
-                                                    <MoreVertical className="size-4.5 md:size-4" />
+                                                <Button variant="ghost" size={isMobile ? "lg" : "sm"} isIconButton aria-label={_("More options")}>
+                                                    <MoreVertical />
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">

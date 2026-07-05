@@ -34,6 +34,7 @@ import useCurrentRavenUser from "@raven/lib/hooks/useCurrentRavenUser"
 import { cn } from "@lib/utils"
 import _ from "@lib/translate"
 import type { ChannelListItem } from "@raven/types/common/ChannelListItem"
+import { useIsMobile } from "@hooks/use-mobile"
 
 interface GroupsState {
     [key: string]: boolean
@@ -113,7 +114,7 @@ export function ChannelSidebar() {
         <nav className="flex h-full w-full flex-col bg-surface-base md:bg-surface-sidebar">
             {/* Border on mobile (full-page list needs the separator); none on
                 desktop (the content island carries its own bordered header) */}
-            <div className="flex h-11 md:h-auto shrink-0 items-center justify-between gap-1 border-b md:border-b-0 px-2 py-2 md:pb-0">
+            <div className="flex h-11 md:h-auto shrink-0 items-center justify-between gap-1 border-b md:border-b-0 px-1 py-2 md:pb-0">
                 <WorkspaceSwitcher workspaceID={workspaceID} />
                 <div className="flex items-center gap-2">
                     <CustomizeSidebarButton />
@@ -202,6 +203,7 @@ const WorkspaceSwitcher = ({ workspaceID }: { workspaceID?: string }) => {
     const setLastWorkspace = useSetAtom(lastWorkspaceAtom)
     const setLastChannel = useSetAtom(lastChannelAtom)
     const current = workspaces.find((workspace) => workspace.name === workspaceID)
+    const isMobile = useIsMobile()
 
     const switchWorkspace = (workspace: WorkspaceFields) => {
         // Persist the choice immediately: on mobile no channel opens after a
@@ -215,7 +217,7 @@ const WorkspaceSwitcher = ({ workspaceID }: { workspaceID?: string }) => {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm">
+                <Button variant="ghost" size={isMobile ? "lg" : "sm"}>
                     {current && <WorkspaceLogo workspace={current} className="size-5 md:size-4.5" />}
                     <span className="truncate text-ink-gray-8 text-xl-medium md:text-sm">{current?.workspace_name || workspaceID}</span>
                     <ChevronDown className="size-4.5 md:size-4" />
@@ -305,7 +307,7 @@ const ChannelGroup = ({
                 <CollapsibleTrigger asChild>
                     <button
                         type="button"
-                        className="flex py-2.5 md:py-1.5 w-full justify-between cursor-pointer select-none items-center gap-2 rounded md:px-2 px-3 text-ink-gray-7 outline-none ring-outline-gray-3 transition-colors hover:bg-surface-gray-3 hover:text-ink-gray-8 focus-visible:ring-2"
+                        className="flex py-2 md:py-1.5 w-full justify-between cursor-pointer select-none items-center gap-2 rounded md:px-2 px-3 text-ink-gray-7 outline-none ring-outline-gray-3 transition-colors hover:bg-surface-gray-3 hover:text-ink-gray-8 focus-visible:ring-2"
                     >
                         <div className="flex items-center gap-1">
                             <ChannelGroupLabel groupName={groupName} isHighlighted={!open && totalUnread > 0} />
@@ -379,7 +381,7 @@ const ChannelRow = ({ channel, workspaceID }: { channel: ChannelListItem; worksp
             to={`/${encodeURIComponent(workspaceID ?? "")}/${encodeURIComponent(channel.name)}`}
             className={({ isActive }) =>
                 cn(
-                    "flex min-w-0 select-none items-center gap-2 overflow-hidden rounded text-base px-3 md:px-2 text-ink-gray-6 dark:text-ink-gray-7 py-2.5 md:py-1.5",
+                    "flex min-w-0 select-none items-center gap-2 overflow-hidden rounded text-base px-3 md:px-2 text-ink-gray-6 dark:text-ink-gray-7 py-2 md:py-1.5",
                     // `transition` (not transition-colors) so box-shadow animates IN SYNC
                     // with the background — Virtuoso recycles rows on workspace switch, and
                     // transition-colors left the shadow popping while the bg cross-faded.

@@ -56,24 +56,24 @@ export const CustomizeSidebarButton = () => {
                 <DropdownMenuTrigger asChild>
                     <Button
                         variant="ghost"
-                        size="sm"
+                        size={isMobile ? "lg" : "sm"}
                         isIconButton
                         aria-label={_("Channel options")}
                     >
-                        <MoreVertical className="size-4.5 md:size-4" />
+                        <MoreVertical />
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" side="bottom" className="min-w-64">
-                    <DropdownMenuItem onClick={() => setSettingsDialogAtom('preferences')}>
+                    {!isMobile && <DropdownMenuItem onClick={() => setSettingsDialogAtom('preferences')}>
                         <FilterIcon />{_("Filter and sort channels")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSettingsDialogAtom('sidebar')}>
+                    </DropdownMenuItem>}
+                    {!isMobile && <DropdownMenuItem onClick={() => setSettingsDialogAtom('sidebar')}>
                         <SidebarIcon />{_("Customize my sidebar")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSettingsDialogAtom('channels')}>
+                    </DropdownMenuItem>}
+                    {!isMobile && <DropdownMenuItem onClick={() => setSettingsDialogAtom('channels')}>
                         <Hash />{_("Manage channels")}
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
+                    </DropdownMenuItem>}
+                    {!isMobile && <DropdownMenuSeparator />}
                     <DropdownMenuItem onClick={() => setCreateOpen(true)}>
                         <PlusIcon />{_("Create a new channel")}
                     </DropdownMenuItem>

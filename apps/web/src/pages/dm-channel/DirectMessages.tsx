@@ -3,6 +3,7 @@ import { DMSidebar } from "@components/dm-sidebar/DMSidebar"
 import { useDMChannels } from "@stores/channels/useChannelList"
 import { useIsMobile } from "@hooks/use-mobile"
 import _ from "@lib/translate"
+import { cn } from "@lib/utils"
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@components/ui/empty"
 import AppMobileFooter from "@components/features/header/AppMobileFooter"
 
@@ -45,16 +46,28 @@ export default function DirectMessages() {
     // matching while a thread extends the URL).
     const id = useMatch({ path: "/dm-channel/:id", end: false })?.params.id
 
-    // Always show the sidebar on desktop
-    // On mobile, only show if there's no DM ID
-    const shouldShowSidebar = !isMobile || !id
-
+    // Mobile is STACKED navigation (same as WorkspaceLayout): the DM list is the page,
+    // and an open DM renders as a full-screen layer on top of it. The list stays mounted
+    // underneath, so going back — chevron or iOS back-swipe — reveals it instantly at the
+    // same scroll position instead of rebuilding it (which flashed after the swipe).
     return <div className="flex flex-col h-full min-h-0 w-full">
-        <div className="flex min-h-0 flex-1">
-            {shouldShowSidebar && <div className="md:w-(--dm-sidebar-width) w-full shrink-0 min-h-0">
+        {/* relative: the mobile DM layer below positions against this row */}
+        <div className="relative flex min-h-0 flex-1">
+            <div
+                className="md:w-(--dm-sidebar-width) w-full shrink-0 min-h-0"
+                // While covered on mobile, keep the list out of focus / accessibility order.
+                inert={isMobile && !!id ? true : undefined}
+            >
                 <DMSidebar />
-            </div>}
-            <div className="flex min-w-0 min-h-0 flex-1 flex-col bg-surface-gray-1">
+            </div>
+            {/* Mobile: full-screen layer above the list while a DM is open, hidden when
+                none is. Desktop: a normal flex column beside the list. */}
+            <div className={cn(
+                "flex min-w-0 min-h-0 flex-col bg-surface-gray-1",
+                "max-md:absolute max-md:inset-0 max-md:z-10",
+                !id && "max-md:hidden",
+                "md:flex-1",
+            )}>
                 <Outlet />
             </div>
         </div>

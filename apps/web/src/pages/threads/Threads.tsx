@@ -14,6 +14,7 @@ import { useChannelList } from "@stores/channels/useChannelList"
 import { unreadThreadsStore } from "@stores/threads/unreadStore"
 import { useIsMobile } from "@hooks/use-mobile"
 import _ from "@lib/translate"
+import { cn } from "@lib/utils"
 import { useUsersById } from "@hooks/useMessageRowLookups"
 import { PageHeader } from "@components/layout/PageHeader"
 import AppMobileFooter from "@components/features/header/AppMobileFooter"
@@ -142,12 +143,27 @@ export default function Threads() {
         </div>
     )
 
-    // Mobile: a single full-bleed pane — the open thread takes over, else the list.
+    // Mobile is STACKED navigation (same as WorkspaceLayout/DirectMessages): the list is
+    // the page, and an open thread renders as a full-screen layer on top of it. The list
+    // stays mounted underneath, so going back — chevron or iOS back-swipe — reveals it
+    // instantly at the same scroll position instead of rebuilding it (which flashed).
     if (isMobile) {
         return (
             <div className="flex flex-col h-screen overflow-hidden">
-                <div className="flex flex-1 overflow-hidden">
-                    {hasThread ? <Outlet context={{ parentChannelID }} /> : list}
+                <div className="relative flex flex-1 overflow-hidden">
+                    <div
+                        className="flex w-full min-h-0 flex-col"
+                        // While covered by the thread layer, keep the list out of
+                        // focus / accessibility order.
+                        inert={hasThread ? true : undefined}
+                    >
+                        {list}
+                    </div>
+                    {/* The Outlet is null when no thread route is open — hide the empty
+                        layer then, so it can't sit over the list and eat taps. */}
+                    <div className={cn("absolute inset-0 z-10 flex flex-col bg-surface-base", !hasThread && "hidden")}>
+                        <Outlet context={{ parentChannelID }} />
+                    </div>
                 </div>
                 {hasThread ? null : <AppMobileFooter />}
             </div>
