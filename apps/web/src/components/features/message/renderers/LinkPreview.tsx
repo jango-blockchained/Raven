@@ -566,7 +566,7 @@ const MeetingCard = ({ href, brand, label, detail }: { href: string; brand?: Bra
         copy(detail)
         toast.success(_("Copied meeting ID"))
     }
-    return <div data-media-root="" className="w-full max-w-sm my-2">
+    return <div data-media-root="" className="w-full sm:max-w-sm max-w-xs my-2">
         <div className="flex items-center gap-3 rounded-md border border-outline-gray-2 bg-surface-gray-1 dark:bg-surface-elevation-2 p-3">
             {brand ? <BrandIcon brand={brand} className="shrink-0 size-9" /> : <Video className="size-8 shrink-0 text-ink-gray-6" />}
             <div className="min-w-0 flex-1 space-y-0.5">

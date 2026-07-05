@@ -47,7 +47,7 @@ export const ProfileRow = forwardRef<HTMLButtonElement, ProfileRowProps>(functio
             type={interactive ? "button" : undefined}
             onClick={onClick}
             className={cn(
-                "flex w-full items-center gap-3 bg-surface-elevation-1 rounded-lg px-3 py-4 md:py-2 text-left select-none transition-colors outline-none focus-visible:outline-none",
+                "flex w-full items-center gap-3 bg-surface-gray-1 rounded-md px-3 py-4 md:py-2 text-left select-none transition-colors outline-none focus-visible:outline-none",
                 // `data-[state=open]` covers asChild-trigger rows, where the menu opens on
                 // pointer-down and would otherwise mask the :active highlight.
                 pressable && "active:bg-surface-gray-3 data-[state=open]:bg-surface-gray-3",
@@ -59,7 +59,7 @@ export const ProfileRow = forwardRef<HTMLButtonElement, ProfileRowProps>(functio
             <Icon className={cn("size-5 shrink-0", destructive ? "text-ink-red-8" : "text-ink-gray-6")} />
             <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate text-base md:text-sm font-medium">{label}</span>
-                {description && <span className="truncate text-sm md:text-xs text-ink-gray-5">{description}</span>}
+                {description && <span className="truncate text-sm md:text-xs text-ink-gray-6">{description}</span>}
             </div>
             {trailing ?? (chevron && <ChevronRight className="size-4 shrink-0 text-ink-gray-4" />)}
         </Comp>

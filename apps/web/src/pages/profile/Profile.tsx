@@ -72,19 +72,21 @@ const Profile = () => {
                             {/* Tapping the avatar opens the Upload / Remove photo menu */}
                             <ProfileImageMenu />
                             <div className="flex min-w-0 flex-1 flex-col gap-2">
-                                <span className="truncate text-4xl font-semibold text-ink-gray-9">{myProfile.full_name}</span>
+                                <span className="truncate text-4xl-semibold text-center text-ink-gray-9">{myProfile.full_name}</span>
                                 {myProfile.availability_status && (
                                     <span className="flex items-center justify-center gap-1.5 text-base md:text-sm text-ink-gray-5">
                                         <span className={cn("size-2 shrink-0 rounded-full", getStatusIndicatorColor(myProfile.availability_status))} />
                                         <span className="truncate">{myProfile.availability_status}</span>
                                     </span>
                                 )}
+                                <div>
+                                    {myProfile?.custom_status && <span className="truncate text-center text-lg md:text-sm text-ink-gray-6">{myProfile.custom_status}</span>}
+                                </div>
                             </div>
+
                         </div>
                     )}
-                    <div className="flex flex-col gap-1 px-4 pb-4">
-                        {myProfile?.custom_status && <span className="truncate text-center text-lg md:text-sm text-ink-gray-6">{myProfile.custom_status}</span>}
-                    </div>
+
                 </div>
                 <div className="flex flex-col px-1 gap-2">
                     {/* Appearance — whole row opens the theme menu; icon + label reflect the choice */}
@@ -94,7 +96,7 @@ const Profile = () => {
                                 icon={theme === "dark" ? Moon : theme === "system" ? SunMoon : Sun}
                                 label={_("Appearance")}
                                 trailing={
-                                    <span className="flex items-center gap-1 text-base md:text-sm text-ink-gray-5">
+                                    <span className="flex items-center gap-1 text-base text-ink-gray-7">
                                         {theme === "dark" ? _("Dark") : theme === "system" ? _("System") : _("Light")}
                                         <ChevronDown className="size-4" />
                                     </span>
@@ -127,6 +129,11 @@ const Profile = () => {
 
                     {/* Log out */}
                     <ProfileRow icon={LogOut} label={_("Log out")} destructive onClick={() => setConfirmLogoutOpen(true)} />
+                </div>
+
+                <div className="px-4 py-16 text-center w-full flex items-center justify-center flex-col gap-2">
+                    <span className="text-sm text-ink-gray-4">Raven <span className="font-numeric">v{window?.frappe?.boot.versions.raven}</span></span>
+                    <img src="/assets/frappe/images/frappe-comp-logo.svg" alt="Frappe" className="h-4.5 w-auto dark:invert" />
                 </div>
             </div>
 
