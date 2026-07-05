@@ -33,6 +33,7 @@ import _ from "@lib/translate"
 import { Button } from "@components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@components/ui/tooltip"
 import { cn } from "@lib/utils"
+import { randomUUID } from "@lib/uuid"
 import { Separator } from "@components/ui/separator"
 import AttachFrappeDocumentDialog from "./AttachFrappeDocumentDialog"
 
@@ -202,7 +203,7 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
 
         const content = isEmpty ? "" : editor.getHTML()
         const outgoingFiles = files.map((f) => ({ file_url: f.fileURL, file_size: f.size }))
-        const batchId = crypto.randomUUID()
+        const batchId = randomUUID()
 
         // Reply context: send the linked message id + a snapshot of it so the reply
         // preview renders immediately (the snapshot matches ReplyMessage's expected shape).
