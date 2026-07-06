@@ -85,7 +85,7 @@ const router = createBrowserRouter(
         </Route>
       </Route>
       <Route path="notifications" element={<Notifications />}>
-        <Route path=":channelID/:messageID" element={<NotificationChatRoute />} />
+        <Route path=":channelID/:messageID?" element={<NotificationChatRoute />} />
       </Route>
       <Route path="threads" element={<Threads />}>
         <Route path=":threadID" element={<ThreadDrawerRoute />} />

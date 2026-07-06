@@ -21,7 +21,7 @@ type NotificationNavState = {
  * chat instead of leaving the notifications page, and a refresh restores the open chat.
  */
 export default function NotificationChatRoute() {
-    const { channelID = "", messageID = "" } = useParams<{ channelID: string; messageID: string }>()
+    const { channelID = "", messageID = "" } = useParams<{ channelID: string; messageID?: string }>()
     const navigate = useNavigate()
     const location = useLocation()
     const navState = (location.state ?? null) as NotificationNavState

@@ -125,16 +125,18 @@ def send_push_notification_via_raven_cloud(message, raven_settings):
 
 		workspace = "" if channel_doc.is_dm_thread else channel_doc.workspace
 
-		url = frappe.utils.get_url() + "/raven/"
-		if workspace:
+		# TODO: Change this to regular URL once v3 is stable
+		url = frappe.utils.get_url() + "/raven_v3/"
+		if channel_doc.is_direct_message:
+			url += "dm-channel/"
+		elif workspace and not channel_doc.is_thread:
 			url += f"{workspace}/"
+		elif channel_doc.is_thread:
+			url += "threads/"
 		else:
-			url += "channels/"
+			url += "notifications/"
 
-		if channel_doc.is_thread:
-			url += f"thread/{channel_doc.name}/"
-		else:
-			url += f"{channel_doc.name}/"
+		url += f"{channel_doc.name}/"
 
 		image = get_image_absolute_url(message_owner_image)
 
