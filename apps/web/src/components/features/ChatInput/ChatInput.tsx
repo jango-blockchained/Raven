@@ -361,7 +361,7 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                             // (EDITOR_MIN_H etc.) with a compact one-line-that-grows box — these values
                             // are mobile-specific and intentionally NOT tied to EDITOR_MIN_H.
                             // Unequal paddings are added to make the entire thing optically balanced since the Plus button is bare (ghost) and does not have a structure.
-                            <div className={cn("flex items-end gap-0 pe-2 ps-1 py-2 border-t border-outline-gray-2 bg-surface-base", isMobile && (keyboardOpen ? "pb-0 standalone:pb-0" : "standalone:pb-4"))}>
+                            <div className={cn("flex items-end gap-0 pe-2 ps-1 py-2 border-t border-outline-gray-2 bg-surface-base", isMobile && (keyboardOpen ? "pb-0 standalone:pb-0" : "standalone:pb-6"))}>
                                 <div className="flex items-center justify-center h-10">
                                     <MobileComposerActions channelID={channelID} />
                                 </div>
