@@ -41,11 +41,12 @@ const useAIEvent = (channelID: string): { text: string; bot?: string } => {
  * AI bot is working (ai_event), the strip shows the bot's avatar + its status
  * text in a shimmer instead — that takes precedence over human typers.
  *
- * ALWAYS rendered at a fixed height, in normal flow — a constant reservation
- * can't shift the composer or the stream, and (unlike the earlier absolute
- * overlay) the content sits clear of the editor instead of hugging its border.
- * The content fades/slides in when someone starts typing and animates back out
- * when the last typer stops; the empty state is just the reserved strip.
+ * Positioned ABSOLUTE above the composer form — no reserved row (an always-empty
+ * strip read as weird dead space), and being out of flow it can never shift
+ * layout. The stream's bottom padding (pb-4 on its content) gives the strip a
+ * mostly-empty zone to sit in; the pane-colored background while occupied keeps
+ * it readable on the rare frame it overlaps a tall last message. Empty, it's
+ * invisible and pointer-events-none (never blocks hovering the last message).
  *
  * Stays mounted with the composer even while empty — mounting is what joins
  * the channel's typing room and seeds the list (useChannelTypers). Re-renders
@@ -91,8 +92,17 @@ export const TypingIndicator = ({ channelID }: { channelID: string }) => {
                         ? _("{0}, {1} and 1 other are typing", [a, b])
                         : _("{0}, {1} and {2} others are typing", [a, b, String(shown.length - 2)])
 
+    const occupied = Boolean(aiEvent.text) || shown.length > 0
     return (
-        <div className="flex h-5 items-center px-3 md:px-1" aria-live="polite">
+        <div
+            className={cn(
+                // pt-1 is INSIDE the bg-painted box: breathing room above the text,
+                // not a transparent slit showing the message underneath.
+                "pointer-events-none absolute bottom-full left-0 right-0 z-40 flex py-1 items-center px-3 pt-1 md:px-4",
+                occupied && "bg-surface-base",
+            )}
+            aria-live="polite"
+        >
             {aiEvent.text ? (
                 <div className="flex min-w-0 items-center gap-2 duration-200 animate-in fade-in slide-in-from-bottom-1">
                     {botUser && <GroupedAvatars users={[botUser]} size="xs" />}

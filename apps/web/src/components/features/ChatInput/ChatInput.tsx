@@ -329,9 +329,10 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                 e.preventDefault()
                 handleSend()
             }}
-            className={cn("md:px-3 md:pb-3 pt-1 w-full flex flex-col gap-2")}
+            className={cn("relative md:px-3 md:pb-3 w-full flex flex-col gap-1.5")}
         >
-            {/* Fixed-height strip (always reserved, so typers never shift layout) */}
+            {/* Absolute overlay above the form — the stream's bottom padding (pb-4)
+                gives it room, so it reads as sitting in the gap, not over content */}
             <TypingIndicator channelID={channelID} />
             {/* Warning banner is only shown for primary channels, not DMs, threads in DMs. */}
             {!isDM && mentionedIds.length > 0 && <MentionWarningBanner channelID={parentChannelID ?? channelID} mentionedIds={mentionedIds} isThread={parentChannelID ? true : false} />}
