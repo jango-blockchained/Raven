@@ -16,6 +16,12 @@ import { retryOutboxRecord, type PostClient } from "./messageSender"
 let flushChain: Promise<void> = Promise.resolve()
 
 const runFlush = async (client: PostClient, includeFailed: boolean) => {
+    // Read-only site (maintenance / physical restore): every write would be rejected,
+    // so retrying would only flip the whole outbox to "failed". Leave the records as
+    // they are — the next trigger (reconnect after the site is writable again, or the
+    // reload users do anyway after maintenance) re-checks and flushes then.
+    if (window.frappe?.boot?.read_only) return
+
     const records = await getAllOutbox()
     // Send them one at a time (oldest first), waiting for each before the next.
     // Sending in parallel would make several inserts hit the same channel row at once

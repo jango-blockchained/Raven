@@ -142,6 +142,11 @@ const inFlight = new Set<string>()
  *  - Any other failure: mark it failed (shows Retry / Discard) and show an error.
  * Reuses `batchId` (= client_id) so a retry counts as the same message — the server
  * recognises it and won't create a duplicate.
+ *
+ * `silent` skips the failure toast: the automatic outbox flush passes it because a
+ * flush can fail many messages at once (server down, read-only window) and the user
+ * didn't just act — the failed bubbles (Retry / Discard) are the right signal there.
+ * Interactive sends (send button, manual Retry) keep the toast.
  */
 export const submitSend = (
     client: PostClient,
@@ -150,6 +155,7 @@ export const submitSend = (
     content: string,
     files: OutgoingFile[],
     linkedMessage?: string,
+    opts?: { silent?: boolean },
 ) => {
     inFlight.add(batchId)
     return client
@@ -173,6 +179,7 @@ export const submitSend = (
 
             channelMessagesStore.failOptimisticSend(channelID, batchId)
             setOutboxStatus(batchId, "failed")
+            if (opts?.silent) return
             // One shared id means many failures at once show a single error, not a
             // pile of them. (The failed message on screen is the main signal; this
             // error also covers sends the user has scrolled past.)
@@ -255,5 +262,6 @@ export const retryOutboxRecord = (client: PostClient, record: OutboxMessage): Pr
     }
 
     setOutboxStatus(record.client_id, "sending")
-    return submitSend(client, record.channel_id, record.client_id, record.content, record.files, record.linked_message)
+    // silent: an automatic flush shouldn't toast — see submitSend.
+    return submitSend(client, record.channel_id, record.client_id, record.content, record.files, record.linked_message, { silent: true })
 }
