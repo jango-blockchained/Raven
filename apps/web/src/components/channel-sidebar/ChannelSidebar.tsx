@@ -129,7 +129,9 @@ export function ChannelSidebar() {
             ) : isEmpty ? (
                 <EmptyChannels />
             ) : (
-                <div ref={setScrollerRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1 py-2 md:py-0 space-y-1">
+                // Mobile: the in-flow AppMobileFooter below reserves the tab-bar + home-
+                // indicator space, so the list only needs a small breathing pad of its own.
+                <div ref={setScrollerRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1 py-2 md:py-0 pb-2 md:pb-0 space-y-1">
                     <ul className="flex flex-col gap-1">
                         {groupedChannels.map(([groupName, groupChannels]) => (
                             <ChannelGroup

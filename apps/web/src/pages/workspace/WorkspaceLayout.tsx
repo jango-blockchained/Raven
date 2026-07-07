@@ -26,9 +26,12 @@ const WorkspaceLayout = () => {
     const hasChannelOpen = Boolean(channelMatch)
 
     return (
-        <div className='flex flex-col h-full min-h-0 w-full'>
-            {/* relative: the mobile channel layer below positions against this row */}
-            <div className='relative flex min-h-0 flex-1'>
+        // relative on the OUTER column: the mobile channel layer positions against the
+        // whole column (list + footer), sliding over the tab bar like a native detail
+        // page. The footer stays MOUNTED throughout — unmounting it resized the list
+        // row, which clamped the list's scroll position whenever it sat at the bottom.
+        <div className='relative flex flex-col h-full min-h-0 w-full'>
+            <div className='flex min-h-0 flex-1'>
                 <div
                     className='md:w-(--sidebar-width) w-full shrink-0 min-h-0'
                     // While covered by the channel layer on mobile, keep the sidebar out
@@ -40,11 +43,12 @@ const WorkspaceLayout = () => {
 
                 {/* Mobile: a full-screen layer above the sidebar while a channel is open,
                     hidden when none is (it would just be an empty surface covering the
-                    list). Desktop: a normal flex column beside the sidebar. */}
+                    list). Covers the footer too (inset-0 of the outer column). Desktop:
+                    a normal flex column beside the sidebar. */}
                 <div
                     className={cn(
                         'flex min-w-0 min-h-0 flex-col bg-surface-sidebar',
-                        'max-md:absolute max-md:inset-0 max-md:z-10 animate-layer-in',
+                        'max-md:absolute max-md:inset-0 max-md:z-20 animate-layer-in',
                         !hasChannelOpen && 'max-md:hidden',
                         'md:flex-1',
                     )}
@@ -53,7 +57,7 @@ const WorkspaceLayout = () => {
                 </div>
             </div>
 
-            {!hasChannelOpen && <AppMobileFooter />}
+            <AppMobileFooter inert={isMobile && hasChannelOpen ? true : undefined} />
         </div>
     )
 }

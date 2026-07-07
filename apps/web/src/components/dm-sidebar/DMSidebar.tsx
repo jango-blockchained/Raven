@@ -33,8 +33,15 @@ type DMListContext = { showSuggestions: boolean; dmPeerIds: Set<string> }
  * render, so Virtuoso would unmount/remount the footer (re-running
  * ExtraUsersList's live query) on each sidebar render.
  */
-const DMListFooter = ({ context }: { context?: DMListContext }) =>
-    context?.showSuggestions ? <ExtraUsersList dmPeerIds={context.dmPeerIds} /> : null
+const DMListFooter = ({ context }: { context?: DMListContext }) => (
+    <>
+        {context?.showSuggestions && <ExtraUsersList dmPeerIds={context.dmPeerIds} />}
+        {/* Mobile: small breathing pad above the tab bar (the in-flow AppMobileFooter
+            already reserves the bar + home-indicator space). Inside the footer because
+            Virtuoso is its own scroller — wrapper padding would sit outside the scroll. */}
+        <div className="h-2 md:h-0" aria-hidden="true" />
+    </>
+)
 
 const dmListComponents = { Footer: DMListFooter }
 

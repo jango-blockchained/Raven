@@ -84,7 +84,7 @@ export default function Threads() {
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             className="pl-9 pr-9 h-9 md:h-8 text-xl md:text-base"
-                            autoFocus
+                            autoFocus={!isMobile}
                         />
                         {search && (
                             <button
@@ -149,8 +149,12 @@ export default function Threads() {
     // instantly at the same scroll position instead of rebuilding it (which flashed).
     if (isMobile) {
         return (
-            <div className="flex flex-col h-screen overflow-hidden">
-                <div className="relative flex flex-1 overflow-hidden">
+            // relative on the OUTER column: the thread layer covers list + footer,
+            // sliding over the tab bar like a native detail page. The footer stays
+            // MOUNTED — unmounting it resized the list row, which clamped the list's
+            // scroll position at the bottom.
+            <div className="relative flex flex-col h-screen overflow-hidden">
+                <div className="flex flex-1 overflow-hidden">
                     <div
                         className="flex w-full min-h-0 flex-col"
                         // While covered by the thread layer, keep the list out of
@@ -160,12 +164,13 @@ export default function Threads() {
                         {list}
                     </div>
                     {/* The Outlet is null when no thread route is open — hide the empty
-                        layer then, so it can't sit over the list and eat taps. */}
-                    <div className={cn("absolute inset-0 z-10 flex flex-col bg-surface-base animate-layer-in", !hasThread && "hidden")}>
+                        layer then, so it can't sit over the list and eat taps. Covers
+                        the footer too (inset-0 of the outer column). */}
+                    <div className={cn("absolute inset-0 z-20 flex flex-col bg-surface-base animate-layer-in", !hasThread && "hidden")}>
                         <Outlet context={{ parentChannelID, showOpenChannel: true }} />
                     </div>
                 </div>
-                {hasThread ? null : <AppMobileFooter />}
+                <AppMobileFooter inert={hasThread ? true : undefined} />
             </div>
         )
     }

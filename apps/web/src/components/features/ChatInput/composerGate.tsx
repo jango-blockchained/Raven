@@ -8,6 +8,7 @@ import { useUserCookieData } from "@hooks/useUserCookieData"
 import { useJoinChannel } from "@hooks/useJoinChannel"
 import _ from "@lib/translate"
 import { errorResponseToast } from "@components/ui/error-banner"
+import { cn } from "@lib/utils"
 
 export type ComposerGateState = "loading" | "composer" | "archived" | "not-member"
 
@@ -58,7 +59,8 @@ export type ComposerGate = ReturnType<typeof useComposerGate>
 /** Placeholder while we work out whether you can post — keeps the refresh from flashing. */
 const ComposerSkeleton = () => (
     <div className="md:px-3 md:pb-3 w-full">
-        <div className="md:h-[98px] h-14 standalone:h-16 w-full animate-pulse md:rounded-lg rounded-none border border-outline-gray-2 bg-surface-gray-1" />
+        <div className={cn("md:h-[98px] h-14 standalone:h-20",
+            "w-full animate-pulse md:rounded-lg rounded-none md:border border-t border-outline-gray-2 bg-surface-gray-1")} />
     </div>
 )
 
@@ -93,9 +95,9 @@ const ComposerBlockedBanner = ({
 
     }, [archived, onJoin, joining, isThread])
 
-    return <div className="px-3 pb-4 w-full">
-        <div className="flex md:min-h-[98px] min-h-24 flex-col items-center justify-center gap-2 md:rounded-lg rounded-xl border border-outline-gray-2 bg-surface-gray-1 px-3 py-4 text-sm text-ink-gray-6">
-            <span className="text-p-base">
+    return <div className="md:px-3 md:pb-4 w-full">
+        <div className="flex md:min-h-[98px] flex-col items-center justify-center gap-2 md:rounded-lg rounded-none md:border border-t border-outline-gray-2 bg-surface-gray-1 md:px-3 px-4 py-4 standalone:pb-[calc(env(safe-area-inset-bottom))] text-sm text-ink-gray-6">
+            <span className="text-p-base text-center">
                 {message}
             </span>
             {!archived && onJoin && (

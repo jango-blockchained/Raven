@@ -42,10 +42,15 @@ type RowLookups = {
 
 /** Module-level Footer so Virtuoso's component types stay stable across renders. */
 type ListContext = { isLoadingMore: boolean }
-const ListFooter = ({ context }: { context?: ListContext }) =>
-    context?.isLoadingMore ? (
-        <div className="py-4 text-center text-xs text-ink-gray-4">{_("Loading more threads...")}</div>
-    ) : null
+const ListFooter = ({ context }: { context?: ListContext }) => (
+    <>
+        {context?.isLoadingMore && (
+            <div className="py-4 text-center text-xs text-ink-gray-4">{_("Loading more threads...")}</div>
+        )}
+        {/* Mobile: small breathing pad above the tab bar. */}
+        <div className="h-2 md:h-0" aria-hidden="true" />
+    </>
+)
 const listComponents = { Footer: ListFooter }
 
 /** Centers the empty state over the whole left column (absolute) so it lands at the same height

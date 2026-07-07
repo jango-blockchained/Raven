@@ -20,7 +20,7 @@
   /* Reading tier: larger on mobile (16px) than desktop (14px) using the existing
      paragraph tokens — no --text-* overrides. Covers BOTH surfaces this class styles:
      the message body and the composer (16px input also dodges iOS focus-zoom). */
-  @apply text-p-lg md:text-p-base text-ink-gray-7 break-words;
+  @apply text-p-lg md:text-p-base text-ink-gray-8 break-words;
 }
 
 /* Spacing model mirrors the editor (frappe-ui v3 / ProseMirror): paragraphs

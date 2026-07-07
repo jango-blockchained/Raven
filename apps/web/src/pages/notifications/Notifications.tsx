@@ -29,6 +29,11 @@ const TABS: { key: NotificationTab; label: string; type: "mention" | "reaction" 
     { key: "reactions", label: "Reactions", type: "reaction" },
 ]
 
+/** Module-level Footer so Virtuoso's component type stays stable across renders.
+ *  Mobile: small breathing pad above the tab bar. */
+const NotificationsListFooter = () => <div className="h-2 md:h-0" aria-hidden="true" />
+const notificationsListComponents = { Footer: NotificationsListFooter }
+
 export default function Notifications() {
     const [activeTab, setActiveTab] = useState<NotificationTab>("all")
     const [showUnread, setShowUnread] = useState(true)
@@ -92,12 +97,16 @@ export default function Notifications() {
     }, [hasSelection, navigate])
 
     return (
-        <div className="flex flex-col h-full min-h-0 w-full">
+        // relative on the OUTER column: the mobile chat layer covers list + footer,
+        // sliding over the tab bar like a native detail page. The footer stays MOUNTED —
+        // unmounting it resized the list row, which clamped the list's scroll position
+        // at the bottom.
+        <div className="relative flex flex-col h-full min-h-0 w-full">
             {/* Mobile is STACKED navigation (same as WorkspaceLayout): the list is the page
                 and the open notification's chat is a full-screen layer on top of it. The
                 list stays mounted underneath, so going back — chevron or iOS back-swipe —
                 reveals it instantly at the same scroll position. */}
-            <div className="relative flex min-h-0 flex-1">
+            <div className="flex min-h-0 flex-1">
                 <div
                     className="md:w-(--notifications-sidebar-width) w-full shrink-0 min-h-0"
                     // While covered by the chat layer on mobile, keep the list out of
@@ -168,6 +177,7 @@ export default function Notifications() {
                                     data={currentData}
                                     endReached={loadMore}
                                     overscan={200}
+                                    components={notificationsListComponents}
                                     defaultItemHeight={80}
                                     computeItemKey={(_index, item) => item.name}
                                     itemContent={(_index, item) =>
@@ -194,17 +204,18 @@ export default function Notifications() {
                     </nav>
                 </div>
                 {/* Mobile: full-screen chat layer above the list while a notification is
-                    open, hidden when none is. Desktop: a normal column beside the list. */}
+                    open, hidden when none is. Covers the footer too (inset-0 of the
+                    outer column). Desktop: a normal column beside the list. */}
                 <div className={cn(
                     "flex min-w-0 min-h-0 flex-col bg-surface-gray-1",
-                    "max-md:absolute max-md:inset-0 max-md:z-10 animate-layer-in",
+                    "max-md:absolute max-md:inset-0 max-md:z-20 animate-layer-in",
                     !hasSelection && "max-md:hidden",
                     "md:flex-1",
                 )}>
                     {hasSelection ? <Outlet /> : <NotificationsEmptyState />}
                 </div>
             </div>
-            {!hasSelection && <AppMobileFooter />}
+            <AppMobileFooter inert={isMobile && hasSelection ? true : undefined} />
         </div>
     )
 }

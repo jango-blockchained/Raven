@@ -50,9 +50,11 @@ export default function DirectMessages() {
     // and an open DM renders as a full-screen layer on top of it. The list stays mounted
     // underneath, so going back — chevron or iOS back-swipe — reveals it instantly at the
     // same scroll position instead of rebuilding it (which flashed after the swipe).
-    return <div className="flex flex-col h-full min-h-0 w-full">
-        {/* relative: the mobile DM layer below positions against this row */}
-        <div className="relative flex min-h-0 flex-1">
+    // relative on the OUTER column: the mobile DM layer covers list + footer, sliding
+    // over the tab bar like a native detail page. The footer stays MOUNTED — unmounting
+    // it resized the list row, which clamped the list's scroll position at the bottom.
+    return <div className="relative flex flex-col h-full min-h-0 w-full">
+        <div className="flex min-h-0 flex-1">
             <div
                 className="md:w-(--dm-sidebar-width) w-full shrink-0 min-h-0"
                 // While covered on mobile, keep the list out of focus / accessibility order.
@@ -61,16 +63,17 @@ export default function DirectMessages() {
                 <DMSidebar />
             </div>
             {/* Mobile: full-screen layer above the list while a DM is open, hidden when
-                none is. Desktop: a normal flex column beside the list. */}
+                none is. Covers the footer too (inset-0 of the outer column). Desktop:
+                a normal flex column beside the list. */}
             <div className={cn(
                 "flex min-w-0 min-h-0 flex-col bg-surface-gray-1",
-                "max-md:absolute max-md:inset-0 max-md:z-10 animate-layer-in",
+                "max-md:absolute max-md:inset-0 max-md:z-20 animate-layer-in",
                 !id && "max-md:hidden",
                 "md:flex-1",
             )}>
                 <Outlet />
             </div>
         </div>
-        {!id && <AppMobileFooter />}
+        <AppMobileFooter inert={isMobile && !!id ? true : undefined} />
     </div>
 }

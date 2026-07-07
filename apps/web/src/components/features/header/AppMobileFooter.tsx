@@ -37,10 +37,15 @@ const FOOTER_LINKS = [
     }
 ]
 
-const AppMobileFooter = () => {
+/**
+ * `inert`: set while a detail layer covers the footer (stacked navigation). The footer
+ * must stay MOUNTED then — unmounting it changes the list row's height, which clamps the
+ * list's scroll position when it was at the bottom (the "list moved after back" bug) —
+ * so hosts cover it with a z-20 layer and inert it instead of removing it.
+ */
+const AppMobileFooter = ({ inert }: { inert?: boolean }) => {
     return (
-        // Add a height to the container to avoid adding padding on every page
-        <AppMobileFooterContainer className='h-16'>
+        <AppMobileFooterContainer inert={inert}>
             <HomeLink />
             <DirectMessageLink />
             <ThreadsLink />
@@ -62,12 +67,15 @@ export const AppMobileFooterSkeleton = () => {
     </AppMobileFooterContainer>
 }
 
-const AppMobileFooterContainer = ({ children, className }: { children: React.ReactNode, className?: string }) => {
+// In-flow (NOT position: fixed): the bar takes its real height in the host's flex
+// column, so the content above always ends exactly at the bar. The old fixed bar
+// needed an h-16 spacer to reserve space, and any mismatch (standalone:pb-4, content
+// a few px over 64) made the bar overhang the bottom of every list.
+const AppMobileFooterContainer = ({ children, className, inert }: { children: React.ReactNode, className?: string, inert?: boolean }) => {
 
-    return <div className={cn("md:hidden", className)}>
-        <div className="grid grid-cols-5 shrink-0 bg-surface-elevation-2 border-t border-outline-gray-2 standalone:pb-4 fixed bottom-0 w-screen z-10">
-            {children}
-        </div></div>
+    return <div className={cn("md:hidden grid grid-cols-5 shrink-0 bg-surface-elevation-2 border-t border-outline-gray-2 standalone:pb-4", className)} inert={inert}>
+        {children}
+    </div>
 }
 
 const AppMobileFooterButton = ({ icon, title, isActive, badgeCount }: { icon: React.ReactNode, title: string, isActive: boolean, badgeCount?: number }) => {
