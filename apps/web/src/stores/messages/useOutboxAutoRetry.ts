@@ -1,6 +1,6 @@
 import { useContext, useEffect } from "react"
 import { FrappeConfig, FrappeContext } from "frappe-react-sdk"
-import { getAllOutbox } from "./outbox"
+import { getAllOutbox, purgeExpiredOutbox } from "./outbox"
 import { retryOutboxRecord, type PostClient } from "./messageSender"
 
 /**
@@ -21,6 +21,10 @@ const runFlush = async (client: PostClient, includeFailed: boolean) => {
     // they are — the next trigger (reconnect after the site is writable again, or the
     // reload users do anyway after maintenance) re-checks and flushes then.
     if (window.frappe?.boot?.read_only) return
+
+    // Drop week-old sends BEFORE reading — a resurrected stale message is worse than
+    // a lost one (see purgeExpiredOutbox).
+    await purgeExpiredOutbox()
 
     const records = await getAllOutbox()
     // Send them one at a time (oldest first), waiting for each before the next.
