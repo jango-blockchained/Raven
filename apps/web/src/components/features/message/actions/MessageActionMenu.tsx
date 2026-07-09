@@ -1,5 +1,5 @@
-import { Fragment, useRef, useState } from "react"
-import { useAtom, useAtomValue } from "jotai"
+import { Fragment, useEffect, useRef, useState } from "react"
+import { useAtom, useAtomValue, useSetAtom } from "jotai"
 import {
     ContextMenu,
     ContextMenuContent,
@@ -11,7 +11,7 @@ import {
 import { Button } from "@components/ui/button"
 import { Drawer, DrawerContent, DrawerTitle } from "@components/ui/drawer"
 import { channelMessagesStore } from "@stores/messages/store"
-import { messageActionTargetAtom } from "@utils/channelAtoms"
+import { messageActionTargetAtom, replyToMessageAtom } from "@utils/channelAtoms"
 import { useIsMobile } from "@hooks/use-mobile"
 import { cn } from "@lib/utils"
 import _ from "@lib/translate"
@@ -20,7 +20,8 @@ import { MessageHoverToolbar } from "./MessageHoverToolbar"
 import { ReactionPickerPanel } from "./ReactionPicker"
 import { useToggleReaction } from "./useToggleReaction"
 import { hapticTick } from "@utils/haptics"
-import { SmilePlus } from "lucide-react"
+import { focusComposer } from "@components/features/ChatInput/composerFocus"
+import { Reply, SmilePlus } from "lucide-react"
 import type { Message } from "@raven/types/common/Message"
 import { DoubleTapReactionAtom, QuickEmojisAtom } from "@utils/preferences"
 
@@ -31,6 +32,20 @@ const DOUBLE_TAP_MS = 300
 const LONG_PRESS_MS = 450
 /** Finger drift beyond this cancels the long-press — it's a scroll, not a hold. */
 const LONG_PRESS_SLOP_PX = 10
+
+/** Swipe-to-reply (mobile): rightward travel that commits the reply on release. */
+const SWIPE_REPLY_COMMIT_PX = 48
+/** The row follows the finger only up to this cap. */
+const SWIPE_REPLY_MAX_PX = 88
+/** Travel before a touch commits to a direction (reply-swipe vs scroll vs tap). */
+const SWIPE_REPLY_SLOP_PX = 12
+/**
+ * A FLICK — short but fast — also commits. Without this, only long deliberate
+ * drags trigger and the gesture feels unresponsive: a natural quick swipe
+ * lifts the finger well before the distance threshold.
+ */
+const SWIPE_REPLY_FLICK_VELOCITY = 0.5 // px/ms rightward
+const SWIPE_REPLY_FLICK_MIN_PX = 20
 
 
 /**
@@ -145,6 +160,105 @@ export const MessageActionMenu = ({ channelID, children }: { channelID: string; 
         longPressRef.current = null
     }
 
+    /**
+     * Swipe-to-reply (WhatsApp-style): a rightward, horizontal-dominant drag on
+     * a message row slides the row with the finger (capped), reveals a reply
+     * glyph behind it, and sets the composer's reply target when released past
+     * the commit distance. All row/indicator motion is direct style writes —
+     * no React state per move. Vertical-dominant travel stands down instantly
+     * (that's a scroll), which also aligns with WebKit's own gesture
+     * arbitration, so the browser rarely steals the touch mid-swipe.
+     */
+    const setReplyTo = useSetAtom(replyToMessageAtom(channelID))
+    const swipeReplyRef = useRef<{
+        pointerId: number
+        startX: number
+        startY: number
+        element: HTMLElement
+        message: Message
+        active: boolean
+        /** Past the commit distance right now (drives the one mid-drag haptic). */
+        crossed: boolean
+        /** Rightward px/ms across the last move — the flick signal. */
+        velocity: number
+        lastX: number
+        lastTime: number
+    } | null>(null)
+    const replyGlyphRef = useRef<HTMLDivElement>(null)
+
+    // Once a reply-swipe is ACTIVE, the browser must not reclaim the touch for
+    // vertical scrolling — that fires pointercancel mid-gesture and snaps the
+    // row back for no visible reason (the "flaky" feel). preventDefault on
+    // touchmove is what blocks the reclaim, and it needs a NATIVE non-passive
+    // listener: React registers its root touch listeners as passive.
+    useEffect(() => {
+        const el = wrapperRef.current
+        if (!el) return
+        const onTouchMove = (event: TouchEvent) => {
+            if (swipeReplyRef.current?.active) event.preventDefault()
+        }
+        el.addEventListener("touchmove", onTouchMove, { passive: false })
+        return () => el.removeEventListener("touchmove", onTouchMove)
+    }, [])
+
+    /**
+     * Swipes starting inside horizontally scrollable content (code blocks,
+     * image carousels, tables) belong to that content. The overflow-x check
+     * keeps truncated spans (scrollWidth > clientWidth, but overflow hidden)
+     * from being false positives.
+     */
+    const startsInHorizontalScroller = (start: HTMLElement, stopAt: HTMLElement): boolean => {
+        let node: HTMLElement | null = start
+        while (node && node !== stopAt) {
+            if (node.scrollWidth > node.clientWidth + 1) {
+                const overflowX = getComputedStyle(node).overflowX
+                if (overflowX === "auto" || overflowX === "scroll") return true
+            }
+            node = node.parentElement
+        }
+        return false
+    }
+
+    const endSwipeReply = (event: React.PointerEvent) => {
+        const swipe = swipeReplyRef.current
+        if (!swipe || swipe.pointerId !== event.pointerId) return
+        swipeReplyRef.current = null
+        if (!swipe.active) return
+
+        // Snap the row back (animated), then clear the inline styles.
+        const row = swipe.element
+        row.style.transition = "transform 150ms ease-out"
+        row.style.transform = ""
+        window.setTimeout(() => {
+            row.style.transition = ""
+        }, 200)
+
+        const glyph = replyGlyphRef.current
+        if (glyph) {
+            glyph.style.transition = "opacity 150ms ease-out"
+            glyph.style.opacity = "0"
+        }
+
+        // The click synthesized from this drag must not tap a link/button.
+        suppressClicksUntilRef.current = performance.now() + OPEN_GESTURE_GUARD_MS
+
+        // Decide from the FINAL travel (the crossed flag can lag coalesced moves
+        // on a fast swipe) — commit on distance OR a rightward flick.
+        const dx = event.clientX - swipe.startX
+        const commit =
+            event.type !== "pointercancel" &&
+            (dx >= SWIPE_REPLY_COMMIT_PX ||
+                (swipe.velocity > SWIPE_REPLY_FLICK_VELOCITY && dx >= SWIPE_REPLY_FLICK_MIN_PX))
+        if (commit) {
+            // Flick commits skip the mid-drag crossing — still give the tick.
+            if (!swipe.crossed) hapticTick()
+            setReplyTo(swipe.message)
+            // Synchronously, inside the pointerup gesture — iOS only raises the
+            // keyboard for focus() calls made within a user gesture.
+            focusComposer(channelID)
+        }
+    }
+
     const onPointerDown = (event: React.PointerEvent) => {
         if (!isMobile || event.pointerType !== "touch") return
         // A fresh touch means any prior long-press suppression is stale.
@@ -160,14 +274,83 @@ export const MessageActionMenu = ({ channelID, children }: { channelID: string; 
             hapticTick()
         }, LONG_PRESS_MS)
         longPressRef.current = { timer, x: event.clientX, y: event.clientY }
+
+        // Arm swipe-to-reply for the same touch (activation happens in move).
+        if (!startsInHorizontalScroller(event.target as HTMLElement, block.element)) {
+            swipeReplyRef.current = {
+                pointerId: event.pointerId,
+                startX: event.clientX,
+                startY: event.clientY,
+                element: block.element,
+                message: block.message,
+                active: false,
+                crossed: false,
+                velocity: 0,
+                lastX: event.clientX,
+                lastTime: event.timeStamp,
+            }
+        }
     }
 
     const onPointerMove = (event: React.PointerEvent) => {
         const press = longPressRef.current
-        if (!press) return
-        if (Math.abs(event.clientX - press.x) > LONG_PRESS_SLOP_PX || Math.abs(event.clientY - press.y) > LONG_PRESS_SLOP_PX) {
+        if (press && (Math.abs(event.clientX - press.x) > LONG_PRESS_SLOP_PX || Math.abs(event.clientY - press.y) > LONG_PRESS_SLOP_PX)) {
             cancelLongPress()
         }
+
+        const swipe = swipeReplyRef.current
+        if (!swipe || swipe.pointerId !== event.pointerId) return
+        const dx = event.clientX - swipe.startX
+        const dy = event.clientY - swipe.startY
+
+        if (!swipe.active) {
+            // Vertical-dominant or leftward-dominant travel: not a reply swipe.
+            if (Math.abs(dy) > SWIPE_REPLY_SLOP_PX && Math.abs(dy) > Math.abs(dx)) {
+                swipeReplyRef.current = null
+                return
+            }
+            if (dx < -SWIPE_REPLY_SLOP_PX) {
+                swipeReplyRef.current = null
+                return
+            }
+            if (dx > SWIPE_REPLY_SLOP_PX && dx > Math.abs(dy)) {
+                swipe.active = true
+                cancelLongPress()
+                // Guarantee delivery even if the finger wanders off the row (the
+                // post-gesture click this retargets is already suppressed).
+                wrapperRef.current?.setPointerCapture(event.pointerId)
+                swipe.element.style.transition = "none"
+                // Park the reply glyph at the row's left edge, vertically centred.
+                const glyph = replyGlyphRef.current
+                if (glyph) {
+                    const rect = swipe.element.getBoundingClientRect()
+                    glyph.style.transition = "none"
+                    glyph.style.top = `${rect.top + rect.height / 2 - 16}px`
+                    glyph.style.left = `${rect.left + 8}px`
+                }
+            }
+        }
+
+        if (swipe.active) {
+            const dt = event.timeStamp - swipe.lastTime
+            if (dt > 0) swipe.velocity = (event.clientX - swipe.lastX) / dt
+            swipe.lastX = event.clientX
+            swipe.lastTime = event.timeStamp
+
+            const offset = Math.min(Math.max(dx, 0), SWIPE_REPLY_MAX_PX)
+            swipe.element.style.transform = `translateX(${offset}px)`
+            const glyph = replyGlyphRef.current
+            if (glyph) glyph.style.opacity = String(Math.min(offset / SWIPE_REPLY_COMMIT_PX, 1))
+            const crossed = offset >= SWIPE_REPLY_COMMIT_PX
+            // One haptic per crossing; dragging back re-arms it.
+            if (crossed && !swipe.crossed) hapticTick()
+            swipe.crossed = crossed
+        }
+    }
+
+    const onPointerEnd = (event: React.PointerEvent) => {
+        cancelLongPress()
+        endSwipeReply(event)
     }
 
     const onClickCapture = (event: React.MouseEvent) => {
@@ -260,13 +443,24 @@ export const MessageActionMenu = ({ channelID, children }: { channelID: string; 
                     onClickCapture={onClickCapture}
                     onPointerDown={onPointerDown}
                     onPointerMove={onPointerMove}
-                    onPointerUp={cancelLongPress}
-                    onPointerCancel={cancelLongPress}
+                    onPointerUp={onPointerEnd}
+                    onPointerCancel={onPointerEnd}
                     onMouseOver={onMouseOver}
                     onMouseLeave={onMouseLeave}
                     onScrollCapture={onScrollCapture}
                 >
                     {children}
+                    {/* Swipe-to-reply glyph: ONE element for the whole stream, parked at
+                        the dragged row's left edge and driven by direct style writes
+                        (opacity tracks the drag; fixed positioning is safe — an active
+                        horizontal swipe means the stream isn't scrolling). */}
+                    <div
+                        ref={replyGlyphRef}
+                        aria-hidden
+                        className="pointer-events-none fixed z-40 flex size-8 items-center justify-center rounded-full bg-surface-gray-3 text-ink-gray-7 opacity-0"
+                    >
+                        <Reply className="size-4" />
+                    </div>
                     {/* Desktop-only: hovered is only ever set from mouseover */}
                     {hovered && (
                         <MessageHoverToolbar
@@ -304,7 +498,14 @@ export const MessageActionMenu = ({ channelID, children }: { channelID: string; 
 
             {isMobile && (
                 <Drawer open={!!target} onOpenChange={(open) => !open && closeSheet()}>
-                    <DrawerContent className={sheetView === "picker" ? "p-0 pt-1" : ""} showHandle={sheetView !== "picker"}>
+                    <DrawerContent
+                        className={sheetView === "picker" ? "p-0 pt-1" : ""}
+                        showHandle={sheetView !== "picker"}
+                        // Don't restore focus on close: the Reply action just focused
+                        // the composer (keyboard opening) — the default restore would
+                        // yank it right back and dismiss the keyboard.
+                        onCloseAutoFocus={(event) => event.preventDefault()}
+                    >
                         <DrawerTitle className="sr-only">{_("Message actions")}</DrawerTitle>
                         {sheetView === "picker" && menuMessage ? (
                             // Full emoji picker takes over the sheet edge-to-edge (same panel

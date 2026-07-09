@@ -274,9 +274,18 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
     }, [handleSend])
 
     // When a reply is started (from a message's Reply action), focus the composer.
+    // Desktop only here: on mobile the focus happens synchronously at the GESTURE
+    // site (swipe-to-reply / sheet Reply action, via focusComposer) — iOS only
+    // raises the keyboard for focus() calls made inside a user gesture, and this
+    // effect runs after paint, outside it.
     useEffect(() => {
         if (replyTo && !isMobile) editor?.commands.focus()
     }, [replyTo, editor, isMobile])
+
+    // Keeps the reply banner's content rendered while its collapse animates out.
+    const lastReplyRef = useRef<typeof replyTo>(null)
+    if (replyTo) lastReplyRef.current = replyTo
+    const replyDisplay = replyTo ?? lastReplyRef.current
 
     // Expose this channel's composer focus so the pane-level FileDropZone (and any other
     // attach path outside this subtree) can refocus the editor after a drop.
@@ -351,7 +360,14 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                                 onLinkConsumed={() => setLinkSignal(0)}
                             />
                         )}
-                        {replyTo && <ReplyPreviewBanner message={replyTo} onCancel={cancelReply} showFormatting={showFormatting} />}
+                        {/* Reply banner slides open/closed (grid-rows 0fr↔1fr — the
+                            animatable "height:auto"). The last reply is snapshotted so
+                            the banner keeps its content while collapsing out. */}
+                        <div className={cn("grid transition-[grid-template-rows] duration-200 ease-out", replyTo ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
+                            <div className="min-h-0 overflow-hidden">
+                                {replyDisplay && <ReplyPreviewBanner message={replyDisplay} onCancel={cancelReply} showFormatting={showFormatting} />}
+                            </div>
+                        </div>
                         <InputFileList channelID={channelID} />
                         {/* Reserve the editor's min-height before it mounts (EditorContent is
                             empty until `editor` is ready) so the composer — and the stream's

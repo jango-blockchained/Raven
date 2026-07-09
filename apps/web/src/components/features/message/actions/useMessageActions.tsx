@@ -18,6 +18,7 @@ import {
     Trash2,
 } from "lucide-react"
 import { editingMessageAtom, messageDialogAtom, replyToMessageAtom } from "@utils/channelAtoms"
+import { focusComposer } from "@components/features/ChatInput/composerFocus"
 import { resolveEditTarget } from "./editTarget"
 import { channelMessagesStore } from "@stores/messages/store"
 import { parsePinnedIds } from "@stores/messages/selectors"
@@ -113,8 +114,15 @@ export const useMessageActions = (message: Message | null): MessageAction[][] =>
                 id: "reply",
                 label: _("Reply"),
                 icon: Reply,
-                // Set the channel's reply target; the composer reads it and shows the banner.
-                onSelect: () => getDefaultStore().set(replyToMessageAtom(message.channel_id), message),
+                // Set the channel's reply target; the composer reads it and shows the
+                // banner. focusComposer here (inside the select gesture) is what opens
+                // the keyboard on iOS — a post-render effect can't. The mobile action
+                // sheet's onCloseAutoFocus is prevented so its close doesn't steal
+                // the focus right back.
+                onSelect: () => {
+                    getDefaultStore().set(replyToMessageAtom(message.channel_id), message)
+                    focusComposer(message.channel_id)
+                },
             },
         ]
         // Create thread only inside a channel: not on a message that already has one

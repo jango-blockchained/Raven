@@ -6,6 +6,14 @@ import _ from "@lib/translate"
 // Same numbers as the non-image media's wrapper — one uniform dismiss feel.
 import { DISMISS_DISTANCE, DISMISS_PROGRESS_RANGE, DISMISS_SLOP, DISMISS_VELOCITY } from "./SwipeDownToClose"
 
+/**
+ * Zoomed dismiss (iOS-Photos edge-continuation): while zoomed, a downward drag
+ * pans — but once the pan is pinned at the image's bottom boundary, pulling
+ * further than this buffer converts the surplus into the dismiss drag. The
+ * buffer keeps an ordinary pan that bumps the edge from instantly dismissing.
+ */
+const OVERPAN_DISMISS_START_PX = 16
+
 const MIN_SCALE = 1
 const MAX_SCALE = 6
 /** Double-click / double-tap zooms straight to this. */
@@ -30,11 +38,14 @@ const IDENTITY: Transform = { scale: 1, x: 0, y: 0 }
  * (backdrop-close keeps working) but clicks on the image never do. The
  * transform resets whenever `src` changes (paging to another attachment).
  *
- * Swipe-down-to-close (`onDismiss`): touch-only, and only at 1x — a vertical-
- * dominant drag past the slop moves the image with the finger (slight shrink +
- * fade); releasing past DISMISS_DISTANCE or with a downward flick dismisses,
- * anything less springs back. Horizontal swipes still page (the modal only
- * reads horizontal-dominant travel), pinch/pan while zoomed are untouched.
+ * Swipe-down-to-close (`onDismiss`): touch-only. At 1x, a vertical-dominant
+ * drag past the slop moves the image with the finger (slight shrink + fade);
+ * releasing past DISMISS_DISTANCE or with a downward flick dismisses, anything
+ * less springs back. While ZOOMED, dismiss works by edge-continuation (iOS
+ * Photos): a downward drag pans first, and once the pan pins at the image's
+ * bottom boundary, continued pull past OVERPAN_DISMISS_START_PX becomes the
+ * same dismiss drag. Horizontal swipes still page (the modal only reads
+ * horizontal-dominant travel); pinch always wins over an in-progress dismiss.
  */
 export const ZoomableImage = ({
     src,
@@ -74,17 +85,36 @@ export const ZoomableImage = ({
         velocity: number
     } | null>(null)
     const suppressClickRef = useRef(false)
+    /** Cumulative downward pull past the pan boundary while zoomed (dismiss handoff). */
+    const overpanRef = useRef(0)
+
+    /** Velocity + offset bookkeeping for an ACTIVE dismiss drag (1x and zoomed paths). */
+    const trackDismissMove = (event: React.PointerEvent, drag: NonNullable<typeof dismissRef.current>) => {
+        const dt = event.timeStamp - drag.lastTime
+        if (dt > 0) drag.velocity = (event.clientY - drag.lastY) / dt
+        drag.lastY = event.clientY
+        drag.lastTime = event.timeStamp
+        const offset = Math.max(0, event.clientY - drag.startY)
+        setDismissY(offset)
+        onDismissProgress?.(Math.min(offset / DISMISS_PROGRESS_RANGE, 1))
+    }
 
     // Paging to another attachment starts fresh.
     useEffect(() => {
         setT(IDENTITY)
         setDismissY(0)
+        overpanRef.current = 0
     }, [src])
+
+    /** Pan limit for a given scale (also the zoomed-dismiss boundary check). */
+    const panBound = (scale: number): number => {
+        const rect = containerRef.current?.getBoundingClientRect()
+        return rect ? ((scale - 1) * Math.max(rect.width, rect.height)) / 2 : 0
+    }
 
     /** Clamp the pan so the image can't be flung entirely out of view. */
     const clamp = (next: Transform): Transform => {
-        const rect = containerRef.current?.getBoundingClientRect()
-        const bound = rect ? ((next.scale - 1) * Math.max(rect.width, rect.height)) / 2 : 0
+        const bound = panBound(next.scale)
         return {
             scale: Math.min(MAX_SCALE, Math.max(MIN_SCALE, next.scale)),
             x: Math.min(bound, Math.max(-bound, next.x)),
@@ -134,6 +164,7 @@ export const ZoomableImage = ({
             setGesturing(true)
             // A second finger means pinch — abandon any dismiss drag in progress.
             dismissRef.current = null
+            overpanRef.current = 0
             setDismissY(0)
             onDismissProgress?.(0)
         } else if (tRef.current.scale > 1) {
@@ -182,13 +213,11 @@ export const ZoomableImage = ({
                 setT(next.scale === 1 ? IDENTITY : next)
             }
             pinchRef.current = { dist, mid }
-        } else if (pointers.current.size === 1 && tRef.current.scale > 1) {
-            // Drag pan while zoomed.
-            const dx = event.clientX - prevPos.x
-            const dy = event.clientY - prevPos.y
-            setT((current) => clamp({ ...current, x: current.x + dx, y: current.y + dy }))
         } else if (pointers.current.size === 1 && dismissRef.current?.pointerId === event.pointerId) {
-            // Swipe-down-to-close: decide, then follow the finger.
+            // Swipe-down-to-close: decide (1x candidates only — the zoomed path
+            // arrives here already active via overpan), then follow the finger.
+            // This branch sits BEFORE the pan branch so an active zoomed dismiss
+            // keeps receiving the moves.
             const drag = dismissRef.current
             const dx = event.clientX - drag.startX
             const dy = event.clientY - drag.startY
@@ -204,14 +233,39 @@ export const ZoomableImage = ({
                     setGesturing(true)
                 }
             }
-            if (drag.active) {
-                const dt = event.timeStamp - drag.lastTime
-                if (dt > 0) drag.velocity = (event.clientY - drag.lastY) / dt
-                drag.lastY = event.clientY
-                drag.lastTime = event.timeStamp
-                const offset = Math.max(0, dy)
-                setDismissY(offset)
-                onDismissProgress?.(Math.min(offset / DISMISS_PROGRESS_RANGE, 1))
+            if (drag.active) trackDismissMove(event, drag)
+        } else if (pointers.current.size === 1 && tRef.current.scale > 1) {
+            // Drag pan while zoomed.
+            const dx = event.clientX - prevPos.x
+            const dy = event.clientY - prevPos.y
+            const prev = tRef.current
+            const attemptedY = prev.y + dy
+            setT(clamp({ ...prev, x: prev.x + dx, y: attemptedY }))
+
+            // Edge-continuation dismiss (iOS Photos): once the pan is pinned at
+            // the bottom boundary, further downward pull accumulates as overpan;
+            // past the buffer it converts into the dismiss drag — pan and
+            // dismiss compose in one continuous motion, no zoom-out-first.
+            if (onDismiss && event.pointerType === "touch") {
+                const excess = attemptedY - panBound(prev.scale)
+                overpanRef.current = Math.max(0, overpanRef.current + excess)
+                if (overpanRef.current > OVERPAN_DISMISS_START_PX) {
+                    const initialOffset = overpanRef.current - OVERPAN_DISMISS_START_PX
+                    overpanRef.current = 0
+                    dismissRef.current = {
+                        pointerId: event.pointerId,
+                        startX: event.clientX,
+                        // Back-dated so the dismiss offset starts at the already-pulled
+                        // distance — the image continues from under the finger.
+                        startY: event.clientY - initialOffset,
+                        active: true,
+                        lastY: event.clientY,
+                        lastTime: event.timeStamp,
+                        velocity: 0,
+                    }
+                    setDismissY(initialOffset)
+                    onDismissProgress?.(Math.min(initialOffset / DISMISS_PROGRESS_RANGE, 1))
+                }
             }
         }
     }
@@ -219,7 +273,10 @@ export const ZoomableImage = ({
     const onPointerEnd = (event: React.PointerEvent) => {
         pointers.current.delete(event.pointerId)
         if (pointers.current.size < 2) pinchRef.current = null
-        if (pointers.current.size === 0) setGesturing(false)
+        if (pointers.current.size === 0) {
+            setGesturing(false)
+            overpanRef.current = 0
+        }
 
         const drag = dismissRef.current
         if (drag?.pointerId === event.pointerId) {

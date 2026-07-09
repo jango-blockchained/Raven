@@ -315,7 +315,7 @@ export default function ChatStream({ channelID, pinnedMessagesString, initialMes
                         <div className="absolute bottom-3 right-4 z-50">
                             <Button
                                 variant="outline"
-                                size={isMobile ? "md" : "sm"}
+                                size={isMobile ? "lg" : "sm"}
                                 isIconButton={hasUnseenMessages ? false : true}
                                 onClick={onJumpToPresent}
                                 className="rounded-full shadow"
