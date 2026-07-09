@@ -26,9 +26,9 @@
 const TOKEN_STORAGE_KEY = "firebase_token_raven"
 
 /**
- * The SW's scope (/assets/raven/raven_v3/) doesn't control the app's pages, so
- * navigator.serviceWorker.ready would never resolve — we must hold on to the
- * registration ourselves and hand it to getToken() explicitly.
+ * The registration promise is held here (not navigator.serviceWorker.ready)
+ * so callers can use it before the worker controls this page — a freshly
+ * registered SW only controls pages loaded AFTER it activates.
  */
 let swRegistration: Promise<ServiceWorkerRegistration | null> = Promise.resolve(null)
 
@@ -70,6 +70,17 @@ export const isPushSupportedByBrowser = (): boolean =>
 /** Whether THIS device has push enabled (source of truth: the stored token). */
 export const isPushEnabled = (): boolean => localStorage.getItem(TOKEN_STORAGE_KEY) !== null
 
+/**
+ * Running as an INSTALLED app (home screen / desktop PWA) rather than a browser
+ * tab. Installation is a personal-device signal — offline persistence of user
+ * data (rendered shell, boot cache) is gated on it, so shared-machine browser
+ * sessions leave nothing extra at rest.
+ */
+export const isStandalone = (): boolean =>
+    window.matchMedia("(display-mode: standalone)").matches ||
+    // iOS home-screen apps report through navigator.standalone instead
+    (navigator as { standalone?: boolean }).standalone === true
+
 /** Lazily create the Firebase Messaging instance from boot config. */
 const getMessagingInstance = async () => {
     const cfg = getBootPushConfig()
@@ -98,14 +109,31 @@ const callNotificationAPI = async (method: "subscribe" | "unsubscribe", body: Re
 }
 
 /**
- * Register the push service worker. Called once from main.tsx after boot is
- * available. The URL is static — config never rides on the query string (v2's
- * ?config= trick), so the SW only updates when its code changes.
+ * Register the service worker (push + offline app shell). Called once from
+ * main.tsx after boot is available.
+ *
+ * Served at /raven_v3/sw.js by a Frappe page renderer — NOT from /assets/ —
+ * because a SW's scope is capped at its script's directory, and controlling
+ * the app's pages is what enables the offline shell (and, later, share-target
+ * files). The URL is static; the renderer sends Cache-Control: no-cache, so
+ * deploys are picked up on the next registration check.
  */
 export const registerPushServiceWorker = () => {
     if (!("serviceWorker" in navigator)) return
+
+    // One-time migration: drop the old /assets/-scoped registration (pre-offline
+    // era) so two workers don't both handle pushes.
+    navigator.serviceWorker
+        .getRegistrations()
+        .then((registrations) => {
+            for (const registration of registrations) {
+                if (registration.scope.includes("/assets/raven/raven_v3")) registration.unregister()
+            }
+        })
+        .catch(() => { })
+
     swRegistration = navigator.serviceWorker
-        .register("/assets/raven/raven_v3/sw.js", { type: "classic" })
+        .register("/raven_v3/sw.js", { type: "classic" })
         .catch((e) => {
             console.error("Failed to register service worker", e)
             return null
@@ -217,6 +245,15 @@ export const consumePendingNotificationClick = (): Promise<string | null> =>
 export const initPushNotifications = () => {
     if (!isPushSupportedByBrowser()) return
     registerPushServiceWorker()
+
+    // Installed app only: ask the SW to cache the rendered shell for offline
+    // launches. Browser tabs never ask — see isStandalone for the reasoning.
+    // (ready resolves once the registration has an active worker.)
+    if (isStandalone()) {
+        navigator.serviceWorker.ready
+            .then((registration) => registration.active?.postMessage({ type: "raven:cache-shell" }))
+            .catch(() => { })
+    }
 
     if (!isPushEnabled() || !isRavenPushConfigured()) return
     if (Notification.permission !== "granted") {

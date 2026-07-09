@@ -9,16 +9,62 @@
 // A top-level `notification` key would rely on FCM SDK auto-display we no
 // longer have.
 
-// OFFLINE PRECACHE — DISABLED (push-only). vite-plugin-pwa injects the precache manifest
-// at self.__WB_MANIFEST. With injectManifest.globPatterns = [] it injects [], so nothing
-// is precached. To enable offline asset caching later:
-//   1. yarn workspace @raven/web add -D workbox-precaching
-//   2. set injectManifest.globPatterns in vite.config.ts (e.g. ["**/*.{js,css,html,svg,png,woff2}"])
-//   3. uncomment the import + precacheAndRoute below
-// import { precacheAndRoute } from "workbox-precaching"
-// precacheAndRoute(self.__WB_MANIFEST)
-const _precacheManifest = self.__WB_MANIFEST // injection point; inert while globs are empty
-void _precacheManifest
+import { precacheAndRoute, createHandlerBoundToURL } from "workbox-precaching"
+import { NavigationRoute, registerRoute } from "workbox-routing"
+
+// OFFLINE APP SHELL. The SW is served at /raven_v3/sw.js (see raven/
+// page_renderers.py) so its scope covers the app's pages — a SW can only
+// intercept fetches from clients it controls.
+//
+// 1. Precache the build output (manifest injected by vite-plugin-pwa at
+//    __WB_MANIFEST; URLs prefixed to /assets/raven/raven_v3/ in vite.config).
+// 2. App navigations are NETWORK-FIRST — online loads must keep hitting the
+//    Jinja route (fresh boot + csrf_token). Offline falls back to the cached
+//    shell — a fully RENDERED page with real boot — and, as a last resort, the
+//    precached BUILT index.html, whose Jinja is unrendered (its inline boot
+//    script fails; main.tsx then recovers boot from localStorage).
+//
+//    The shell is cached ONLY when an installed (standalone) app asks for it
+//    (raven:cache-shell below) — the SW can't see display mode itself, and a
+//    plain browser-tab session shouldn't leave a rendered page (user's boot +
+//    csrf baked in) at rest on what may be a shared machine. Installation is
+//    a personal-device signal.
+precacheAndRoute(self.__WB_MANIFEST)
+
+const APP_SHELL_CACHE = "raven-app-shell"
+const APP_SHELL_KEY = "/raven_v3/"
+
+registerRoute(
+    new NavigationRoute(
+        async ({ request, event }) => {
+            try {
+                return await fetch(request)
+            } catch {
+                const cached = await caches.match(APP_SHELL_KEY)
+                if (cached) return cached
+                return createHandlerBoundToURL("/assets/raven/raven_v3/index.html")({ request, event })
+            }
+        },
+        // Only the app's own routes — /app (desk), /api etc. stay untouched.
+        { allowlist: [/^\/raven_v3(\/|$)/] },
+    ),
+)
+
+/** Fetch + cache the rendered shell — requested by standalone pages only. */
+async function cacheAppShell() {
+    try {
+        const response = await fetch(APP_SHELL_KEY)
+        // Only real app HTML: a redirect-following fetch can land on the login
+        // page (response.ok!) — caching that would make the offline "app" a
+        // login screen.
+        if (response.ok && new URL(response.url).pathname.startsWith("/raven_v3")) {
+            const cache = await caches.open(APP_SHELL_CACHE)
+            await cache.put(APP_SHELL_KEY, response)
+        }
+    } catch {
+        // Offline / fetch failed — keep whatever shell we already have.
+    }
+}
 
 /**
  * Fallback badge when the server didn't send an authoritative unread_count:
@@ -60,8 +106,8 @@ self.addEventListener("push", (event) => {
             // surfaced this message in-app — showing a system notification too
             // would double-notify. (Skipping display on a visible client is
             // also what firebase-messaging-sw does, so Chrome's userVisibleOnly
-            // expectations are satisfied.) includeUncontrolled because our
-            // scope (/assets/raven/raven_v3/) doesn't control the app's pages.
+            // expectations are satisfied.) includeUncontrolled covers pages
+            // loaded before this SW version activated.
             const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true })
             if (windows.some((client) => client.visibilityState === "visible")) return
 
@@ -121,6 +167,9 @@ self.addEventListener("message", (event) => {
         event.ports[0]?.postMessage({ url: pendingNotificationClickUrl })
         pendingNotificationClickUrl = null
     }
+    if (event.data?.type === "raven:cache-shell") {
+        event.waitUntil?.(cacheAppShell())
+    }
 })
 
 self.addEventListener("notificationclick", (event) => {
@@ -136,8 +185,9 @@ self.addEventListener("notificationclick", (event) => {
             const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true })
             const existing = windows.find((client) => new URL(client.url).origin === self.location.origin)
             if (existing) {
-                // Our scope doesn't control app pages, so WindowClient.navigate()
-                // would reject. Two delivery paths instead:
+                // Hand the page the target URL rather than navigate() (a full
+                // reload, and illegal for yet-uncontrolled clients anyway). Two
+                // delivery paths:
                 //  - postMessage: instant, works when the page is live (desktop/Android)
                 //  - pendingNotificationClickUrl: pulled by the page on resume,
                 //    covering the frozen-PWA case where the postMessage is lost

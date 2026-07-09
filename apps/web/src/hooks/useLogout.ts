@@ -99,6 +99,14 @@ export function useLogout(): { logout: () => Promise<void>; isLoggingOut: boolea
 
         clearLocalStorage()
         await clearIndexedDB()
+        // The offline app-shell cache holds a RENDERED page — this user's boot
+        // and csrf_token baked into the HTML. A logged-out device must not keep
+        // it. The precache (public build assets) is user-independent and stays.
+        try {
+            await caches.delete("raven-app-shell")
+        } catch {
+            // Cache API unavailable (older browser) — nothing was cached either.
+        }
         // A logged-out device claims no unread.
         navigator.clearAppBadge?.().catch(() => { })
 

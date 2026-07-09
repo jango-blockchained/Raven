@@ -20,10 +20,19 @@ export default defineConfig({
       strategies: "injectManifest",
       srcDir: "src",
       filename: "sw.js",
-      injectRegister: false, // registered manually in main.tsx (Firebase ?config append)
+      injectRegister: false, // registered manually in main.tsx (lib/push.ts)
       manifest: false,       // static manifest + manual <link> (entry is a Frappe Jinja template)
       injectManifest: {
-        globPatterns: [],    // PRECACHE DISABLED. To enable offline later, set globs here.
+        // Offline app shell: precache the build output. The SW is served at
+        // /raven_v3/sw.js (a Frappe page renderer) while these files live under
+        // /assets/raven/raven_v3/ — modifyURLPrefix maps the manifest's relative
+        // URLs to where the page actually requests them.
+        globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest,woff2}"],
+        // iOS launch screens are fetched by the OS (never through the SW) and
+        // weigh ~3MB — precaching them only burns quota.
+        globIgnores: ["splash_screens/**"],
+        modifyURLPrefix: { "": "/assets/raven/raven_v3/" },
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
       },
       devOptions: { enabled: false },
     }),

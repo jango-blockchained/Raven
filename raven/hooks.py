@@ -250,6 +250,10 @@ website_route_rules = [
 	{"from_route": "/raven_v3/<path:app_path>", "to_route": "raven_v3"},
 ]
 
+# Serves the v3 service worker at /raven_v3/sw.js (in-scope for page control —
+# offline app shell + share target). See raven/page_renderers.py for why.
+page_renderer = ["raven.page_renderers.RavenV3ServiceWorker"]
+
 permission_query_conditions = {
 	"Raven Channel": "raven.permissions.raven_channel_query",
 	"Raven Message": "raven.permissions.raven_message_query",
