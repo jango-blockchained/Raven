@@ -3,6 +3,8 @@ import { Minus, Plus } from "lucide-react"
 import { Button } from "@components/ui/button"
 import { cn } from "@lib/utils"
 import _ from "@lib/translate"
+// Same numbers as the non-image media's wrapper — one uniform dismiss feel.
+import { DISMISS_DISTANCE, DISMISS_PROGRESS_RANGE, DISMISS_SLOP, DISMISS_VELOCITY } from "./SwipeDownToClose"
 
 const MIN_SCALE = 1
 const MAX_SCALE = 6
@@ -27,8 +29,25 @@ const IDENTITY: Transform = { scale: 1, x: 0, y: 0 }
  * paging never fight. Clicks on the empty area around the image still bubble
  * (backdrop-close keeps working) but clicks on the image never do. The
  * transform resets whenever `src` changes (paging to another attachment).
+ *
+ * Swipe-down-to-close (`onDismiss`): touch-only, and only at 1x — a vertical-
+ * dominant drag past the slop moves the image with the finger (slight shrink +
+ * fade); releasing past DISMISS_DISTANCE or with a downward flick dismisses,
+ * anything less springs back. Horizontal swipes still page (the modal only
+ * reads horizontal-dominant travel), pinch/pan while zoomed are untouched.
  */
-export const ZoomableImage = ({ src, alt }: { src: string; alt: string }) => {
+export const ZoomableImage = ({
+    src,
+    alt,
+    onDismiss,
+    onDismissProgress,
+}: {
+    src: string
+    alt: string
+    onDismiss?: () => void
+    /** 0..1 while the dismiss drag is held — the modal fades its backdrop with it (direct style write, no state). */
+    onDismissProgress?: (progress: number) => void
+}) => {
     const containerRef = useRef<HTMLDivElement>(null)
     const [t, setT] = useState<Transform>(IDENTITY)
     // Gesture state lives in refs — pointer math must read the latest values
@@ -39,9 +58,27 @@ export const ZoomableImage = ({ src, alt }: { src: string; alt: string }) => {
     const pinchRef = useRef<{ dist: number; mid: { x: number; y: number } } | null>(null)
     const [gesturing, setGesturing] = useState(false)
 
+    // Swipe-down-to-close (touch, 1x only). A touch starts as a CANDIDATE; it
+    // commits to the dismiss drag once vertical-dominant travel passes the slop
+    // (horizontal-dominant travel cancels it — that's a page-swipe). dismissY
+    // drives the follow-the-finger transform; the refs carry velocity for the
+    // flick check and suppress the synthetic click after a spring-back.
+    const [dismissY, setDismissY] = useState(0)
+    const dismissRef = useRef<{
+        pointerId: number
+        startX: number
+        startY: number
+        active: boolean
+        lastY: number
+        lastTime: number
+        velocity: number
+    } | null>(null)
+    const suppressClickRef = useRef(false)
+
     // Paging to another attachment starts fresh.
     useEffect(() => {
         setT(IDENTITY)
+        setDismissY(0)
     }, [src])
 
     /** Clamp the pan so the image can't be flung entirely out of view. */
@@ -95,9 +132,24 @@ export const ZoomableImage = ({ src, alt }: { src: string; alt: string }) => {
             pinchRef.current = { dist: Math.hypot(a.x - b.x, a.y - b.y), mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } }
             for (const id of pointers.current.keys()) containerRef.current?.setPointerCapture(id)
             setGesturing(true)
+            // A second finger means pinch — abandon any dismiss drag in progress.
+            dismissRef.current = null
+            setDismissY(0)
+            onDismissProgress?.(0)
         } else if (tRef.current.scale > 1) {
             containerRef.current?.setPointerCapture(event.pointerId)
             setGesturing(true)
+        } else if (onDismiss && event.pointerType === "touch") {
+            // 1x single touch: candidate for the swipe-down-to-close drag.
+            dismissRef.current = {
+                pointerId: event.pointerId,
+                startX: event.clientX,
+                startY: event.clientY,
+                active: false,
+                lastY: event.clientY,
+                lastTime: event.timeStamp,
+                velocity: 0,
+            }
         }
     }
 
@@ -135,6 +187,32 @@ export const ZoomableImage = ({ src, alt }: { src: string; alt: string }) => {
             const dx = event.clientX - prevPos.x
             const dy = event.clientY - prevPos.y
             setT((current) => clamp({ ...current, x: current.x + dx, y: current.y + dy }))
+        } else if (pointers.current.size === 1 && dismissRef.current?.pointerId === event.pointerId) {
+            // Swipe-down-to-close: decide, then follow the finger.
+            const drag = dismissRef.current
+            const dx = event.clientX - drag.startX
+            const dy = event.clientY - drag.startY
+            if (!drag.active) {
+                // Horizontal-dominant travel = the modal's page-swipe; stand down.
+                if (Math.abs(dx) > DISMISS_SLOP && Math.abs(dx) > Math.abs(dy)) {
+                    dismissRef.current = null
+                    return
+                }
+                if (dy > DISMISS_SLOP && Math.abs(dy) > Math.abs(dx)) {
+                    drag.active = true
+                    containerRef.current?.setPointerCapture(event.pointerId)
+                    setGesturing(true)
+                }
+            }
+            if (drag.active) {
+                const dt = event.timeStamp - drag.lastTime
+                if (dt > 0) drag.velocity = (event.clientY - drag.lastY) / dt
+                drag.lastY = event.clientY
+                drag.lastTime = event.timeStamp
+                const offset = Math.max(0, dy)
+                setDismissY(offset)
+                onDismissProgress?.(Math.min(offset / DISMISS_PROGRESS_RANGE, 1))
+            }
         }
     }
 
@@ -142,6 +220,23 @@ export const ZoomableImage = ({ src, alt }: { src: string; alt: string }) => {
         pointers.current.delete(event.pointerId)
         if (pointers.current.size < 2) pinchRef.current = null
         if (pointers.current.size === 0) setGesturing(false)
+
+        const drag = dismissRef.current
+        if (drag?.pointerId === event.pointerId) {
+            dismissRef.current = null
+            if (drag.active) {
+                // The synthetic click after this drag must not bubble to backdrop-close.
+                suppressClickRef.current = true
+                const dy = event.clientY - drag.startY
+                if (event.type !== "pointercancel" && (dy > DISMISS_DISTANCE || drag.velocity > DISMISS_VELOCITY)) {
+                    onDismiss?.()
+                } else {
+                    // Below the threshold — spring back (transition returns at gesture end).
+                    setDismissY(0)
+                    onDismissProgress?.(0)
+                }
+            }
+        }
     }
 
     /**
@@ -154,7 +249,10 @@ export const ZoomableImage = ({ src, alt }: { src: string; alt: string }) => {
     const multiTouchRef = useRef(false)
     const blockTouchWhenZoomed = (event: React.TouchEvent) => {
         if (event.touches.length > 1) multiTouchRef.current = true
-        if (tRef.current.scale > 1 || event.touches.length > 1 || multiTouchRef.current) event.stopPropagation()
+        // An active dismiss drag also keeps its touches to itself (the modal's
+        // paging reads touchend travel — a cancelled drag must not page).
+        if (tRef.current.scale > 1 || event.touches.length > 1 || multiTouchRef.current || dismissRef.current?.active)
+            event.stopPropagation()
         // All fingers up → the sequence is over; the next fresh touch may page.
         if (event.type === "touchend" && event.touches.length === 0) multiTouchRef.current = false
     }
@@ -176,6 +274,13 @@ export const ZoomableImage = ({ src, alt }: { src: string; alt: string }) => {
                 else zoomAt(event.clientX, event.clientY, TOGGLE_SCALE)
             }}
             onClick={(event) => {
+                // A click synthesized from a dismiss drag (spring-back case) must
+                // not read as a backdrop-close tap.
+                if (suppressClickRef.current) {
+                    suppressClickRef.current = false
+                    event.stopPropagation()
+                    return
+                }
                 // Empty-frame clicks at 1x bubble to the backdrop (close); clicks
                 // on the image — or anywhere while zoomed — never close.
                 if (event.target !== event.currentTarget || tRef.current.scale > 1) event.stopPropagation()
@@ -187,11 +292,18 @@ export const ZoomableImage = ({ src, alt }: { src: string; alt: string }) => {
                 draggable={false}
                 className={cn(
                     "max-h-full max-w-full select-none object-contain md:max-w-[90%]",
-                    // Smooth wheel/double-click zoom, but 1:1 tracking mid-gesture
-                    gesturing ? "transition-none" : "transition-transform duration-150 ease-out",
+                    // Smooth wheel/double-click zoom, but 1:1 tracking mid-gesture.
+                    // (transition-all so the dismiss spring-back also animates
+                    // translate + the slight shrink/fade together.)
+                    gesturing ? "transition-none" : "transition-all duration-150 ease-out",
                     t.scale > 1 && (gesturing ? "cursor-grabbing" : "cursor-grab"),
                 )}
-                style={{ transform: `translate(${t.x}px, ${t.y}px) scale(${t.scale})` }}
+                style={{
+                    // Dismiss drag rides on top of the (identity) zoom transform:
+                    // follow the finger down, shrink a touch, fade a little.
+                    transform: `translate(${t.x}px, ${t.y + dismissY}px) scale(${t.scale * (1 - Math.min(dismissY / 1200, 0.15))})`,
+                    opacity: 1 - Math.min(dismissY / 600, 0.5),
+                }}
             />
 
             {/* Zoom controls — centred above the filmstrip; % tap resets */}

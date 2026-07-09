@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef } from "react"
 import { useAtomValue, useSetAtom } from "jotai"
 import { useHotkeys } from "react-hotkeys-hook"
 import { toast } from "sonner"
@@ -9,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@components/ui/tooltip"
 import { MediaLightbox } from "./MediaLightbox"
 import { MediaPreviewHeader } from "./MediaPreviewHeader"
 import { ZoomableImage } from "./ZoomableImage"
+import { SwipeDownToClose } from "./SwipeDownToClose"
 import { AudioPlayer } from "./AudioPlayer"
 import { useUser } from "@hooks/useUser"
 import { useIsMobile } from "@hooks/use-mobile"
@@ -113,8 +114,17 @@ const AttachmentPreviewContent = ({
         if ((await shareFile(current.fileUrl, current.fileName)) === "copied") toast.success(_("Link copied"))
     }
 
+    // Backdrop fade for the swipe-down-to-close drag: written straight onto the
+    // scrim element per pointer move — no state, no re-render, compositor-only.
+    // "" restores the class opacity (and the overlay's transition animates it).
+    const overlayRef = useRef<HTMLDivElement>(null)
+    const onDismissProgress = useCallback((progress: number) => {
+        const overlay = overlayRef.current
+        if (overlay) overlay.style.opacity = progress === 0 ? "" : String(1 - progress * 0.7)
+    }, [])
+
     return (
-        <MediaLightbox open={open} onOpenChange={(next) => !next && close()} title={current.fileName}>
+        <MediaLightbox open={open} onOpenChange={(next) => !next && close()} title={current.fileName} overlayRef={overlayRef}>
             {/* Floating chrome over the scrim */}
             <div className="shrink-0 p-3">
                 <MediaPreviewHeader
@@ -181,43 +191,50 @@ const AttachmentPreviewContent = ({
                 {current.kind === "image" ? (
                     // Zoomable (wheel / pinch / double-tap / drag-pan). Keyed by URL so
                     // paging remounts it at 1x. While zoomed it stops touch events, which
-                    // is what suspends this container's swipe-paging.
-                    <ZoomableImage key={current.fileUrl} src={current.fileUrl} alt={current.fileName} />
-                ) : current.kind === "video" ? (
-                    <video
-                        src={current.fileUrl}
-                        controls
-                        className="max-h-full md:max-w-[90%]"
-                        onClick={(event) => event.stopPropagation()}
-                    />
-                ) : current.kind === "audio" ? (
-                    // Stop touchstart too, so dragging the seek slider isn't read as a page-swipe
-                    <div className="w-full max-w-sm flex flex-col gap-2">
-                        <div className="flex items-center justify-center aspect-square bg-surface-gray-1 rounded-lg">
-                            <MusicIcon className="size-12" />
-                        </div>
-                        <div
-                            className="rounded-lg bg-surface-gray-1 p-3"
-                            onClick={(event) => event.stopPropagation()}
-                            onTouchStart={(event) => event.stopPropagation()}
-                        >
-                            <AudioPlayer src={current.fileUrl} />
-                        </div>
-                    </div>
-
-                ) : canEmbedPdf ? (
-                    // <embed> = native PDF viewer (toolbar, zoom) at full height.
-                    // max-w caps it so wide screens keep a dark backdrop to click.
-                    <embed
-                        src={current.fileUrl}
-                        type="application/pdf"
-                        className="h-full w-full max-w-5xl rounded-md"
-                        onClick={(event) => event.stopPropagation()}
-                    />
+                    // is what suspends this container's swipe-paging. Swipe-down-to-close
+                    // is integrated (it must arbitrate against zoom/pinch), unlike the
+                    // other media kinds which share the SwipeDownToClose wrapper below.
+                    <ZoomableImage key={current.fileUrl} src={current.fileUrl} alt={current.fileName} onDismiss={close} onDismissProgress={onDismissProgress} />
                 ) : (
-                    // No inline preview (non-previewable files, or a PDF paged
-                    // into on mobile) — a download/open card, Google-Drive style
-                    <div className="px-3 md:px-0 w-full flex items-center justify-center"><DownloadCard attachment={current} isMobile={isMobile} /></div>
+                    <SwipeDownToClose onDismiss={close} onProgress={onDismissProgress}>
+                        {current.kind === "video" ? (
+                            <video
+                                src={current.fileUrl}
+                                controls
+                                className="max-h-full md:max-w-[90%]"
+                                onClick={(event) => event.stopPropagation()}
+                            />
+                        ) : current.kind === "audio" ? (
+                            // Stop touchstart too, so dragging the seek slider isn't read as a page-swipe
+                            <div className="w-full max-w-sm flex flex-col gap-2">
+                                <div className="flex items-center justify-center aspect-square bg-surface-gray-1 rounded-lg">
+                                    <MusicIcon className="size-12" />
+                                </div>
+                                <div
+                                    className="rounded-lg bg-surface-gray-1 p-3"
+                                    onClick={(event) => event.stopPropagation()}
+                                    onTouchStart={(event) => event.stopPropagation()}
+                                >
+                                    <AudioPlayer src={current.fileUrl} />
+                                </div>
+                            </div>
+                        ) : canEmbedPdf ? (
+                            // <embed> = native PDF viewer (toolbar, zoom) at full height.
+                            // max-w caps it so wide screens keep a dark backdrop to click.
+                            // (Touches INSIDE the embed never reach us — the dismiss drag
+                            // only works from the frame around it; desktop-only anyway.)
+                            <embed
+                                src={current.fileUrl}
+                                type="application/pdf"
+                                className="h-full w-full max-w-5xl rounded-md"
+                                onClick={(event) => event.stopPropagation()}
+                            />
+                        ) : (
+                            // No inline preview (non-previewable files, or a PDF paged
+                            // into on mobile) — a download/open card, Google-Drive style
+                            <div className="px-3 md:px-0 w-full flex items-center justify-center"><DownloadCard attachment={current} isMobile={isMobile} /></div>
+                        )}
+                    </SwipeDownToClose>
                 )}
             </div>
 
