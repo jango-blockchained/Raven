@@ -172,6 +172,30 @@ export const disablePush = async (): Promise<void> => {
 }
 
 /**
+ * Ask the service worker for the URL of a notification clicked while this page
+ * was frozen (backgrounded iOS PWA) — the click-time postMessage is lost in a
+ * suspended event loop, so the SW holds the URL for the page to pull on resume.
+ * Consuming clears it in the SW; resolves null when nothing is pending, the SW
+ * isn't active, or it doesn't answer (old SW version) within the timeout.
+ */
+export const consumePendingNotificationClick = (): Promise<string | null> =>
+    new Promise((resolve) => {
+        swRegistration
+            .then((registration) => {
+                const worker = registration?.active
+                if (!worker) return resolve(null)
+                const channel = new MessageChannel()
+                const timer = setTimeout(() => resolve(null), 1000)
+                channel.port1.onmessage = (event) => {
+                    clearTimeout(timer)
+                    resolve(event.data?.url ?? null)
+                }
+                worker.postMessage({ type: "raven:consume-notification-click" }, [channel.port2])
+            })
+            .catch(() => resolve(null))
+    })
+
+/**
  * Startup init: register the SW, then — only for devices that already enabled
  * push — refresh the (possibly rotated) FCM token off the critical path.
  */

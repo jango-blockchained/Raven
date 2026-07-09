@@ -67,6 +67,21 @@ self.addEventListener("push", (event) => {
     )
 })
 
+// The URL of the last clicked notification, held until the page ASKS for it.
+// The postMessage fired at click time is lost when the window exists but its
+// JS is FROZEN (a backgrounded iOS PWA) — focus() foregrounds the app, but the
+// message lands in a suspended event loop. So the page also PULLS this on
+// resume (visibilitychange → raven:consume-notification-click), with a
+// MessageChannel port reply. Consumed = cleared, so it never re-fires.
+let pendingNotificationClickUrl = null
+
+self.addEventListener("message", (event) => {
+    if (event.data?.type === "raven:consume-notification-click") {
+        event.ports[0]?.postMessage({ url: pendingNotificationClickUrl })
+        pendingNotificationClickUrl = null
+    }
+})
+
 self.addEventListener("notificationclick", (event) => {
     event.notification.close()
     const url = event.notification.data?.url
@@ -78,8 +93,11 @@ self.addEventListener("notificationclick", (event) => {
             const existing = windows.find((client) => new URL(client.url).origin === self.location.origin)
             if (existing) {
                 // Our scope doesn't control app pages, so WindowClient.navigate()
-                // would reject — focus + postMessage instead; the app listens
-                // (usePushNotificationNavigation) and routes client-side.
+                // would reject. Two delivery paths instead:
+                //  - postMessage: instant, works when the page is live (desktop/Android)
+                //  - pendingNotificationClickUrl: pulled by the page on resume,
+                //    covering the frozen-PWA case where the postMessage is lost
+                pendingNotificationClickUrl = url
                 await existing.focus()
                 existing.postMessage({ type: "raven:notification-click", url })
             } else {
