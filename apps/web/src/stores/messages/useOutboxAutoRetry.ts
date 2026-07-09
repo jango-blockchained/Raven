@@ -27,6 +27,10 @@ const runFlush = async (client: PostClient, includeFailed: boolean) => {
     // Sending in parallel would make several inserts hit the same channel row at once
     // (deadlock) and let the server timestamp them in any order (messages shuffle).
     for (const record of records) {
+        // "rejected" = the server refused it (permission error) — retrying can never
+        // succeed, so the auto-flush leaves it alone. Only the user's own Retry
+        // (after their access is restored) or Discard moves it.
+        if (record.status === "rejected") continue
         if (!includeFailed && record.status !== "sending") continue
         await retryOutboxRecord(client, record)
     }

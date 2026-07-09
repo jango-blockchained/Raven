@@ -33,7 +33,7 @@ export const removeOutbox = (clientID: string) => {
         .finally(() => settling.delete(clientID))
 }
 
-/** Change a record's status (between "sending" and "failed") as its send plays out. */
+/** Change a record's status ("sending" / "failed" / "rejected") as its send plays out. */
 export const setOutboxStatus = (clientID: string, status: OutboxMessage["status"]) =>
     db.outbox.update(clientID, { status }).catch((error) => console.error("outbox update failed", error))
 

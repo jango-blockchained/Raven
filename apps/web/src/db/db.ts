@@ -26,8 +26,10 @@ export interface OutboxMessage {
     files: OutboxFile[]
     /** Backend-shaped creation timestamp of the optimistic placeholders (live-edge sort). */
     creation: string
-    /** sending = in flight / in doubt; failed = the last attempt errored. */
-    status: 'sending' | 'failed'
+    /** sending = in flight / in doubt; failed = the last attempt errored (auto-retried
+     *  on reconnect); rejected = the server refused it (permission error) — auto-retry
+     *  can never succeed, so only a manual Retry or Discard moves it. */
+    status: 'sending' | 'failed' | 'rejected'
     /** When the send was first queued (ms) — orders the outbox for retry. */
     queued_at: number
     /** Reply: id of the message being replied to (sent as linked_message). */

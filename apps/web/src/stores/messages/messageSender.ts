@@ -178,7 +178,12 @@ export const submitSend = (
             if (!navigator.onLine) return
 
             channelMessagesStore.failOptimisticSend(channelID, batchId)
-            setOutboxStatus(batchId, "failed")
+            // A permission error is PERMANENT (removed from the channel, lost create
+            // rights): no amount of retrying fixes it, so mark the record "rejected" —
+            // the auto-flush skips those. Manual Retry still works (access may have
+            // been restored) and re-runs this same classification.
+            const isPermissionError = error?.exc_type === "PermissionError" || error?.httpStatus === 403
+            setOutboxStatus(batchId, isPermissionError ? "rejected" : "failed")
             if (opts?.silent) return
             // One shared id means many failures at once show a single error, not a
             // pile of them. (The failed message on screen is the main signal; this
@@ -234,7 +239,8 @@ export const injectOutboxRecord = (record: OutboxMessage) => {
         record.linked_message ? { linkedMessage: record.linked_message, repliedMessageDetails: record.replied_message_details } : undefined,
     )
     channelMessagesStore.addOptimisticMessages(record.channel_id, record.client_id, placeholders)
-    if (record.status === "failed") channelMessagesStore.failOptimisticSend(record.channel_id, record.client_id)
+    // failed AND rejected both render as a failed bubble (Retry / Discard).
+    if (record.status !== "sending") channelMessagesStore.failOptimisticSend(record.channel_id, record.client_id)
 }
 
 /**
