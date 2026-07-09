@@ -15,7 +15,10 @@ export const Island = ({ children, className, inert }: { children: React.ReactNo
         // channel under an open thread) to keep it out of focus/accessibility order.
         inert={inert}
         className={cn(
-            "flex min-h-0 min-w-0 flex-col overflow-clip bg-surface-base md:rounded-lg md:shadow-chat-area",
+            // isolate: the island is its own stacking context, so z-indexes INSIDE it
+            // (floating date pill, jump-to-present, …) can never paint above something
+            // covering the island — like the mobile thread layer over the channel.
+            "isolate flex min-h-0 min-w-0 flex-col overflow-clip bg-surface-base md:rounded-lg md:shadow-chat-area",
             className,
         )}
     >

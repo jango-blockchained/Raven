@@ -1,8 +1,9 @@
 import { useCallback, useContext, useEffect, useRef } from "react"
-import { FrappeConfig, FrappeContext, useFrappePostCall } from "frappe-react-sdk"
+import { FrappeConfig, FrappeContext } from "frappe-react-sdk"
 import { useDebounceCallback } from "usehooks-ts"
 import type { Message } from "@raven/types/common/Message"
 import { channelUnreadStore } from "./store"
+import { sendOrQueueVisit } from "./visitOutbox"
 import { unreadThreadsStore } from "@stores/threads/unreadStore"
 import { markNotificationsReadOnView } from "@stores/notifications/unreadStore"
 
@@ -28,21 +29,16 @@ export const useChannelReadTracker = (
     channelID: string,
     { isAtBottom, hasNewerMessages }: { isAtBottom: boolean; hasNewerMessages: boolean },
 ) => {
-    const { call: trackVisit } = useFrappePostCall("raven.api.raven_channel_member.track_visit")
     const { call } = useContext(FrappeContext) as FrappeConfig
 
     /** Newest message creation seen this session (forward-only). */
     const watermarkRef = useRef<string | null>(null)
-    /** Last watermark actually sent — avoids re-posting an unchanged value. */
+    /** Last watermark handed to sendOrQueueVisit — avoids re-sending an unchanged value.
+     *  Safe to advance eagerly: a failed post is queued durably (visit outbox), so
+     *  delivery is guaranteed either way. */
     const sentRef = useRef<string | null>(null)
     /** Live-edge state read at flush time (caught up = reached the bottom). */
     const caughtUpRef = useRef(false)
-    // Hold the latest post fn in a ref so `flush` stays referentially stable —
-    // otherwise a new debounced fn each render would reset the pending timer.
-    const trackVisitRef = useRef(trackVisit)
-    useEffect(() => {
-        trackVisitRef.current = trackVisit
-    }, [trackVisit])
 
     const flush = useCallback(() => {
         const watermark = watermarkRef.current
@@ -60,11 +56,10 @@ export const useChannelReadTracker = (
         channelUnreadStore.markRead(channelID, watermark, caughtUpRef.current)
         // If this is a thread, clear it from the unread-threads badge (no-op for channels).
         unreadThreadsStore.remove(channelID)
-        trackVisitRef.current({ channel_id: channelID, last_visit: watermark }).catch(() => {
-            // Best effort: a dropped flush is recovered by the next flush or the
-            // focus/reconnect reconcile in useUnreadSync.
-        })
-    }, [channelID])
+        // Delivered now, or queued durably and replayed on reconnect (visit outbox) —
+        // a failed post can no longer strand the server's last_visit in the past.
+        sendOrQueueVisit(call, channelID, watermark)
+    }, [channelID, call])
 
     const debouncedFlush = useDebounceCallback(flush, FLUSH_DELAY)
 

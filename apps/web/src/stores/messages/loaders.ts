@@ -159,6 +159,22 @@ export const loadNewerMessages = async (client: FrappeCallClient, channelID: str
     }
 }
 
+/**
+ * Recompute the "New messages" divider from the user's latest read position —
+ * server last_visit at load, or how far they've read since (lastSeen), whichever
+ * is later. Clears the divider when everything is read; otherwise moves it to the
+ * first message past that position. Used wherever returning to an already-rendered
+ * channel should behave like a fresh entry (warm re-entry, quiet reconcile, and
+ * coming back from a mobile thread layer).
+ */
+export const recomputeUnreadAnchor = (channelID: string) => {
+    const watermark = [channelUnreadStore.getServerWatermark(channelID), channelUnreadStore.getState(channelID).lastSeen]
+        .filter((t): t is string => Boolean(t))
+        .sort()
+        .pop() ?? null
+    channelMessagesStore.refreshUnreadAnchor(channelID, watermark)
+}
+
 /** The deepest window a quiet reconcile will replace. Replacing a deeper one with a
  *  smaller refetch would delete the older messages the user scrolled back to and yank
  *  their scroll — so deeper stale windows are left alone here, and useChannelMessages
@@ -218,11 +234,7 @@ export const reconcileStaleWindow = async (client: FrappeCallClient, channelID: 
         channelUnreadStore.setServerWatermark(channelID, response.message.last_visit)
         // Replacing the window cleared the "New messages" divider — put it back the
         // same way a warm re-entry does: on the first message past the last read one.
-        const watermark = [channelUnreadStore.getServerWatermark(channelID), channelUnreadStore.getState(channelID).lastSeen]
-            .filter((t): t is string => Boolean(t))
-            .sort()
-            .pop() ?? null
-        channelMessagesStore.refreshUnreadAnchor(channelID, watermark)
+        recomputeUnreadAnchor(channelID)
         markWindowFresh(channelID, epochAtStart)
     } catch {
         // Best effort: the channel just stays marked stale; the next open (or the

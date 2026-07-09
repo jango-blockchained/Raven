@@ -38,6 +38,22 @@ export interface OutboxMessage {
     replied_message_details?: string
 }
 
+/**
+ * A read-position update (track_visit) the server hasn't confirmed — queued when the
+ * post can't be delivered (offline, read-only site, server error) and replayed on
+ * reconnect. Only the NEWEST watermark per channel matters, so one row per channel.
+ * Replaying is always safe: the server clamps last_visit (never backward), so an
+ * outdated replay is a no-op.
+ */
+export interface OutboxVisit {
+    /** Primary key — the channel (or thread) the visit belongs to. */
+    channel_id: string
+    /** Read watermark — creation timestamp of the newest message the user has seen. */
+    last_visit: string
+    /** When it was queued (ms). */
+    queued_at: number
+}
+
 const db = new Dexie("RavenDB") as Dexie & {
     users: EntityTable<
         UserData,
@@ -46,6 +62,10 @@ const db = new Dexie("RavenDB") as Dexie & {
     outbox: EntityTable<
         OutboxMessage,
         "client_id" // primary key "client_id"
+    >
+    visit_outbox: EntityTable<
+        OutboxVisit,
+        "channel_id" // primary key "channel_id"
     >
 }
 
@@ -58,6 +78,13 @@ db.version(1).stores({
 // per-channel rehydration, and by queued_at for stable retry ordering.
 db.version(2).stores({
     outbox: "client_id, channel_id, queued_at"
+})
+
+// v3: durable queue for un-acked read watermarks (track_visit) — replayed on
+// reconnect, so a failed flush can't strand the server's last_visit in the past
+// (which showed phantom "New messages" dividers/badges for already-read messages).
+db.version(3).stores({
+    visit_outbox: "channel_id"
 })
 
 export { db }

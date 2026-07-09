@@ -1,6 +1,8 @@
+import { useEffect, useRef } from "react"
 import { useOutlet } from "react-router-dom"
 import { useHotkeys } from "react-hotkeys-hook"
 import { useAtom } from "jotai"
+import { recomputeUnreadAnchor } from "@stores/messages/loaders"
 import ChatStream from "@components/features/message/ChatStream"
 import ChatInput from "@components/features/ChatInput/ChatInput"
 import ChannelContextDrawer from "@components/features/channel/ChannelContextDrawer"
@@ -53,6 +55,18 @@ export function ChatContentView({
     // Skeleton while loading, archived/not-member banner (with Join), or the composer.
     const composerGate = useComposerGate(channelID)
     const composerBlocked = composerGate.state !== "composer"
+
+    // Mobile stacked navigation: the channel stays MOUNTED under an open thread layer,
+    // so coming back from the thread re-runs no mount logic — and the "New messages"
+    // divider (normally cleared on re-entry) would linger over messages read before
+    // the thread opened. Recompute it when the thread layer closes. Desktop is
+    // untouched: the channel stays visible beside the thread there, and clearing the
+    // divider mid-view would be jarring.
+    const prevHasThread = useRef(hasThread)
+    useEffect(() => {
+        if (isMobile && prevHasThread.current && !hasThread) recomputeUnreadAnchor(channelID)
+        prevHasThread.current = hasThread
+    }, [hasThread, isMobile, channelID])
 
     // One rail slot → the drawers are mutually exclusive, cleared at the OPEN sites (poll vs
     // context clear each other there; opening a thread clears both via the pill's onClick). No

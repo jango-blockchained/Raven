@@ -7,11 +7,11 @@ import {
     loadNewerMessages,
     loadOlderMessages,
     reconcileStaleWindow,
+    recomputeUnreadAnchor,
     MAX_QUIET_RECONCILE_WINDOW,
 } from "./loaders"
 import { selectStreamBlocks } from "./selectors"
 import { channelMessagesStore } from "./store"
-import { channelUnreadStore } from "@stores/unread/store"
 import { isWindowStale, subscribeConnectionEpoch } from "@stores/connectionFreshness"
 
 /**
@@ -57,15 +57,9 @@ export const useChannelMessages = (
         } else {
             // Warm live-edge re-entry: NOT refetched, so the unread divider would stay frozen
             // at the first load and linger after you'd read everything. Recompute it against
-            // the furthest-read position — server last_visit at load (serverWatermark) or how
-            // far we've read since (lastSeen), whichever is later. Cleared if caught up; a
-            // fresh line appears before messages that arrived while away.
-            const unread = channelUnreadStore.getState(channelID)
-            const watermark = [channelUnreadStore.getServerWatermark(channelID), unread.lastSeen]
-                .filter((t): t is string => Boolean(t))
-                .sort()
-                .pop() ?? null
-            channelMessagesStore.refreshUnreadAnchor(channelID, watermark)
+            // the furthest-read position — cleared if caught up; a fresh line appears before
+            // messages that arrived while away.
+            recomputeUnreadAnchor(channelID)
             // The in-memory window is only guaranteed correct if the socket stayed
             // connected the whole time since it was fetched. If it didn't (phone
             // locked, app backgrounded), quietly refetch behind the instant render —

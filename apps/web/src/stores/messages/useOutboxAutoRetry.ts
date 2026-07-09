@@ -2,6 +2,7 @@ import { useContext, useEffect } from "react"
 import { FrappeConfig, FrappeContext } from "frappe-react-sdk"
 import { getAllOutbox, purgeExpiredOutbox } from "./outbox"
 import { retryOutboxRecord, type PostClient } from "./messageSender"
+import { flushVisitOutbox } from "@stores/unread/visitOutbox"
 
 /**
  * A running flush, if any. Module-level (not per-hook) so two triggers can never run
@@ -38,6 +39,10 @@ const runFlush = async (client: PostClient, includeFailed: boolean) => {
         if (!includeFailed && record.status !== "sending") continue
         await retryOutboxRecord(client, record)
     }
+
+    // Messages first, then read watermarks — replay any track_visit calls that
+    // couldn't be delivered (offline / read-only / error). See visitOutbox.
+    await flushVisitOutbox(client)
 }
 
 const flushOutbox = (client: PostClient, includeFailed: boolean) => {
@@ -46,7 +51,8 @@ const flushOutbox = (client: PostClient, includeFailed: boolean) => {
 }
 
 /**
- * Sends the messages saved in the outbox.
+ * Sends the messages saved in the outbox (and replays queued read watermarks —
+ * see visitOutbox — after them).
  *
  * - On app start (only if online): re-send messages that were mid-send when the app
  *   last closed ("sending") — we don't know if they reached the server, so we try

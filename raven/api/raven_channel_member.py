@@ -31,7 +31,17 @@ def track_visit(channel_id: str, last_visit: str = None):
 
 	Publishes to the user's other sessions so reading on one device clears the
 	unread badge on the rest.
+
+	Returns True when the visit was recorded, False when the site is in read-only
+	mode (the write would fail). The client's boot.read_only flag is a page-load
+	snapshot, so this response is its only LIVE signal — a False tells it to queue
+	the watermark (visit outbox) and replay it after maintenance ends.
 	"""
+
+	# Read-only mode (maintenance with reads allowed): decline cleanly instead of
+	# letting the write below blow up against the read-only connection.
+	if frappe.flags.read_only:
+		return False
 
 	# On v3, the client sends the last_visit only on the basis of viewing a more reecent message and hence this needs to be broadcasted back to the user.
 	# On v2, this is called when the user enters/exists a channel, without the timestamp - should not be published to the user.
