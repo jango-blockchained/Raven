@@ -28,6 +28,7 @@ import { useUnreadNotificationsSync } from "@hooks/useNotifications"
 import { useReportActiveState } from "@stores/presence/useReportActiveState"
 import { usePushNotificationNavigation } from "@hooks/usePushNotificationNavigation"
 import { useAppBadge } from "@hooks/useAppBadge"
+import { useClearReadNotifications } from "@hooks/useClearReadNotifications"
 import DocumentTitle from "./DocumentTitle"
 import RavenSettingsDialog from "@components/features/settings/SettingsDialog"
 
@@ -132,6 +133,8 @@ const AppListeners = ({ children }: { children: React.ReactNode }) => {
     usePushNotificationNavigation()
     // Mirrors the unread total onto the PWA's app-icon badge (Badging API)
     useAppBadge()
+    // Sweeps tray notifications for channels/threads that are no longer unread
+    useClearReadNotifications()
     // TODO: App update listener
 
     if (!isReady) {

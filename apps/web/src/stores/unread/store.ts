@@ -80,6 +80,13 @@ class ChannelUnreadStore {
         return total
     }
 
+    /** Ids of the currently-unread channels (notification-shade housekeeping). */
+    getUnreadChannelIDs(): string[] {
+        const ids: string[] = []
+        for (const [channelID, state] of this.states) if (state.count > 0) ids.push(channelID)
+        return ids
+    }
+
     /** ----- Inputs ----- */
 
     /**

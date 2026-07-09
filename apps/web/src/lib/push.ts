@@ -172,6 +172,21 @@ export const disablePush = async (): Promise<void> => {
 }
 
 /**
+ * All notifications currently in THIS device's system tray (empty when there's
+ * no service worker). Each is tagged with its channel/thread id — and the tag
+ * makes a newer notification replace the older one, so there's at most one per
+ * conversation. Used to sweep out entries for already-read conversations.
+ */
+export const getDeliveredNotifications = async (): Promise<Notification[]> => {
+    try {
+        const registration = await swRegistration
+        return (await registration?.getNotifications()) ?? []
+    } catch {
+        return []
+    }
+}
+
+/**
  * Ask the service worker for the URL of a notification clicked while this page
  * was frozen (backgrounded iOS PWA) — the click-time postMessage is lost in a
  * suspended event loop, so the SW holds the URL for the page to pull on resume.
