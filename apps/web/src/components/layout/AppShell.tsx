@@ -13,7 +13,7 @@ import { useUnreadSync } from "@stores/unread/useUnreadSync"
 import { useUnreadRealtime } from "@stores/unread/useUnreadRealtime"
 import { useMessageRoomSubscriptions } from "@stores/messages/useMessageRoomSubscriptions"
 import { useMessagesRealtime } from "@stores/messages/useMessagesRealtime"
-import { useReconnectCatchup } from "@stores/messages/useReconnectCatchup"
+import { useConnectionFreshness } from "@hooks/useConnectionFreshness"
 import { useActiveSocketConnection } from "@hooks/useActiveSocketConnection"
 import { useOutboxAutoRetry } from "@stores/messages/useOutboxAutoRetry"
 import { useChannelListRealtime } from "@hooks/useChannelListRealtime"
@@ -98,10 +98,12 @@ const AppListeners = ({ children }: { children: React.ReactNode }) => {
     // Dispatches those live message events into the message store
     useMessagesRealtime()
     // Health-checks the socket on focus and force-reconnects a dead one (e.g. after a
-    // backgrounded tab suspended it) — the reconnect then drives useReconnectCatchup
+    // backgrounded tab suspended it) — the reconnect then bumps the connection epoch
     useActiveSocketConnection()
-    // Backstop: refetch messages missed during a disconnect when the socket reconnects
-    useReconnectCatchup()
+    // Notes a "break" whenever the realtime connection drops (reconnect / offline /
+    // the phone froze the app). Channels in memory then refetch on their next open —
+    // and the one currently on screen refetches immediately (useChannelMessages)
+    useConnectionFreshness()
     // Delivers persisted (pending/failed) sends from the outbox on load + reconnect/online
     useOutboxAutoRetry()
     // Keeps the sidebar channel list + member lists fresh on create/archive/join/leave

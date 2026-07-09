@@ -6,10 +6,13 @@ import {
     loadInitialMessages,
     loadNewerMessages,
     loadOlderMessages,
+    reconcileStaleWindow,
+    MAX_QUIET_RECONCILE_WINDOW,
 } from "./loaders"
 import { selectStreamBlocks } from "./selectors"
 import { channelMessagesStore } from "./store"
 import { channelUnreadStore } from "@stores/unread/store"
+import { isWindowStale, subscribeConnectionEpoch } from "@stores/connectionFreshness"
 
 /**
  * Subscribes a component to a channel's message window and triggers the
@@ -44,6 +47,13 @@ export const useChannelMessages = (
             // deep-link target, if this visit has one).
             channelMessagesStore.reset(channelID)
             loadInitialMessages(client, channelID, initialBaseMessage ?? undefined)
+        } else if (isWindowStale(channelID) && current.order.length > MAX_QUIET_RECONCILE_WINDOW) {
+            // Stale AND too deep for the quiet reconcile to replace safely — treat it
+            // like a detached window: discard and load fresh. (Re-entry lands at the
+            // bottom anyway, so the scrolled-back depth serves nobody. Without this,
+            // a deep stale window would stay stale forever.)
+            channelMessagesStore.reset(channelID)
+            loadInitialMessages(client, channelID, initialBaseMessage ?? undefined)
         } else {
             // Warm live-edge re-entry: NOT refetched, so the unread divider would stay frozen
             // at the first load and linger after you'd read everything. Recompute it against
@@ -56,8 +66,23 @@ export const useChannelMessages = (
                 .sort()
                 .pop() ?? null
             channelMessagesStore.refreshUnreadAnchor(channelID, watermark)
+            // The in-memory window is only guaranteed correct if the socket stayed
+            // connected the whole time since it was fetched. If it didn't (phone
+            // locked, app backgrounded), quietly refetch behind the instant render —
+            // this is what brings back reactions/edits/deletes missed while
+            // suspended. If the connection never broke, this does nothing.
+            reconcileStaleWindow(client, channelID)
         }
     }, [channelID])
+
+    // The check above runs when a channel is OPENED — but the connection can also
+    // break while the user is already looking at one (lock the phone on it, come
+    // back). So while this stream is mounted, refetch as soon as a break is
+    // recorded. Does nothing when the window is already up to date.
+    useEffect(
+        () => subscribeConnectionEpoch(() => reconcileStaleWindow(client, channelID)),
+        [channelID],
+    )
 
     const loadOlder = useCallback(() => loadOlderMessages(client, channelID), [channelID])
     const loadNewer = useCallback(() => loadNewerMessages(client, channelID), [channelID])

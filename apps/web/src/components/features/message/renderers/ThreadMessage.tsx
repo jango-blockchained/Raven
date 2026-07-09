@@ -1,4 +1,4 @@
-import { useContext, useEffect } from "react"
+import { useContext, useEffect, useRef } from "react"
 import { FrappeConfig, FrappeContext } from "frappe-react-sdk"
 import { GroupedAvatars } from "@components/ui/grouped-avatars"
 import type { UserData } from "@db"
@@ -7,7 +7,8 @@ import { channelDrawerAtom, pollDrawerAtom } from "@utils/channelAtoms"
 import { useChannelById } from "@stores/channels/useChannelList"
 import { useChannelMembers } from "@hooks/useChannelMembers"
 import { loadThreadDetails, useThreadReplyCount } from "@stores/threads/useThreadMeta"
-import { useHasBeenInView } from "@hooks/useHasBeenInView"
+import { subscribeConnectionEpoch } from "@stores/connectionFreshness"
+import { useInView } from "@hooks/useHasBeenInView"
 import { NavLink, useLocation } from "react-router-dom"
 import { cn } from "@lib/utils"
 import _ from "@lib/translate"
@@ -91,16 +92,29 @@ const ThreadPillSkeleton = () => (
     </div>
 )
 
-const LoadedThreadPill = ({ threadID, channelID }: { threadID: string; channelID: string }) => {
+const LoadedThreadPill = ({ threadID, channelID, isInView }: { threadID: string; channelID: string; isInView: boolean }) => {
     const { call } = useContext(FrappeContext) as FrappeConfig
 
-    // Mounted only once the parent message is in view. get_thread_details fires ONCE per
-    // thread (gated in the store) and seeds both members and the reply count; realtime keeps
-    // them live thereafter, so revisiting the channel doesn't refetch. Read both back through
-    // their stores — members autoFetch off (the seed above covers it, no get_channel_members).
+    // Fetch each time the pill comes on screen. The first time seeds the count +
+    // members; after that it's a no-op — unless the connection broke while the pill
+    // was off screen, in which case the count is suspect and gets refetched.
+    // (loadThreadDetails decides; a stable connection never refetches.)
     useEffect(() => {
-        loadThreadDetails(call, threadID)
-    }, [call, threadID])
+        if (isInView) loadThreadDetails(call, threadID)
+    }, [isInView, call, threadID])
+
+    // And if the connection breaks while the pill is ALREADY on screen (phone locked
+    // on the channel), no visibility change fires — so re-check on the break itself.
+    // Only pills currently in view do this, so a break never refetches every pill.
+    const isInViewRef = useRef(isInView)
+    isInViewRef.current = isInView
+    useEffect(
+        () =>
+            subscribeConnectionEpoch(() => {
+                if (isInViewRef.current) loadThreadDetails(call, threadID)
+            }),
+        [call, threadID],
+    )
 
     const { members } = useChannelMembers(threadID, { autoFetch: false })
     const replyCount = useThreadReplyCount(threadID)
@@ -113,11 +127,13 @@ const LoadedThreadPill = ({ threadID, channelID }: { threadID: string; channelID
 
 /**
  * The "N replies" affordance under any thread-parent message (single or batch member).
- * Lazily fetches the thread's members + reply count only once the message scrolls into
- * view — a channel full of threads doesn't fire a request per thread on load.
+ * Fetches the thread's members + reply count only once the message scrolls into view —
+ * a channel full of threads doesn't fire a request per thread on load. Visibility stays
+ * watched after that, so a count made suspect by a connection break refetches only when
+ * the pill is actually on screen.
  * `channelID` = the message's channel (the thread's parent) — see ThreadButtonProps.
  */
 export const MessageThreadPill = ({ threadID, channelID }: { threadID: string; channelID: string }) => {
-    const { ref, hasBeenInView } = useHasBeenInView()
-    return <div ref={ref}>{hasBeenInView ? <LoadedThreadPill threadID={threadID} channelID={channelID} /> : <ThreadPillSkeleton />}</div>
+    const { ref, isInView, hasBeenInView } = useInView()
+    return <div ref={ref}>{hasBeenInView ? <LoadedThreadPill threadID={threadID} channelID={channelID} isInView={isInView} /> : <ThreadPillSkeleton />}</div>
 }
