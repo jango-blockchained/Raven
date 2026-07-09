@@ -24,6 +24,7 @@ import { ScrollViewportContext } from "@hooks/useHasBeenInView"
 import { createDateTracker, DateTrackerContext, FloatingDatePill, type DateOrderEntry } from "./messageDateTracker"
 import { cn } from "@lib/utils"
 import _ from "@lib/translate"
+import { useIsMobile } from "@hooks/use-mobile"
 
 /** Pill stays for this long after the last scroll event, then fades out. */
 const SCROLL_IDLE_MS = 1200
@@ -212,6 +213,8 @@ export default function ChatStream({ channelID, pinnedMessagesString, initialMes
     }, [onScroll, tracker])
     useEffect(() => () => clearTimeout(scrollIdleTimer.current), [])
 
+    const isMobile = useIsMobile()
+
     return (
         <ScrollViewportContext.Provider value={viewport}>
             <DateTrackerContext.Provider value={tracker}>
@@ -312,7 +315,7 @@ export default function ChatStream({ channelID, pinnedMessagesString, initialMes
                         <div className="absolute bottom-3 right-4 z-50">
                             <Button
                                 variant="outline"
-                                size="sm"
+                                size={isMobile ? "md" : "sm"}
                                 isIconButton={hasUnseenMessages ? false : true}
                                 onClick={onJumpToPresent}
                                 className="rounded-full shadow"
