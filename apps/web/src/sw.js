@@ -20,6 +20,28 @@
 const _precacheManifest = self.__WB_MANIFEST // injection point; inert while globs are empty
 void _precacheManifest
 
+/**
+ * Fallback badge when the server didn't send an authoritative unread_count:
+ * count DISTINCT notification tags still on display (we tag per channel, so
+ * that's "unread conversations delivered while away"). Self-correcting — tags
+ * drop out as notifications are opened/dismissed — and the page takes over
+ * with exact store counts whenever the app is running. `excludeTag` covers
+ * click/close handlers, where the acted-on notification may still be listed.
+ */
+async function updateBadgeFromNotifications(excludeTag) {
+    if (typeof navigator.setAppBadge !== "function") return
+    const notifications = await self.registration.getNotifications()
+    const tags = new Set()
+    let untagged = 0
+    for (const notification of notifications) {
+        if (!notification.tag) untagged++
+        else if (notification.tag !== excludeTag) tags.add(notification.tag)
+    }
+    const count = tags.size + untagged
+    if (count > 0) await navigator.setAppBadge(count)
+    else await navigator.clearAppBadge()
+}
+
 self.addEventListener("push", (event) => {
     if (!event.data) return
 
@@ -43,6 +65,16 @@ self.addEventListener("push", (event) => {
             const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true })
             if (windows.some((client) => client.visibilityState === "visible")) return
 
+            // Authoritative badge count, when the server includes it. The page
+            // mirrors the badge itself while running — this covers the closed/
+            // suspended states, and each arriving push re-syncs the count
+            // (correcting for messages read on other devices in between).
+            const serverCount = data.unread_count !== undefined ? Number(data.unread_count) : NaN
+            if (typeof navigator.setAppBadge === "function" && Number.isFinite(serverCount)) {
+                if (serverCount > 0) navigator.setAppBadge(serverCount)
+                else navigator.clearAppBadge()
+            }
+
             // Raven Cloud flattens title/body into `data` for web pushes; the
             // notification-key fallback covers older payload shapes.
             const title = data.title || payload?.notification?.title
@@ -63,8 +95,17 @@ self.addEventListener("push", (event) => {
             if (data.creation) options.timestamp = Number(data.creation)
 
             await self.registration.showNotification(title, options)
+            // No server count → approximate from what's now on display.
+            if (!Number.isFinite(serverCount)) await updateBadgeFromNotifications()
         })(),
     )
+})
+
+// Swiped-away notifications should drop out of the fallback badge count.
+// (Fires only where supported; the acted-on notification may still be listed,
+// hence the exclude.)
+self.addEventListener("notificationclose", (event) => {
+    event.waitUntil(updateBadgeFromNotifications(event.notification.tag))
 })
 
 // The URL of the last clicked notification, held until the page ASKS for it.
@@ -89,6 +130,9 @@ self.addEventListener("notificationclick", (event) => {
 
     event.waitUntil(
         (async () => {
+            // The clicked channel is being addressed — drop its tag from the
+            // fallback badge. (The page re-syncs the exact count on focus.)
+            await updateBadgeFromNotifications(event.notification.tag)
             const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true })
             const existing = windows.find((client) => new URL(client.url).origin === self.location.origin)
             if (existing) {

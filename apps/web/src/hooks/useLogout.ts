@@ -99,6 +99,8 @@ export function useLogout(): { logout: () => Promise<void>; isLoggingOut: boolea
 
         clearLocalStorage()
         await clearIndexedDB()
+        // A logged-out device claims no unread.
+        navigator.clearAppBadge?.().catch(() => { })
 
         const base = import.meta.env.VITE_BASE_NAME
         const appPath = base ? `/${base}` : "/"

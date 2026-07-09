@@ -27,6 +27,7 @@ import { useNotificationsRealtime } from "@stores/notifications/useNotifications
 import { useUnreadNotificationsSync } from "@hooks/useNotifications"
 import { useReportActiveState } from "@stores/presence/useReportActiveState"
 import { usePushNotificationNavigation } from "@hooks/usePushNotificationNavigation"
+import { useAppBadge } from "@hooks/useAppBadge"
 import DocumentTitle from "./DocumentTitle"
 import RavenSettingsDialog from "@components/features/settings/SettingsDialog"
 
@@ -129,6 +130,8 @@ const AppListeners = ({ children }: { children: React.ReactNode }) => {
     // Focus-and-route when a push notification is clicked while a window exists
     // (sw.js posts the target URL instead of opening a duplicate tab)
     usePushNotificationNavigation()
+    // Mirrors the unread total onto the PWA's app-icon badge (Badging API)
+    useAppBadge()
     // TODO: App update listener
 
     if (!isReady) {
