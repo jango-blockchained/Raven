@@ -61,5 +61,14 @@
     }
   ],
   "orientation": "portrait",
-  "lang": "en"
+  "lang": "en",
+  "share_target": {
+    "action": "/raven_v3/share-target",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
 }

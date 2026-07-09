@@ -5,6 +5,7 @@ import Channel from "@pages/workspace/Channel"
 import Notifications from "@pages/notifications/Notifications"
 import NotificationChatRoute from "@pages/notifications/NotificationChatRoute"
 import SavedMessages from "@pages/saved-messages/SavedMessages"
+import ShareTarget from "@pages/share/ShareTarget"
 import Search from "@pages/search/Search"
 import Threads from "@pages/threads/Threads"
 import DirectMessages, { DirectMessagesIndex } from "@pages/dm-channel/DirectMessages"
@@ -95,6 +96,8 @@ const router = createBrowserRouter(
       </Route>
       <Route path="saved-messages" element={<SavedMessages />} />
       <Route path="profile" element={<MobileProfile />} />
+      {/* OS share sheet lands here (manifest share_target) — conversation picker */}
+      <Route path="share-target" element={<ShareTarget />} />
       {/* <Route path="settings" element={<AppSettings />}>
         <Route index element={<Navigate to="profile" replace />} />
         <Route path="profile" element={<Profile />} />
