@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useSetAtom } from "jotai"
 import { NavLink, useMatch, useNavigate, useParams } from "react-router-dom"
 import { useHotkeys } from "react-hotkeys-hook"
-import { Check, ChevronDown, ChevronRight, Hash, Star } from "lucide-react"
+import { Check, ChevronDown, ChevronRight, Hash, PencilLine, Star } from "lucide-react"
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso"
 import { useLocalStorage } from "usehooks-ts"
 import { useChannelUnread, useGroupUnreadCount, useWorkspaceUnread } from "@stores/unread/useChannelUnread"
@@ -33,6 +33,8 @@ import { useGroupedChannels } from "@raven/lib/hooks/useGroupedChannels"
 import useCurrentRavenUser from "@raven/lib/hooks/useCurrentRavenUser"
 import { cn } from "@lib/utils"
 import _ from "@lib/translate"
+import { useChannelDraft } from "@components/features/ChatInput/draft"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@components/ui/tooltip"
 import type { ChannelListItem } from "@raven/types/common/ChannelListItem"
 import { useIsMobile } from "@hooks/use-mobile"
 
@@ -376,6 +378,8 @@ export const ChannelGroupLabel = ({ groupName, isHighlighted = false }: { groupN
 const ChannelRow = ({ channel, workspaceID }: { channel: ChannelListItem; workspaceID?: string }) => {
     const { count: unread } = useChannelUnread(channel.name)
     const prefetchHandlers = usePrefetchChannel(channel.name, unread > 0)
+    // Channel rows have no preview line — an unsent draft shows as a pencil.
+    const draft = useChannelDraft(channel.name)
 
     return (
         <NavLink
@@ -406,6 +410,17 @@ const ChannelRow = ({ channel, workspaceID }: { channel: ChannelListItem; worksp
             >
                 {channel.channel_name}
             </span>
+            {draft && (
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <PencilLine className="h-3.5 w-3.5 shrink-0 text-ink-gray-5" />
+                    </TooltipTrigger>
+                    {/* The draft text itself — channel rows have no preview line to show it */}
+                    <TooltipContent side="right" className="max-w-64">
+                        <span className="line-clamp-3 break-words">{_("Draft")}: {draft}</span>
+                    </TooltipContent>
+                </Tooltip>
+            )}
             {unread > 0 && !channel.muted && (
                 <Badge size="sm" variant="ghost" theme="gray" className="shrink-0 justify-center tabular-nums">
                     {unread > 9 ? "9+" : unread}

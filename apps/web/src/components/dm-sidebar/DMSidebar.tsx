@@ -12,6 +12,7 @@ import { db, type UserData } from "@db"
 import { cn } from "@lib/utils"
 import { formatRelativeDate } from "@lib/date"
 import { getMessageTeaser } from "@utils/messageUtils"
+import { useChannelDraft } from "@components/features/ChatInput/draft"
 import _ from "@lib/translate"
 import type { DMChannelListItem } from "@raven/types/common/ChannelListItem"
 import { useDMChannels } from "@stores/channels/useChannelList"
@@ -222,6 +223,9 @@ const DMRow = memo(function DMRow({ dmChannel, peerUser }: DMRowProps) {
     const displayName = isSelf ? _("{0} (You)", [baseName]) : baseName
     const date = formatRelativeDate(dmChannel.last_message_timestamp)
     const lastMessage = getMessageTeaser(dmChannel.last_message_details, currentUser)
+    // An unsent draft beats the last message as the preview (WhatsApp-style):
+    // it's the thing you'd want to be reminded of when scanning the list.
+    const draft = useChannelDraft(dmChannel.name)
 
     return <NavLink {...prefetchHandlers} to={`/dm-channel/${encodeURIComponent(dmChannel.name)}`} className="block px-2 py-0.5">
         {({ isActive }) => (
@@ -229,7 +233,8 @@ const DMRow = memo(function DMRow({ dmChannel, peerUser }: DMRowProps) {
                 user={peerUser}
                 name={displayName}
                 date={date}
-                lastMessage={lastMessage}
+                lastMessage={draft || lastMessage}
+                isDraft={Boolean(draft)}
                 unread={unread}
                 isActive={isActive}
             />
@@ -292,6 +297,8 @@ interface DMRowShellProps {
     name: string
     date?: string
     lastMessage?: string
+    /** The preview line is an unsent draft — prefix it with a "Draft:" label. */
+    isDraft?: boolean
     unread?: number
     isActive: boolean
 }
@@ -301,6 +308,7 @@ function DMRowShell({
     name,
     date = "",
     lastMessage = "",
+    isDraft = false,
     unread = 0,
     isActive,
 }: DMRowShellProps) {
@@ -353,6 +361,7 @@ function DMRowShell({
                                 : "text-ink-gray-4"
                         )}
                     >
+                        {isDraft && <span className="font-medium text-ink-gray-6">{_("Draft")}: </span>}
                         {lastMessage}
                     </div>}
                     {unread > 0 && (
