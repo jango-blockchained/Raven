@@ -41,6 +41,14 @@ export const makeMessageTarget = (id: string): MessageTarget => ({ id, ts: Date.
 export const messageActionTargetAtom = atom<Message | null>(null)
 
 /**
+ * The message id currently being PRESSED on mobile — set a beat after touch-down
+ * (so scrolls and quick taps never flash) and cleared on lift/drift. The stream
+ * highlights it the same way as the action target, so a long-press visibly grabs
+ * its message while you're still holding, before the sheet opens.
+ */
+export const messagePressTargetAtom = atom<string | null>(null)
+
+/**
  * The message the composer is replying to, per channel. Set by the Reply action;
  * the composer shows a preview banner and sends it as `linked_message`, then clears
  * this on send or cancel. Per-channel so a reply drafted in one channel doesn't leak

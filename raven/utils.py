@@ -1,5 +1,5 @@
 import frappe
-from frappe.query_builder.functions import Coalesce
+from frappe.query_builder.functions import Coalesce, Count
 
 
 def get_raven_room():
@@ -241,26 +241,41 @@ def get_raven_user(user_id: str) -> str:
 	return result[0] if result else None
 
 
+def count_thread_replies(thread_id: str) -> int:
+	"""
+	Count the replies in a thread, where a BATCH send (multiple attachments + an
+	optional caption sharing one message_batch_id) counts as ONE reply — it's a
+	single logical message stored as several rows. Standalone messages (no batch
+	id) count individually; System messages don't count at all. Same batch
+	collapsing as the unread counts (get_unread_count_for_channels).
+	"""
+	message = frappe.qb.DocType("Raven Message")
+	result = (
+		frappe.qb.from_(message)
+		.select(Count(Coalesce(message.message_batch_id, message.name)).distinct())
+		.where(message.channel_id == thread_id)
+		.where(message.message_type != "System")
+		.run()
+	)
+	return result[0][0] if result else 0
+
+
 def get_thread_reply_count(thread_id: str) -> int:
 	"""
-	Get the number of replies in a thread
+	Get the number of replies in a thread (a batch = one reply), cached.
 	"""
 	return frappe.cache().hget(
 		"raven:thread_reply_count",
 		thread_id,
-		lambda: frappe.db.count(
-			"Raven Message", {"channel_id": thread_id, "message_type": ["!=", "System"]}
-		),
+		lambda: count_thread_replies(thread_id),
 	)
 
 
 def refresh_thread_reply_count(thread_id: str):
 	"""
-	Refresh the thread reply count
+	Refresh the thread reply count (a batch = one reply)
 	"""
-	new_count = frappe.db.count(
-		"Raven Message", {"channel_id": thread_id, "message_type": ["!=", "System"]}
-	)
+	new_count = count_thread_replies(thread_id)
 	frappe.cache().hset("raven:thread_reply_count", thread_id, new_count)
 
 	return new_count

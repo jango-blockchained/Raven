@@ -65,13 +65,13 @@ export const CustomizeSidebarButton = () => {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" side="bottom" className="min-w-64">
                     {!isMobile && <DropdownMenuItem onClick={() => setSettingsDialogAtom('preferences')}>
-                        <FilterIcon />{_("Filter and sort channels")}
+                        <FilterIcon />{_("Filter and Sort")}
                     </DropdownMenuItem>}
                     {!isMobile && <DropdownMenuItem onClick={() => setSettingsDialogAtom('sidebar')}>
-                        <SidebarIcon />{_("Customize my sidebar")}
+                        <SidebarIcon />{_("Customize Sidebar")}
                     </DropdownMenuItem>}
                     {!isMobile && <DropdownMenuItem onClick={() => setSettingsDialogAtom('channels')}>
-                        <Hash />{_("Manage channels")}
+                        <Hash />{_("Manage Channels")}
                     </DropdownMenuItem>}
                     {!isMobile && <DropdownMenuSeparator />}
                     <DropdownMenuItem onClick={() => setCreateOpen(true)}>

@@ -326,7 +326,7 @@ const ChannelGroup = ({
                                 </Badge>
                             )}
                         </div>
-                        <ChevronRight className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                        <ChevronRight className="h-4 w-4 shrink-0 rtl:rotate-180 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                     </button>
                 </CollapsibleTrigger>
                 <CollapsibleContent>

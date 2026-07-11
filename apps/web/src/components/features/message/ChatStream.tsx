@@ -19,7 +19,7 @@ import { usePollRealtime } from "@hooks/usePollRealtime"
 import { useStreamScroll } from "./useStreamScroll"
 import { MessageActionMenu } from "./actions/MessageActionMenu"
 import { MessageActionDialogs } from "./actions/MessageActionDialogs"
-import { messageTargetAtom, messageActionTargetAtom, makeMessageTarget } from "@utils/channelAtoms"
+import { messageTargetAtom, messageActionTargetAtom, messagePressTargetAtom, makeMessageTarget } from "@utils/channelAtoms"
 import { ScrollViewportContext } from "@hooks/useHasBeenInView"
 import { createDateTracker, DateTrackerContext, FloatingDatePill, type DateOrderEntry } from "./messageDateTracker"
 import { cn } from "@lib/utils"
@@ -88,6 +88,9 @@ export default function ChatStream({ channelID, pinnedMessagesString, initialMes
     const [highlightedID, setHighlightedID] = useState<string | null>(null)
     /** Message the action menu is acting on — highlighted so the user knows the target. */
     const actionTarget = useAtomValue(messageActionTargetAtom)
+    // Mobile: the message under a settled touch (pre-long-press feedback) — highlighted
+    // exactly like the action target, so the press visibly "grabs" its message.
+    const pressTargetID = useAtomValue(messagePressTargetAtom)
 
     // A URL deep link is just another way to request a jump: turn it into a target.
     // Also claim the window right away (see loaders.ts) so nothing can replace the
@@ -248,6 +251,11 @@ export default function ChatStream({ channelID, pinnedMessagesString, initialMes
                                                 )}
                                             </div>
                                         )}
+                                        {/* TODO(perf): wrap MessageItem/BatchMessageItem in React.memo — every
+                                            stream-level change (new message, reaction, highlight/press atoms)
+                                            re-renders ALL visible rows today. Message objects are identity-
+                                            stable (store diff-and-reuse) and onMessageInView is stable, so memo
+                                            would collapse that to just the changed rows. Do with profiling. */}
                                         {blocks.map((block) =>
                                             block.message_type === "date" ? (
                                                 <DateSeparator label={block.creation} name={block.name} key={block.name} />
@@ -264,11 +272,14 @@ export default function ChatStream({ channelID, pinnedMessagesString, initialMes
                                                     // by id, it scrolls to the batch that contains it via this attribute.
                                                     data-batch-member={block.messages.map((member) => member.name).join(" ")}
                                                     className={cn(
-                                                        "flex flex-col rounded-md transition-colors duration-700",
+                                                        // Radius only on desktop — mobile rows are edge-to-edge.
+                                                        "flex flex-col md:rounded-md transition-colors duration-700",
                                                         block.messages.some((member) => member.name === highlightedID) &&
                                                         "bg-surface-amber-2 dark:bg-surface-gray-2",
-                                                        block.messages.some((member) => member.name === actionTarget?.name) &&
-                                                        "bg-surface-gray-2",
+                                                        // Press/action-target highlight: stronger + instant (duration
+                                                        // overrides the slow scroll-highlight fade).
+                                                        block.messages.some((member) => member.name === actionTarget?.name || member.name === pressTargetID) &&
+                                                        "bg-surface-gray-3 duration-100",
                                                     )}
                                                 >
                                                     <BatchMessageItem block={block} onInView={onMessageInView} />
@@ -286,9 +297,10 @@ export default function ChatStream({ channelID, pinnedMessagesString, initialMes
                                                     // Deliberately NO content-visibility: placeholder estimates change height
                                                     // after paint and break exact scroll compensation on prepend.
                                                     className={cn(
-                                                        "flex flex-col rounded-md transition-colors duration-700",
+                                                        "flex flex-col md:rounded-md transition-colors duration-700",
                                                         highlightedID === block.name && "bg-surface-amber-2 dark:bg-surface-gray-2",
-                                                        actionTarget?.name === block.name && "bg-surface-gray-2",
+                                                        // See the batch row above — press + action-target highlight.
+                                                        (actionTarget?.name === block.name || pressTargetID === block.name) && "bg-surface-gray-3 duration-100",
                                                     )}
                                                 >
                                                     <MessageItem message={block} onInView={onMessageInView} />

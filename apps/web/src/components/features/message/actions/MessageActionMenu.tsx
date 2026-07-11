@@ -11,7 +11,7 @@ import {
 import { Button } from "@components/ui/button"
 import { Drawer, DrawerContent, DrawerTitle } from "@components/ui/drawer"
 import { channelMessagesStore } from "@stores/messages/store"
-import { messageActionTargetAtom, replyToMessageAtom } from "@utils/channelAtoms"
+import { messageActionTargetAtom, messagePressTargetAtom, replyToMessageAtom } from "@utils/channelAtoms"
 import { useIsMobile } from "@hooks/use-mobile"
 import { cn } from "@lib/utils"
 import _ from "@lib/translate"
@@ -32,6 +32,17 @@ const DOUBLE_TAP_MS = 300
 const LONG_PRESS_MS = 450
 /** Finger drift beyond this cancels the long-press — it's a scroll, not a hold. */
 const LONG_PRESS_SLOP_PX = 10
+/** How long a touch must rest before the pressed message highlights — the "I'm
+ *  holding THIS one" feedback, well before the sheet opens at LONG_PRESS_MS.
+ *  The delay keeps scroll flicks and quick taps from flashing rows (same idea
+ *  as iOS's delayed touch highlighting). */
+const PRESS_HIGHLIGHT_MS = 150
+
+/** Touches starting this close to the LEFT screen edge are never reply-swipes — that
+ *  zone belongs to the iOS back-swipe gesture, and message rows are full-bleed on
+ *  mobile, so without it a back-swipe that begins over a message turns into an
+ *  accidental reply drag (and going back gets frustratingly hard). */
+const SWIPE_REPLY_EDGE_GUARD_PX = 32
 
 /** Swipe-to-reply (mobile): rightward travel that commits the reply on release. */
 const SWIPE_REPLY_COMMIT_PX = 48
@@ -145,7 +156,9 @@ export const MessageActionMenu = ({ channelID, children }: { channelID: string; 
      * click that follows finger-lift is swallowed (capture phase) so it can't
      * follow a link or re-toggle the toolbar under the sheet.
      */
-    const longPressRef = useRef<{ timer: number; x: number; y: number } | null>(null)
+    const longPressRef = useRef<{ timer: number; highlightTimer: number; x: number; y: number } | null>(null)
+    /** Drives the pressed-message highlight in the stream (see PRESS_HIGHLIGHT_MS). */
+    const setPressTarget = useSetAtom(messagePressTargetAtom)
     /**
      * Suppress clicks only within a short window after the long-press fires —
      * NOT a one-shot flag: iOS often produces NO click at all after a long
@@ -155,8 +168,11 @@ export const MessageActionMenu = ({ channelID, children }: { channelID: string; 
     const suppressClicksUntilRef = useRef(0)
 
     const cancelLongPress = () => {
+        // Lift or drift: the press is over — the highlight goes with it.
+        setPressTarget(null)
         if (!longPressRef.current) return
         window.clearTimeout(longPressRef.current.timer)
+        window.clearTimeout(longPressRef.current.highlightTimer)
         longPressRef.current = null
     }
 
@@ -269,14 +285,26 @@ export const MessageActionMenu = ({ channelID, children }: { channelID: string; 
         const timer = window.setTimeout(() => {
             longPressRef.current = null
             suppressClicksUntilRef.current = performance.now() + OPEN_GESTURE_GUARD_MS
+            // The sheet's own target highlight takes over from the press highlight.
+            setPressTarget(null)
             setTarget(block.message)
             menuOpenedAtRef.current = performance.now()
             hapticTick()
         }, LONG_PRESS_MS)
-        longPressRef.current = { timer, x: event.clientX, y: event.clientY }
+        // Highlight the pressed message once the touch has clearly settled — the
+        // held-down feedback that says which message the (potential) long-press is on.
+        const highlightTimer = window.setTimeout(() => {
+            setPressTarget(block.message.name)
+        }, PRESS_HIGHLIGHT_MS)
+        longPressRef.current = { timer, highlightTimer, x: event.clientX, y: event.clientY }
 
-        // Arm swipe-to-reply for the same touch (activation happens in move).
-        if (!startsInHorizontalScroller(event.target as HTMLElement, block.element)) {
+        // Arm swipe-to-reply for the same touch (activation happens in move) — unless
+        // it starts in the left-edge back-gesture zone or inside horizontally
+        // scrollable content (code blocks, carousels), which owns its own swipes.
+        if (
+            event.clientX > SWIPE_REPLY_EDGE_GUARD_PX &&
+            !startsInHorizontalScroller(event.target as HTMLElement, block.element)
+        ) {
             swipeReplyRef.current = {
                 pointerId: event.pointerId,
                 startX: event.clientX,

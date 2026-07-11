@@ -124,7 +124,7 @@ export const TypingIndicator = ({ channelID }: { channelID: string }) => {
                     }}
                 >
                     <TypingAvatars users={[first, second, third]} />
-                    <span className="truncate text-xs text-ink-gray-6">{text}</span>
+                    <span className="truncate text-xs leading-snug text-ink-gray-6">{text}</span>
                     <TypingDots />
                 </div>
             )}
