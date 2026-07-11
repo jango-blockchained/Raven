@@ -7,7 +7,7 @@ import ChannelMenu from "./ChannelMenu"
 import { useAtomValue } from "jotai"
 import { channelDrawerAtom } from "@utils/channelAtoms"
 import { useOpenChannelDrawer } from "@hooks/useChannelDrawer"
-import { useMatch, useParams } from "react-router-dom"
+import { useLocation, useMatch, useParams } from "react-router-dom"
 import { useChannel } from "@hooks/useChannel"
 import { useIsMobile } from "@hooks/use-mobile"
 import { useMobileBack } from "@hooks/useMobileBack"
@@ -37,7 +37,10 @@ const ChannelHeader = ({ channelID, showActions = true, onOpenChannel }: Channel
     // (channel list, notifications, …). The cold-start fallback comes from the
     // route this header is rendered under.
     const inNotifications = !!useMatch("/notifications/*")
-    const goBack = useMobileBack(inNotifications ? "/notifications" : `/${workspaceID ?? ""}`)
+    // With a thread open ON TOP (mobile layer), the thread header owns the cold-start
+    // stack repair (its parent is the threads page) — this covered header stands down.
+    const threadOnTop = useLocation().pathname.includes("/thread/")
+    const goBack = useMobileBack(inNotifications ? "/notifications" : `/${workspaceID ?? ""}`, { repairStack: !threadOnTop })
 
     const pinnedCount = channel?.pinned_messages_string ? channel.pinned_messages_string.split("\n").length : 0
 

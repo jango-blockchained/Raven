@@ -10,7 +10,7 @@ import {
 import { UserAvatar } from "@components/features/message/UserAvatar"
 import { OnLeaveBadge } from "@components/common/OnLeaveBadge"
 import { ArrowUpRight, Bot, ChevronDown, ChevronLeft, Files, Link, MessageSquareText, Pin, User, UserX } from "lucide-react"
-import { useMatch } from "react-router-dom"
+import { useLocation, useMatch } from "react-router-dom"
 import { useMobileBack } from "@hooks/useMobileBack"
 import { type DrawerType } from "@utils/channelAtoms"
 import { useOpenChannelDrawer } from "@hooks/useChannelDrawer"
@@ -39,7 +39,10 @@ export function DMChannelHeader({ peer, channelID, showActions = true, onOpenCha
     // (DM list, notifications, …). The cold-start fallback comes from the route
     // this header is rendered under.
     const inNotifications = !!useMatch("/notifications/*")
-    const goBack = useMobileBack(inNotifications ? "/notifications" : "/dm-channel")
+    // With a thread open ON TOP (mobile layer), the thread header owns the cold-start
+    // stack repair (its parent is the threads page) — this covered header stands down.
+    const threadOnTop = useLocation().pathname.includes("/thread/")
+    const goBack = useMobileBack(inNotifications ? "/notifications" : "/dm-channel", { repairStack: !threadOnTop })
     const displayName = peer.full_name || peer.name
     const setDrawerType = useOpenChannelDrawer(channelID)
     const { dmChannel } = useChannel(channelID)

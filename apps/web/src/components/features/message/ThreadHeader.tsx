@@ -6,6 +6,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@components/ui/dropdown-menu"
+import { useMatch } from "react-router-dom"
 import _ from "@lib/translate"
 import { useIsMobile } from "@hooks/use-mobile"
 import { useMobileBack } from "@hooks/useMobileBack"
@@ -36,9 +37,11 @@ export const ThreadHeader = ({ onClose, onOpenChannel, onLeave, onRequestDelete,
 
     const isMobile = useIsMobile()
     // Pop history so back lands wherever the thread was opened from (channel, threads
-    // page, notifications). Cold start (deep link) has no history — fall back to the
-    // host's close handler, which routes to the right parent.
-    const goBack = useMobileBack(onClose)
+    // page, notifications). Cold start (push notification / deep link) has no history —
+    // the hook then repairs the stack with the threads page (or the notifications page
+    // when hosted there) beneath, so the OS back-swipe works too.
+    const inNotifications = !!useMatch("/notifications/*")
+    const goBack = useMobileBack(inNotifications ? "/notifications" : "/threads")
 
     return <div className="flex items-center justify-between h-11 pl-2 pr-4 md:pl-4 md:pr-2 py-0 md:py-2 border-b shrink-0">
         <div className="flex min-w-0 items-center gap-1">
