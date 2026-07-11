@@ -218,6 +218,33 @@
   body {
     @apply bg-surface-base text-ink-gray-8;
   }
+
+  /* Native scrollbars, app-wide — everything that isn't the <ScrollArea>
+     component (which draws its own overlay bar in the same colors). Thin bar,
+     rounded thumb on a transparent track; the thumb matches frappe-ui's
+     ScrollArea: gray-400 in light mode, gray-700 in dark (surface-gray-5 /
+     surface-gray-2 in Espresso terms — no single semantic token flips to both,
+     hence the dedicated variable below).
+
+     Deliberately ONLY the standard properties (Chrome/Edge 121+, Firefox), NOT
+     ::-webkit-scrollbar: the webkit pseudos force always-visible chunky bars on
+     macOS, where the native overlay bars already look right. These two
+     properties fix exactly the ugly case — Windows — and leave macOS alone.
+
+     In @layer base so the `no-scrollbar` utility still wins. `scrollbar-color`
+     would inherit from :root, but `scrollbar-width` doesn't — hence `*`. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+}
+
+:root {
+  --scrollbar-thumb: var(--surface-gray-5);
+}
+
+.dark {
+  --scrollbar-thumb: var(--surface-gray-2);
 }
 
 body {
