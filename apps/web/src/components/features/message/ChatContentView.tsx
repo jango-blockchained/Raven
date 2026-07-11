@@ -68,6 +68,18 @@ export function ChatContentView({
         prevHasThread.current = hasThread
     }, [hasThread, isMobile, channelID])
 
+    // Mobile: drawers are transient bottom sheets, not a persistent rail — leaving the
+    // channel dismisses them for good, instead of stashing them to POP BACK OPEN on the
+    // next visit. Desktop deliberately keeps the atom: the rail still being open when
+    // you come back is part of the desktop feel.
+    useEffect(() => {
+        if (!isMobile) return
+        return () => {
+            setChannelDrawer("")
+            setPollDrawerData(null)
+        }
+    }, [channelID, isMobile])
+
     // One rail slot → the drawers are mutually exclusive, cleared at the OPEN sites (poll vs
     // context clear each other there; opening a thread clears both via the pill's onClick). No
     // effects. Render precedence (below) lets poll/context OVERLAY a thread; closing one brings

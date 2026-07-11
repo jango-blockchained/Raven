@@ -81,7 +81,7 @@ export const MessageImages = ({ messages, attachments }: { messages: Message[]; 
                 // is the big-screen surface); desktops get a modestly higher cap
                 <div data-media-root="" className="max-w-md lg:max-w-lg">
 
-                    {/* TODO(image-stack): only mount ImageStack when the message scrolls
+                    {/* image-stack: only mount ImageStack when the message scrolls
                         into the viewport (IntersectionObserver). Until mounted, render a
                         placeholder sized from the SAME bounding-box aspect ratio ImageStack
                         derives (responsive width + aspectRatio from the cards' stored dims)

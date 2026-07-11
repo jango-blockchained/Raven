@@ -98,12 +98,10 @@ export const useChannelMembers = (channelID: string, options?: { autoFetch?: boo
             list.push(record.merged)
         }
 
-        list.sort((a, b) => {
-            const aIsAdmin = Boolean(a.is_admin)
-            const bIsAdmin = Boolean(b.is_admin)
-            if (aIsAdmin !== bIsAdmin) return aIsAdmin ? -1 : 1
-            return (a.full_name || a.name || "").localeCompare(b.full_name || b.name || "")
-        })
+        // Alphabetical only — deliberately NOT admins-first: position depending on
+        // admin status made rows jump (toggle someone's admin in the members drawer
+        // and they teleport). A stable order beats a grouped one here.
+        list.sort((a, b) => (a.full_name || a.name || "").localeCompare(b.full_name || b.name || ""))
 
         // Same elements in the same order → return the PREVIOUS array ref so
         // downstream memos/effects keyed on `members` don't re-run.
