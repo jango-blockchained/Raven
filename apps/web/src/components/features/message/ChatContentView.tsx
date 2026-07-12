@@ -13,6 +13,7 @@ import { FileDropZone } from "@components/features/ChatInput/FileDropZone"
 import { useComposerGate, ComposerArea } from "@components/features/ChatInput/composerGate"
 import { pollDrawerAtom, channelDrawerAtom } from "@utils/channelAtoms"
 import { useIsMobile } from "@hooks/use-mobile"
+import { useChannelPinnedString } from "@stores/channels/useChannelList"
 import _ from "@lib/translate"
 import { cn } from "@lib/utils"
 import { CurrentChannelContext } from "@hooks/useCurrentChannelID"
@@ -22,8 +23,6 @@ export interface ChatContentViewProps {
     channelID: string
     /** The page header (ChannelHeader / DMChannelHeader) — rendered INSIDE the chat island. */
     header?: React.ReactNode
-    /** Newline-separated pinned message ids, passed through to the stream. */
-    pinnedMessagesString?: string
     /** Center the first fetch on this message — for panes that target a message without a
      *  URL deep link (notifications page). See ChatStreamProps.initialMessageID. */
     initialMessageID?: string | null
@@ -39,10 +38,14 @@ export interface ChatContentViewProps {
 export function ChatContentView({
     channelID,
     header,
-    pinnedMessagesString,
     initialMessageID,
 }: ChatContentViewProps) {
     const isMobile = useIsMobile()
+    // Pinned ids come from the CHANNEL STORE, not a prop: the pin toggle patches the
+    // store optimistically, and reading it here means every host — channel page, DM
+    // page, notification/search/saved panes — shows pin badges and live pin updates.
+    // (As a prop, only the channel/DM pages passed it; pins looked broken in panes.)
+    const pinnedMessagesString = useChannelPinnedString(channelID)
     // Child route content (the thread drawer). Threads are routes; everything else in the rail is atom state.
     const threadDrawer = useOutlet({
         parentChannelID: channelID,
