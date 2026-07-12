@@ -7,10 +7,16 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@components/ui/tooltip"
 import _ from "@lib/translate"
 import useCurrentRavenUser from "@raven/lib/hooks/useCurrentRavenUser"
 import { useUserCookieData } from "@hooks/useUserCookieData"
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { UserData } from "@db"
 import { useSetAtom } from "jotai"
 import { settingsDialogOpenTab } from "@components/features/settings/SettingsDialog"
+import { disablePush, enablePush, isPushEnabled } from "@lib/push"
+import { toast } from "sonner"
+import { getErrorMessage } from "@lib/frappe"
+import { FrappeError } from "frappe-react-sdk"
+import { useIsPushNotificationEnabled } from "@hooks/fetchers/useIsPushNotificationEnabled"
+import { Spinner } from "@components/ui/spinner"
 
 const NavUserMenu = () => {
 
@@ -38,7 +44,26 @@ const NavUserMenu = () => {
 
     const { logout, isLoggingOut } = useLogout()
 
-    // TODO: Implement notifications toggle
+    const isPushAvailable = useIsPushNotificationEnabled()
+
+    // Source of truth for "enabled on this device" is the stored FCM token (lib/push).
+    const [pushOn, setPushOn] = useState<boolean>(() => isPushEnabled())
+
+    const togglePush = (next: boolean) => {
+        if (next) {
+            toast.promise(
+                enablePush().then((granted) => {
+                    if (!granted) { setPushOn(false); throw new Error(_("Permission denied for push notifications")) }
+                    setPushOn(true)
+                }),
+                { loading: _("Enabling…"), success: _("Push notifications enabled"), error: (e: Error) => e.message },
+            )
+        } else {
+            disablePush()
+                .then(() => { setPushOn(false); toast.info(_("Push notifications disabled")) })
+                .catch((e: unknown) => toast.error(_("There was an error"), { description: getErrorMessage(e as FrappeError) }))
+        }
+    }
 
     return (
         <DropdownMenu>
@@ -75,10 +100,10 @@ const NavUserMenu = () => {
                     <SettingsIcon />
                     <span>{_("Settings")}</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem>
-                    <Bell className="h-4 w-4" />
-                    <span>{_("Enable Notifications")}</span>
-                </DropdownMenuItem>
+                {isPushAvailable && <DropdownMenuItem onClick={() => togglePush(!pushOn)}>
+                    <Bell />
+                    <span>{pushOn ? _("Disable Notifications") : _("Enable Notifications")}</span>
+                </DropdownMenuItem>}
                 <DropdownMenuSeparator />
                 {/* preventDefault keeps the menu open (spinner visible) while logout
                     runs; success hard-redirects to /login, failure toasts. */}
@@ -87,7 +112,7 @@ const NavUserMenu = () => {
                     disabled={isLoggingOut}
                     onSelect={(e) => { e.preventDefault(); logout() }}
                 >
-                    {isLoggingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
+                    {isLoggingOut ? <Spinner /> : <LogOut />}
                     <span>{isLoggingOut ? _("Logging out…") : _("Log out")}</span>
                 </DropdownMenuItem>
             </DropdownMenuContent>
