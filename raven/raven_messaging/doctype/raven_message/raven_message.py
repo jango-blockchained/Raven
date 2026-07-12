@@ -786,6 +786,8 @@ class RavenMessage(Document):
 						"hide_link_preview": self.hide_link_preview,
 						"blurhash": self.blurhash,
 						"message_batch_id": self.message_batch_id,
+						# Structured payload for System messages (rendered translated client-side)
+						"json": self.json,
 					},
 				},
 				doctype="Raven Channel",

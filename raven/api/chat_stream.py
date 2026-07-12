@@ -40,6 +40,7 @@ def _message_columns(message):
 		message.blurhash,
 		message.message_batch_id,
 		message.links,
+		message.json,
 	)
 
 

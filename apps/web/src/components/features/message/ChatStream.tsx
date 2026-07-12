@@ -287,6 +287,7 @@ export default function ChatStream({ channelID, pinnedMessagesString, initialMes
                                             ) : block.message_type === "System" ? (
                                                 <SystemMessage
                                                     message={block.text ?? ""}
+                                                    data={block.json}
                                                     time={block.creation}
                                                     key={block.name}
                                                 />

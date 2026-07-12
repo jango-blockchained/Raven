@@ -1,7 +1,11 @@
 import frappe
 from frappe import _
 
-from raven.utils import delete_channel_members_cache, get_channel_member
+from raven.utils import (
+	create_members_added_system_message,
+	delete_channel_members_cache,
+	get_channel_member,
+)
 from raven.utils import get_channel_members as get_channel_members_util
 from raven.utils import get_workspace_members, track_channel_visit
 
@@ -70,10 +74,19 @@ def add_channel_members(channel_id: str, members: list[str]):
 			{"doctype": "Raven Channel Member", "channel_id": channel_id, "user_id": member}
 		)
 		member_doc.flags.ignore_cache_invalidation = True
+		# One combined system message for the whole batch is sent below —
+		# per-member messages would flood the channel ("added X" ten times).
+		member_doc.flags.ignore_system_message = True
 		member_doc.insert()
 
 	if not members:
 		return True
+
+	# ONE "A added B, C and n others" message for the whole action. Same
+	# visibility rule as single additions: no system messages in DMs or Open channels.
+	channel = frappe.get_cached_doc("Raven Channel", channel_id)
+	if not channel.is_direct_message and channel.type != "Open":
+		create_members_added_system_message(channel_id, members)
 
 	delete_channel_members_cache(channel_id)
 	return True

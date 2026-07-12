@@ -241,6 +241,43 @@ def get_raven_user(user_id: str) -> str:
 	return result[0] if result else None
 
 
+def create_members_added_system_message(channel_id: str, member_ids: list[str]):
+	"""
+	ONE system message for one member-addition ACTION — single or bulk (adding 10
+	people must not produce 10 messages).
+
+	The structured payload goes in the message's `json` field so clients can render
+	a translated string with live user names. `text` still carries a plain-English
+	summary ("A added B, C, D and 2 others.") for clients that only render the bare
+	string (v2 compatibility).
+	"""
+	added_by = frappe.session.user
+	added_by_name = frappe.get_cached_value("Raven User", added_by, "full_name")
+	# The text summary only ever SHOWS the first 3 names — don't resolve the rest
+	# (a 200-member bulk add shouldn't do 200 lookups for a teaser). Clients render
+	# the full list from the ids in the payload.
+	teaser_names = [
+		frappe.get_cached_value("Raven User", member_id, "full_name") for member_id in member_ids[:3]
+	]
+
+	if len(member_ids) == 1:
+		summary = f"{added_by_name} added {teaser_names[0]}."
+	elif len(member_ids) <= 3:
+		summary = f"{added_by_name} added {', '.join(teaser_names[:-1])} and {teaser_names[-1]}."
+	else:
+		summary = f"{added_by_name} added {', '.join(teaser_names)} and {len(member_ids) - 3} others."
+
+	frappe.get_doc(
+		{
+			"doctype": "Raven Message",
+			"channel_id": channel_id,
+			"message_type": "System",
+			"text": summary,
+			"json": frappe.as_json({"event": "members_added", "added_by": added_by, "members": member_ids}),
+		}
+	).insert(ignore_permissions=True)
+
+
 def count_thread_replies(thread_id: str) -> int:
 	"""
 	Count the replies in a thread, where a BATCH send (multiple attachments + an
