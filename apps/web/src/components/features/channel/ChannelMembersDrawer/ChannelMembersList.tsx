@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Button } from '@components/ui/button';
 import AddChannelMembers from './AddChannelMembers';
 import { Input } from '@components/ui/input';
 import { UserAvatar } from '@components/features/message/UserAvatar';
-import { UserMinus, SearchIcon, PlusIcon, Crown, MessagesSquareIcon, Ellipsis } from 'lucide-react';
+import { UserMinus, SearchIcon, Crown, MessagesSquareIcon, Ellipsis } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@components/ui/dropdown-menu';
 import _ from '@lib/translate';
 import { ChannelMemberData, loadChannelMembers } from '@hooks/useChannelMembers';
@@ -21,7 +21,6 @@ import { ChannelListItem } from '@raven/types/common/ChannelListItem';
 const ChannelMembersList = ({ members, channel, allowSettingChange }: { members: ChannelMemberData[], channel: ChannelListItem, allowSettingChange: boolean }) => {
 
     const [searchQuery, setSearchQuery] = useDebounceValue('', 200)
-    const [addMembersOpen, setAddMembersOpen] = useState(false)
 
     const filteredMembers = useMemo(() => {
         if (!searchQuery) return members
@@ -44,20 +43,12 @@ const ChannelMembersList = ({ members, channel, allowSettingChange }: { members:
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </InputGroup>
+                {/* Renders its own "Add" trigger — the open state must live inside
+                    (vaul nested-drawer scaling only works via its own trigger). */}
                 {allowSettingChange && channel.type !== "Open" && (
-                    <Button variant="subtle" size="md" onClick={() => setAddMembersOpen(true)}>
-                        <PlusIcon />
-                        {_("Add")}
-                    </Button>
+                    <AddChannelMembers channelID={channel.name} existingMemberIds={memberIds} />
                 )}
             </div>
-
-            <AddChannelMembers
-                open={addMembersOpen}
-                onOpenChange={setAddMembersOpen}
-                channelID={channel.name}
-                existingMemberIds={memberIds}
-            />
 
             {/* Members List TODO: Convert this to Empty */}
             {filteredMembers.length === 0 ? (
