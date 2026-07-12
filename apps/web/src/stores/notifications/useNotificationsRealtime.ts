@@ -2,7 +2,7 @@ import { useContext } from "react"
 import { FrappeConfig, FrappeContext, useFrappeEventListener, useSWRConfig } from "frappe-react-sdk"
 import { UNREAD_NOTIFICATION_IDS_KEY } from "@hooks/useNotifications"
 import { notificationListStore } from "./store"
-import { unreadNotificationsStore } from "./unreadStore"
+import { isMessageOnScreen, markNotificationsReadOnView, unreadNotificationsStore } from "./unreadStore"
 import { reconcileFirstPage, type NotificationCall } from "./loaders"
 
 /**
@@ -29,8 +29,21 @@ export const useNotificationsRealtime = () => {
         }
     }
 
+    /**
+     * A new notification landed on a message the user is ALREADY looking at
+     * (someone reacting to the message on their screen): mark it read right away.
+     * The stream's in-view observers can't do this — they fire on ENTRY, and this
+     * message entered long ago — so without it the badge rose and only reset on
+     * the next scroll. add-then-mark in the same tick means no badge flicker, and
+     * the mark also tells the server (otherwise the next reconcile brings it back).
+     */
+    const addUnlessOnScreen = (messageID: string) => {
+        unreadNotificationsStore.add(messageID)
+        if (isMessageOnScreen(messageID)) markNotificationsReadOnView(client, messageID)
+    }
+
     useFrappeEventListener("raven_mention", (event: { message_id?: string }) => {
-        if (event.message_id) unreadNotificationsStore.add(event.message_id)
+        if (event.message_id) addUnlessOnScreen(event.message_id)
         onNewNotification("mention")
     })
 
@@ -42,7 +55,7 @@ export const useNotificationsRealtime = () => {
                 // reactions — refetch the authoritative id set instead of guessing.
                 globalMutate(UNREAD_NOTIFICATION_IDS_KEY)
             } else if (event.message_id) {
-                unreadNotificationsStore.add(event.message_id)
+                addUnlessOnScreen(event.message_id)
             }
             onNewNotification("reaction")
         },
