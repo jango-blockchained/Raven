@@ -1,13 +1,8 @@
 import { createBrowserRouter, createRoutesFromElements, RouterProvider, Route, Navigate } from "react-router-dom"
-import Profile from "./pages/settings/Profile"
-import MobileProfile from "@pages/profile/Profile"
 import Channel from "@pages/workspace/Channel"
 import Notifications from "@pages/notifications/Notifications"
 import NotificationChatRoute from "@pages/notifications/NotificationChatRoute"
-import SavedMessages from "@pages/saved-messages/SavedMessages"
-import ShareTarget from "@pages/share/ShareTarget"
-import MessagePermalink from "@pages/message/MessagePermalink"
-import Search from "@pages/search/Search"
+import { MessagePermalinkSkeleton } from "@pages/message/MessagePermalinkSkeleton"
 import Threads from "@pages/threads/Threads"
 import DirectMessages, { DirectMessagesIndex } from "@pages/dm-channel/DirectMessages"
 import DirectMessage from "@pages/dm-channel/DirectMessage"
@@ -16,20 +11,31 @@ import { WorkspaceRedirect } from "@components/workspace-switcher/WorkspaceRedir
 import { FrappeProvider } from 'frappe-react-sdk'
 import { initEmojiMart } from '@lib/emojiMart'
 import Cookies from 'js-cookie'
-import WorkspaceList from "@pages/settings/Workspaces/WorkspaceList"
 import { SearchLayout } from "@components/layout/SearchLayout"
-import CustomEmojiList from "@pages/settings/CustomEmojiList/CustomEmojiList"
-import { ManageChannels } from "@pages/settings/Channels/ManageChannels"
 import { Toaster } from "@components/ui/sonner"
 import { TooltipProvider } from "@radix-ui/react-tooltip"
 import { LucideProvider } from "lucide-react"
-import { useEffect } from "react"
+import { lazy, Suspense, useEffect } from "react"
 import AppShell from "@components/layout/AppShell"
 import { useAtomValue } from "jotai"
 import { lastChannelAtom, lastWorkspaceAtom } from "@utils/lastVisitedAtoms"
 import { useIsMobile } from "@hooks/use-mobile"
 import { useWorkspaces } from "@hooks/useWorkspaces"
 import WorkspaceLayout from "@pages/workspace/WorkspaceLayout"
+
+// Code-split the rarely-visited pages out of the main bundle. React.lazy +
+// Suspense (not the data router's route.lazy) on purpose: route.lazy blocks
+// rendering the route until its module resolves — a blank screen on the COLD
+// entries these pages mostly get (shared links, the OS share sheet) — while
+// Suspense paints the app shell + fallback immediately.
+// TODO: review the Suspense fallbacks/skeletons for these routes as a set —
+// most are `null` today; each page should get a silhouette of its own layout
+// (like MessagePermalinkSkeleton) so chunk-load never flashes blank.
+const MessagePermalink = lazy(() => import("@pages/message/MessagePermalink"))
+const ShareTarget = lazy(() => import("@pages/share/ShareTarget"))
+const SavedMessages = lazy(() => import("@pages/saved-messages/SavedMessages"))
+const MobileProfile = lazy(() => import("@pages/profile/Profile"))
+const Search = lazy(() => import("@pages/search/Search"))
 
 /**
  * Home ("/") redirect, evaluated at RENDER time — module-scope reads froze
@@ -93,15 +99,24 @@ const router = createBrowserRouter(
         <Route path=":threadID" element={<ThreadDrawerRoute />} />
       </Route>
       <Route path="search" element={<SearchLayout />}>
-        <Route index element={<Search />} />
+        <Route index element={<Suspense fallback={null}><Search /></Suspense>} />
       </Route>
-      <Route path="saved-messages" element={<SavedMessages />} />
-      <Route path="profile" element={<MobileProfile />} />
+      <Route path="saved-messages" element={<Suspense fallback={null}><SavedMessages /></Suspense>} />
+      <Route path="profile" element={<Suspense fallback={null}><MobileProfile /></Suspense>} />
       {/* OS share sheet lands here (manifest share_target) — conversation picker */}
-      <Route path="share-target" element={<ShareTarget />} />
+      <Route path="share-target" element={<Suspense fallback={null}><ShareTarget /></Suspense>} />
       {/* Permalink resolver — "Copy message link" always produces this route; it
-          redirects to the message's real home (channel, DM, or thread). */}
-      <Route path="message/:messageID" element={<MessagePermalink />} />
+          redirects to the message's real home (channel, DM, or thread). The
+          fallback is the SAME skeleton the page renders while resolving, so
+          chunk-load and data-load read as one continuous state. */}
+      <Route
+        path="message/:messageID"
+        element={
+          <Suspense fallback={<MessagePermalinkSkeleton />}>
+            <MessagePermalink />
+          </Suspense>
+        }
+      />
       {/* <Route path="settings" element={<AppSettings />}>
         <Route index element={<Navigate to="profile" replace />} />
         <Route path="profile" element={<Profile />} />

@@ -4,36 +4,10 @@ import { useFrappeGetDoc } from "frappe-react-sdk"
 import { LinkIcon } from "lucide-react"
 import { Button } from "@components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@components/ui/empty"
-import { Skeleton } from "@components/ui/skeleton"
-import { MessageListSkeleton } from "@components/features/dm-channel/DirectMessagePageSkeleton"
+import { MessagePermalinkSkeleton } from "./MessagePermalinkSkeleton"
 import { channelStore } from "@stores/channels/store"
 import type { Message } from "@raven/types/common/Message"
 import _ from "@lib/translate"
-
-/** While resolving: the destination's silhouette (sidebar + chat stream) instead
- *  of a bare spinner — the redirect lands on a page shaped exactly like this, so
- *  the transition reads as the page filling in rather than swapping. */
-const ResolvingSkeleton = () => (
-    <div className="flex h-full w-full">
-        {/* Channel sidebar (desktop only — mobile lands straight on the chat) */}
-        <div className="hidden w-(--sidebar-width) shrink-0 flex-col gap-1 border-r border-outline-gray-2 bg-surface-sidebar px-2 py-3 md:flex">
-            <Skeleton className="mb-3 h-6 w-36" />
-            {Array.from({ length: 12 }).map((_, index) => (
-                <div key={index} className="flex h-7 items-center gap-2 px-2">
-                    <Skeleton className="h-4 w-4 rounded-sm" />
-                    <Skeleton className="h-4 rounded-sm" style={{ width: `${45 + ((index * 17) % 40)}%` }} />
-                </div>
-            ))}
-        </div>
-        {/* Chat: header bar + message rows */}
-        <div className="flex min-w-0 flex-1 flex-col">
-            <div className="flex h-11 shrink-0 items-center border-b border-outline-gray-2 px-4">
-                <Skeleton className="h-4 w-40" />
-            </div>
-            <MessageListSkeleton />
-        </div>
-    </div>
-)
 
 /**
  * The permalink resolver: /message/:messageID → wherever that message actually
@@ -119,5 +93,5 @@ export default function MessagePermalink() {
         )
     }
 
-    return <ResolvingSkeleton />
+    return <MessagePermalinkSkeleton />
 }
