@@ -11,6 +11,7 @@ import { editingMessageAtom } from "@utils/channelAtoms"
 import _ from "@lib/translate"
 import type { Message } from "@raven/types/common/Message"
 import { errorResponseToast } from "@components/ui/error-banner"
+import { useIsMobile } from "@hooks/use-mobile"
 
 type FileLikeMessage = Message & { file?: string }
 
@@ -26,6 +27,7 @@ type FileLikeMessage = Message & { file?: string }
 export const EditMessageComposer = ({ message }: { message: Message }) => {
     const channelID = message.channel_id
     const messageID = message.name
+    const isMobile = useIsMobile()
     const hasFile = !!(message as FileLikeMessage).file
     const setEditing = useSetAtom(editingMessageAtom(channelID))
     const { updateDoc } = useFrappeUpdateDoc()
@@ -114,7 +116,7 @@ export const EditMessageComposer = ({ message }: { message: Message }) => {
                 <TooltipProvider>
                     {/* Same formatting toolbar as the main composer, so editing has the
                         full bold/italic/list/link set rather than shortcuts only. */}
-                    {editor && (
+                    {editor && !isMobile && (
                         <EditorFormattingToolbar
                             editor={editor}
                             linkSignal={linkSignal}
@@ -124,8 +126,8 @@ export const EditMessageComposer = ({ message }: { message: Message }) => {
                     <div className={EDITOR_MIN_H}>
                         <EditorContent editor={editor} />
                     </div>
-                    <div className="flex items-center gap-2 px-1.5 pb-1.5">
-                        <span className="mr-auto px-1 text-xs text-ink-gray-4">{_("Escape to cancel")}</span>
+                    <div className="flex items-center md:justify-start justify-end gap-2 px-1.5 pb-1.5">
+                        <span className="mr-auto px-1 text-xs text-ink-gray-4 hidden md:block">{_("Esc to cancel")}</span>
                         <Button type="button" variant="ghost" size="sm" onClick={close}>
                             {_("Cancel")}
                         </Button>

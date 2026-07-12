@@ -78,7 +78,17 @@ const OPEN_GESTURE_GUARD_MS = 200
  * Messages themselves carry no menu machinery — this replaces a Radix
  * ContextMenu instance per message with a single one per stream.
  */
-export const MessageActionMenu = ({ channelID, children }: { channelID: string; children: React.ReactNode }) => {
+export const MessageActionMenu = ({
+    channelID,
+    canInteract = true,
+    children,
+}: {
+    channelID: string
+    /** From the host's composer gate: membership (incl. THREAD membership) +
+     *  not-archived. Gates reply/create-thread/pin and the swipe-to-reply gesture. */
+    canInteract?: boolean
+    children: React.ReactNode
+}) => {
     const isMobile = useIsMobile()
     const [target, setTarget] = useAtom(messageActionTargetAtom)
     /**
@@ -91,7 +101,7 @@ export const MessageActionMenu = ({ channelID, children }: { channelID: string; 
     const lastTargetRef = useRef<Message | null>(null)
     if (target) lastTargetRef.current = target
     const menuMessage = target ?? lastTargetRef.current
-    const actionGroups = useMessageActions(menuMessage)
+    const actionGroups = useMessageActions(menuMessage, { canInteract })
     const lastTapRef = useRef({ messageID: "", time: 0 })
     const menuOpenedAtRef = useRef(0)
     const wrapperRef = useRef<HTMLDivElement>(null)
@@ -299,9 +309,12 @@ export const MessageActionMenu = ({ channelID, children }: { channelID: string; 
         longPressRef.current = { timer, highlightTimer, x: event.clientX, y: event.clientY }
 
         // Arm swipe-to-reply for the same touch (activation happens in move) — unless
-        // it starts in the left-edge back-gesture zone or inside horizontally
-        // scrollable content (code blocks, carousels), which owns its own swipes.
+        // the user can't reply here (canInteract: non-member or archived, from the
+        // composer gate), it starts in the left-edge back-gesture zone, or it starts
+        // inside horizontally scrollable content (code blocks, carousels), which
+        // owns its own swipes.
         if (
+            canInteract &&
             event.clientX > SWIPE_REPLY_EDGE_GUARD_PX &&
             !startsInHorizontalScroller(event.target as HTMLElement, block.element)
         ) {
@@ -494,6 +507,7 @@ export const MessageActionMenu = ({ channelID, children }: { channelID: string; 
                         <MessageHoverToolbar
                             message={hovered.message}
                             top={hovered.top}
+                            canInteract={canInteract}
                             onMenuOpenChange={onToolbarMenuOpenChange}
                         />
                     )}

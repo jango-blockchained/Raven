@@ -51,6 +51,13 @@ export type ChatStreamProps = {
      * (the thread would otherwise try to fetch around a message it doesn't contain).
      */
     disableURLTarget?: boolean
+    /**
+     * Whether the user can interact with this channel/thread (reply, create thread,
+     * pin, swipe-to-reply). Hosts derive it from their composer gate
+     * (state === "composer"), which knows membership — including THREAD membership —
+     * and archived state. Defaults to true.
+     */
+    canInteract?: boolean
 }
 
 /**
@@ -60,7 +67,7 @@ export type ChatStreamProps = {
  * and scrolls on its own. Pages compose it next to their own headers, inputs,
  * and drawers (channel page, DM page, thread drawer, threads page).
  */
-export default function ChatStream({ channelID, pinnedMessagesString, initialMessageID, disableURLTarget = false }: ChatStreamProps) {
+export default function ChatStream({ channelID, pinnedMessagesString, initialMessageID, disableURLTarget = false, canInteract = true }: ChatStreamProps) {
     const [searchParams, setSearchParams] = useSearchParams()
     // Deep link (?message_id= from shared URLs) or a pane-provided target (notifications
     // page). Passed to the hook so the channel's FIRST fetch is already centered on it.
@@ -223,7 +230,7 @@ export default function ChatStream({ channelID, pinnedMessagesString, initialMes
             <DateTrackerContext.Provider value={tracker}>
                 <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
                     <FloatingDatePill />
-                    <MessageActionMenu channelID={channelID}>
+                    <MessageActionMenu channelID={channelID} canInteract={canInteract}>
                         <div
                             ref={containerRef}
                             onScroll={handleScroll}

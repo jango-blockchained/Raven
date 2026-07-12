@@ -92,7 +92,17 @@ const selectionWithinMessage = (messageID: string): string => {
  * resync the channel window and toast. The store's idempotent, monotonic
  * upserts make resync a safe universal rollback.
  */
-export const useMessageActions = (message: Message | null): MessageAction[][] => {
+export const useMessageActions = (
+    message: Message | null,
+    options?: {
+        /** Whether the user can INTERACT with this channel/thread (reply, create
+         *  thread, pin). Comes from the host's composer gate — membership +
+         *  not-archived — which, unlike the channel store, also knows THREAD
+         *  membership. Defaults to true for callers without a gate. */
+        canInteract?: boolean
+    },
+): MessageAction[][] => {
+    const canInteract = options?.canInteract ?? true
     const { name: currentUser } = useUserCookieData()
     const setDialog = useSetAtom(messageDialogAtom)
     const navigate = useNavigate()
@@ -108,9 +118,10 @@ export const useMessageActions = (message: Message | null): MessageAction[][] =>
         const isOwner = currentUser === message.owner && !message.is_bot_message
         const hasReactions = Object.keys(JSON.parse(message.message_reactions || "{}")).length > 0
 
-        // Respond: reply + thread creation (join/mute need membership context we don't load here)
-        const respond: MessageAction[] = [
-            {
+        // Respond: reply + thread creation — members only (see canInteract above)
+        const respond: MessageAction[] = []
+        if (canInteract) {
+            respond.push({
                 id: "reply",
                 label: _("Reply"),
                 icon: Reply,
@@ -123,16 +134,17 @@ export const useMessageActions = (message: Message | null): MessageAction[][] =>
                     getDefaultStore().set(replyToMessageAtom(message.channel_id), message)
                     focusComposer(message.channel_id)
                 },
-            },
-        ]
+            })
+        }
         // Create thread only inside a channel: not on a message that already has one
-        // (is_thread), and only when the message's channel is a real channel/DM in the
-        // store. The store check is what excludes thread replies EVERYWHERE (channel
-        // thread route, threads page, notification/search panes): a thread is a channel
-        // the channel store never holds, so an unknown channel_id means "inside a
-        // thread". The thread's id IS the message id; a batch threads off its newest member.
+        // (is_thread), only when the message's channel is a real channel/DM in the
+        // store, and only for MEMBERS. The store check is what excludes thread replies
+        // EVERYWHERE (channel thread route, threads page, notification/search panes):
+        // a thread is a channel the channel store never holds, so an unknown
+        // channel_id means "inside a thread". The thread's id IS the message id; a
+        // batch threads off its newest member.
         const parentChannel = channelStore.getChannel(message.channel_id)
-        if (!message.is_thread && parentChannel) {
+        if (!message.is_thread && parentChannel && canInteract) {
             respond.push({
                 id: "create-thread",
                 label: _("Create thread"),
@@ -210,8 +222,10 @@ export const useMessageActions = (message: Message | null): MessageAction[][] =>
         // mechanism, reused for bookmarks).
         const isSaved = (JSON.parse(message._liked_by || "[]") as string[]).includes(currentUser)
 
-        const organize: MessageAction[] = [
-            {
+        const organize: MessageAction[] = []
+        // Pinning is a channel mutation — members only (same rule as reply/thread).
+        if (canInteract) {
+            organize.push({
                 id: "pin",
                 label: isPinned ? _("Unpin") : _("Pin"),
                 icon: isPinned ? PinOff : Pin,
@@ -231,7 +245,9 @@ export const useMessageActions = (message: Message | null): MessageAction[][] =>
                         errorResponseToast(isPinned ? _("Could not unpin message") : _("Could not pin message"), e)
                     })
                 },
-            },
+            })
+        }
+        organize.push(
             {
                 id: "save",
                 label: isSaved ? _("Unsave") : _("Save"),
@@ -250,7 +266,7 @@ export const useMessageActions = (message: Message | null): MessageAction[][] =>
                     })
                 },
             },
-        ]
+        )
         if (hasReactions) {
             organize.push({
                 id: "reactions",
@@ -285,5 +301,5 @@ export const useMessageActions = (message: Message | null): MessageAction[][] =>
         }
 
         return [respond, clipboard, organize, owner].filter((group) => group.length > 0)
-    }, [message, currentUser, setDialog, navigate, call, pinnedString])
+    }, [message, currentUser, setDialog, navigate, call, pinnedString, canInteract])
 }

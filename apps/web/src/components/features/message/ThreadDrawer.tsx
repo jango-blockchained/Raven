@@ -85,8 +85,11 @@ export default function ThreadDrawer({
     const isMember = !!me
     const isAdmin = me?.is_admin === 1
 
-    // Same composer gate as channels — a non-participant sees the not-member banner + Join.
-    const composerGate = useComposerGate(threadID ?? "")
+    // Same composer gate as channels — a non-participant sees the not-member banner.
+    // isThread + parent: Join is only offered when the user is a member of the
+    // PARENT channel (a non-member of a public channel can view its threads but
+    // not join them).
+    const composerGate = useComposerGate(threadID ?? "", { isThread: true, parentChannelID })
 
     // A poll inside the thread opens its detail drawer keyed by the THREAD's id — the thread
     // occupies the only rail slot, so we host the drawer here (overlaying the thread), mirroring
@@ -173,8 +176,17 @@ export default function ThreadDrawer({
 
                 {/* Thread messages — ChatStream owns its own scroll/virtualization.
                     disableURLTarget: the URL's ?message_id belongs to the CHANNEL's stream
-                    (a channel + thread can be open together) — never to the thread's. */}
-                {threadID && <ChatStream channelID={threadID} initialMessageID={initialMessageID} disableURLTarget />}
+                    (a channel + thread can be open together) — never to the thread's.
+                    canInteract: thread PARTICIPANTS only (the composer gate reads the
+                    thread's member store) — non-participants can view but not reply/pin. */}
+                {threadID && (
+                    <ChatStream
+                        channelID={threadID}
+                        initialMessageID={initialMessageID}
+                        disableURLTarget
+                        canInteract={composerGate.state === "composer"}
+                    />
+                )}
 
                 {/* Message input — posts into the thread channel (or skeleton / not-member banner) */}
                 <div className="shrink-0">

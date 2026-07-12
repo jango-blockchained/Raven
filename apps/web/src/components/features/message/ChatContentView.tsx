@@ -118,7 +118,14 @@ export function ChatContentView({
             <Island className="flex-1" inert={isMobile && hasThread ? true : undefined}>
                 <FileDropZone channelID={channelID} disabled={composerBlocked}>
                     {header}
-                    <ChatStream channelID={channelID} pinnedMessagesString={pinnedMessagesString} initialMessageID={initialMessageID} />
+                    <ChatStream
+                        channelID={channelID}
+                        pinnedMessagesString={pinnedMessagesString}
+                        initialMessageID={initialMessageID}
+                        // Non-members (and archived channels) can't reply / thread / pin —
+                        // same authority as the composer below.
+                        canInteract={composerGate.state === "composer"}
+                    />
                     <div className="shrink-0">
                         <ComposerArea gate={composerGate}>
                             {/* key by channel: remount per channel so the editor re-autofocuses and
