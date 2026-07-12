@@ -19,6 +19,13 @@ export const useChannelUnread = (channelID: string): ChannelUnreadState =>
  * interruption signal, same rule as the icon badge and the footer badges — every
  * aggregate must agree. (Subscribing via the channel-list hooks also means a
  * mute/unmute updates this without an unread-count change.)
+ *
+ * TODO(perf, only if profiling shows it): this and useHasUnreadChannels subscribe
+ * to the channel LIST for muted flags, and the list's array identity changes on
+ * every channel patch (each DM last-message tick) — so their consumers
+ * (DocumentTitle, the footer's HomeLink) re-render per tick. Both renders are
+ * near-trivial today. The fix, if ever needed, is a stable muted-ids selector on
+ * the channel store (identity changes only when membership/muted change).
  */
 export const useTotalUnread = (): number => {
     const { channels } = useChannels()

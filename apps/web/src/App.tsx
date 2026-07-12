@@ -117,6 +117,9 @@ const router = createBrowserRouter(
           </Suspense>
         }
       />
+      {/* TODO: when these settings routes come back, re-add their page imports as
+          lazy() consts in the code-split block above — their old EAGER imports were
+          removed (they sat in the main bundle for routes that didn't exist). */}
       {/* <Route path="settings" element={<AppSettings />}>
         <Route index element={<Navigate to="profile" replace />} />
         <Route path="profile" element={<Profile />} />
