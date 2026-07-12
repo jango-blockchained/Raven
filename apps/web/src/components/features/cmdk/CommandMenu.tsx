@@ -91,14 +91,14 @@ const CommandPalette = ({ inDrawer = false }: { inDrawer?: boolean }) => {
                 value={text}
                 onValueChange={(v) => setText(v.slice(0, 140))}
                 maxLength={140}
-                placeholder={_("Search or type a command")}
+                placeholder={isMobile ? _("Search") : _("Search or type a command")}
             />
             <CommandList className={inDrawer ? "flex-1 overflow-auto max-h-none pb-[calc(1.5rem+env(safe-area-inset-bottom))]" : "max-h-105"}>
 
                 <ChannelList text={text} />
                 <UserList text={text} />
-                <SettingsList text={text} />
-                <QuickActions text={text} />
+                {!isMobile && <SettingsList text={text} />}
+                {!isMobile && <QuickActions text={text} />}
                 <CommandGroup forceMount>
                     <CommandItem
                         // Fixed value + forceMount: this is the always-available fallback action.

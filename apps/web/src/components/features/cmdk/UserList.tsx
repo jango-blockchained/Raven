@@ -13,6 +13,7 @@ import { defaultFilter } from 'cmdk'
 import { useCreateDM } from '@hooks/useCreateDM'
 import { useUsersById } from '@hooks/useMessageRowLookups'
 import { BotIcon, Loader2 } from 'lucide-react'
+import { useIsMobile } from '@hooks/use-mobile'
 
 /** Same cap rationale as ChannelList: bound what cmdk must score + reconcile per keystroke. */
 const MAX_RESULTS = 50
@@ -25,7 +26,7 @@ const UserList = ({ text }: { text: string }) => {
     // and only re-filters when a user actually changes.
     const usersById = useUsersById()
     const { dmChannels } = useDMChannels()
-
+    const isMobile = useIsMobile()
     const filteredUsers = useMemo(() => {
         if (!text) return []
         // Pre-rank with cmdk's scorer over the same string its customFilter sees
@@ -55,12 +56,12 @@ const UserList = ({ text }: { text: string }) => {
                 return dmChannel ? { user, channel: dmChannel } : { user, channel: null }
             })
         } else {
-            return dmChannels.slice(0, 3).map(channel => {
+            return dmChannels.slice(0, isMobile ? 6 : 4).map(channel => {
                 const user = usersById.get(channel.peer_user_id) ?? null
                 return { user, channel }
             })
         }
-    }, [filteredUsers, dmByPeer, dmChannels, usersById, text])
+    }, [filteredUsers, dmByPeer, dmChannels, usersById, text, isMobile])
 
     if (text && !filteredUsers.length) return null
     // filteredUsers need to be mapped to dmChannels and then render DMChannelItem or UserItem based on whether dm_channel exists or not. In UserItem, we will do api call on click to create dm_channel and then navigate to that dm_channel

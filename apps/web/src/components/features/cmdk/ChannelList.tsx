@@ -8,6 +8,7 @@ import { defaultFilter } from 'cmdk'
 import _ from '@lib/translate'
 import { Badge } from '@components/ui/badge'
 import { useChannels } from "@stores/channels/useChannelList"
+import { useIsMobile } from '@hooks/use-mobile'
 
 /** Cap on candidates handed to cmdk: it scores + React reconciles every item per keystroke,
  *  so an unbounded list janks at thousands of channels. Nobody scrolls past ~50 results. */
@@ -17,10 +18,11 @@ const ChannelList = ({ text }: { text: string }) => {
     const { channels } = useChannels()
     const navigate = useNavigate()
     const setOpen = useSetAtom(commandMenuOpenAtom)
+    const isMobile = useIsMobile()
 
     const filteredChannels = useMemo(() => {
         // TODO: If there's no text, then by default show the recently visited channels here
-        if (!text) return channels.filter(c => !c.is_archived).slice(0, 3)
+        if (!text) return channels.filter(c => !c.is_archived).slice(0, isMobile ? 6 : 4)
         // Pre-rank with the SAME scorer cmdk applies (the palette's customFilter scores
         // keywords = channel_name), then cap. Anything we keep that cmdk scores 0 is hidden
         // by cmdk anyway, so the visible set is identical to the uncapped version — minus
@@ -32,7 +34,7 @@ const ChannelList = ({ text }: { text: string }) => {
             .sort((a, b) => b.score - a.score)
             .slice(0, MAX_RESULTS)
             .map((x) => x.c)
-    }, [channels, text])
+    }, [channels, text, isMobile])
 
     if (!filteredChannels.length) return null
 
