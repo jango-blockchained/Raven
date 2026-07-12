@@ -219,6 +219,25 @@
     @apply bg-surface-base text-ink-gray-8;
   }
 
+  /* The app is a fixed viewport with INNER scrollers (message stream, lists) —
+     the document itself must never scroll. Without this, anything that nudges
+     the document (iOS scrolling the page to reveal a focused input, a stray
+     overflowing element, rubber-band drag) shifts the whole app — seen as "the
+     footer rides up and the body pans". html AND body both need the clamp: on
+     iOS, overflow on body alone doesn't stop document touch-scrolling.
+     overscroll-behavior kills the rubber-band at the document level (inner
+     scrollers keep their own bounce). */
+  html,
+  body,
+  #root {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    overscroll-behavior: none;
+  }
+
   /* Native scrollbars, app-wide — everything that isn't the <ScrollArea>
      component (which draws its own overlay bar in the same colors). Thin bar,
      rounded thumb on a transparent track; the thumb matches frappe-ui's

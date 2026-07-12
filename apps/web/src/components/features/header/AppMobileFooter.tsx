@@ -73,7 +73,7 @@ export const AppMobileFooterSkeleton = () => {
 // a few px over 64) made the bar overhang the bottom of every list.
 const AppMobileFooterContainer = ({ children, className, inert }: { children: React.ReactNode, className?: string, inert?: boolean }) => {
 
-    return <div className={cn("md:hidden grid grid-cols-5 shrink-0 bg-surface-elevation-2 border-t border-outline-gray-2 standalone:pb-4", className)} inert={inert}>
+    return <div className={cn("md:hidden grid grid-flow-col auto-cols-fr shrink-0 bg-surface-elevation-2 border-t border-outline-gray-2 standalone:pb-4", className)} inert={inert}>
         {children}
     </div>
 }
@@ -81,22 +81,19 @@ const AppMobileFooterContainer = ({ children, className, inert }: { children: Re
 const AppMobileFooterButton = ({ icon, title, isActive, badgeCount, showDot }: { icon: React.ReactNode, title: string, isActive: boolean, badgeCount?: number, showDot?: boolean }) => {
 
     return <div data-active={isActive} title={title} className={cn(
-        "flex items-center flex-col py-3 justify-center overflow-hidden text-ink-gray-4 active:scale-95 data-active:text-ink-gray-9 [&>svg]:size-6 data-active:[&>svg]:text-ink-gray-7"
+        "flex min-h-14 flex-col items-center justify-center py-2 gap-1.5 overflow-hidden text-ink-gray-5 active:scale-95 data-active:text-ink-gray-8 [&>svg]:size-6 [&>svg]:text-ink-gray-5 data-active:[&>svg]:text-ink-gray-8"
     )}>
-        <div className='flex flex-col items-center justify-center gap-2'>
-            <div className='relative'>
-                {icon}
-                <UnreadBadge count={badgeCount} />
-                {/* Activity dot (no number) — Home uses it for channel unreads:
+        <div className='relative'>
+            {icon}
+            <UnreadBadge count={badgeCount} />
+            {/* Activity dot (no number) — Home uses it for channel unreads:
                     channels are ambient, not an inbox, so "there's activity" is
                     the honest signal; counts stay on the personal queues. */}
-                {showDot && !badgeCount && (
-                    <span className="absolute -top-0.5 -right-1 size-2 rounded-full bg-surface-red-6" aria-hidden="true" />
-                )}
-            </div>
-            <span className='text-2xs-medium text-center'>{title}</span>
+            {showDot && !badgeCount && (
+                <span className="absolute -top-1 -right-2 size-2 rounded-full bg-surface-red-6" aria-hidden="true" />
+            )}
         </div>
-
+        <span className='text-xs-medium text-center'>{title}</span>
     </div>
 }
 
@@ -107,7 +104,7 @@ const UnreadBadge = ({ count }: { count?: number }) => {
     // Pill, not a fixed circle: a single digit stays circular (min-w == height),
     // but "9+" / two digits grow horizontally with px-1 so the glyphs aren't
     // crushed against the boundary. h-4 keeps the cap height stable either way.
-    return <span className="absolute -top-2 -right-3.5 h-4 min-w-4 px-1 flex items-center justify-center rounded-full bg-surface-red-6 dark:bg-surface-red-6 text-ink-base dark:text-ink-red-1 text-[10px] leading-none">
+    return <span className="absolute -top-1.5 -right-3 h-4 min-w-4 px-1 flex items-center justify-center rounded-full bg-surface-red-6 dark:bg-surface-red-6 text-ink-base dark:text-ink-red-1 text-[10px] leading-none">
         {count > 9 ? "9+" : count}
     </span>
 

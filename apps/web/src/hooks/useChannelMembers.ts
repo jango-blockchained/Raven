@@ -116,7 +116,13 @@ export const useChannelMembers = (channelID: string, options?: { autoFetch?: boo
     return {
         members,
         memberIds,
-        isLoading: entry.status === "idle" || entry.status === "loading",
+        // Loading only while there's NOTHING to show yet. A refresh (force reload
+        // after add/remove/admin-toggle, or realtime) keeps the stale list on screen
+        // and swaps it in place when the fetch lands — stale-while-revalidate.
+        // Flipping to a spinner mid-refresh unmounted the whole members list, which
+        // also tore down the nested add-members sheet before it could close through
+        // vaul (leaving the parent sheet stuck scaled back).
+        isLoading: (entry.status === "idle" || entry.status === "loading") && memberIds.length === 0,
         error: entry.status === "error",
         mutate: () => loadChannelMembers(call, channelID, true),
     }

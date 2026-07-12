@@ -1,12 +1,14 @@
 import { useMemo, useState, useRef } from 'react'
 import { useFrappeGetCall } from 'frappe-react-sdk'
 import { Button } from '@components/ui/button'
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@components/ui/empty'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@components/ui/hover-card'
 import { Input } from '@components/ui/input'
 import { ScrollArea } from '@components/ui/scroll-area'
+import { Skeleton } from '@components/ui/skeleton'
 import { InputGroup, InputGroupAddon } from '@components/ui/input-group'
 import { UserAvatar } from '@components/features/message/UserAvatar'
-import { CheckIcon, Search } from 'lucide-react'
+import { CheckIcon, Search, SearchX, UsersRound } from 'lucide-react'
 import { db, UserData } from "@db"
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useDebounceValue } from 'usehooks-ts';
@@ -20,6 +22,12 @@ interface AddMembersStepProps {
     onSelectUsers: (users: UserData[]) => void
     /** The workspace the channel lives in — only ITS members can be added. */
     workspace: string
+    /** Users to hide from the list entirely — e.g. the channel's EXISTING members
+     *  when adding to an already-created channel. */
+    excludeUserIds?: string[]
+    /** Description for the "no one to add" empty state (nobody left after the
+     *  exclusions, before any search). Defaults to the create-channel wording. */
+    emptyText?: string
 }
 
 /**
@@ -28,9 +36,10 @@ interface AddMembersStepProps {
  * the same gesture in the same place, and the running count lives in the slim
  * summary row + the footer's "Add N members" button.
  */
-export const AddMembersStep = ({ selectedUsers, onSelectUsers, workspace }: AddMembersStepProps) => {
+export const AddMembersStep = ({ selectedUsers, onSelectUsers, workspace, excludeUserIds, emptyText }: AddMembersStepProps) => {
 
     const { myProfile } = useCurrentRavenUser()
+    const excludedIds = useMemo(() => new Set(excludeUserIds ?? []), [excludeUserIds])
     // Debounced search text (same pattern as the members drawer's search) — the
     // input below is uncontrolled, this only lags the FILTER, not the typing.
     const [filterText, setFilterText] = useDebounceValue('', 200)
@@ -58,13 +67,14 @@ export const AddMembersStep = ({ selectedUsers, onSelectUsers, workspace }: AddM
             .equals(1)
             .and((user) => workspaceUserIds.has(user.name))
             .and((user) => user.name !== myProfile?.name)
+            .and((user) => !excludedIds.has(user.name))
             .and((user) => user.name.toLowerCase().includes(filterText.toLowerCase()) || user.full_name.toLowerCase().includes(filterText.toLowerCase()))
             .toArray()
             // Alphabetical by DISPLAY name — toArray() alone comes back in primary-key
             // order, which is the user ID, not what anyone scans the list by.
             .then((users) => users.sort((a, b) => (a.full_name || a.name).localeCompare(b.full_name || b.name)))
     },
-        [filterText, workspaceUserIds])
+        [filterText, workspaceUserIds, excludedIds])
 
     const selectedIds = useMemo(() => new Set(selectedUsers.map((user) => user.name)), [selectedUsers])
 
@@ -81,6 +91,12 @@ export const AddMembersStep = ({ selectedUsers, onSelectUsers, workspace }: AddM
         }
     }
 
+    // Nobody left to pick at all — everyone is excluded (already a member) before
+    // any search. The search box and summary row would just be noise over the
+    // empty state, so they hide too. (Selected rows stay listed, so a non-empty
+    // selection can never land here.)
+    const noOneToAdd = filteredUsers !== undefined && filteredUsers.length === 0 && !filterText && selectedUsers.length === 0
+
     return (
         // No horizontal padding — the hosting dialog/drawer owns the outer spacing.
         <div className="flex flex-col h-full min-h-0 gap-3">
@@ -95,7 +111,7 @@ export const AddMembersStep = ({ selectedUsers, onSelectUsers, workspace }: AddM
             </div>
 
             {/* Search — the standard InputGroup search pattern (same as the members drawer) */}
-            <div className="shrink-0">
+            <div className={cn('shrink-0', noOneToAdd && 'hidden')}>
                 <InputGroup size="md" variant="outline">
                     <InputGroupAddon><Search /></InputGroupAddon>
                     <Input
@@ -118,7 +134,7 @@ export const AddMembersStep = ({ selectedUsers, onSelectUsers, workspace }: AddM
                 content never shifts the list below. Hovering the count shows WHO is
                 selected (desktop only — hover cards don't open on touch, where the
                 checked rows in the list carry that information anyway). */}
-            <div className="flex h-7 shrink-0 items-center justify-between">
+            <div className={cn('flex h-7 shrink-0 items-center justify-between', noOneToAdd && 'hidden')}>
                 {selectedUsers.length === 0 ? (
                     <span className="text-sm text-ink-gray-5">{_('Select members to add')}</span>
                 ) : (
@@ -170,9 +186,23 @@ export const AddMembersStep = ({ selectedUsers, onSelectUsers, workspace }: AddM
                 )}
             </div>
 
-            {/* One toggle list — click a row (anywhere) to select/deselect */}
+            {/* One toggle list — click a row (anywhere) to select/deselect.
+                Four states: loading (workspace membership fetch), the list,
+                a search miss, and "no one to add" (everyone excluded). */}
             <div className="flex-1 min-h-0">
-                {(filteredUsers?.length ?? 0) > 0 ? (
+                {filteredUsers === undefined ? (
+                    <div aria-hidden="true">
+                        {Array.from({ length: 6 }).map((_, index) => (
+                            <div key={index} className="mb-1 flex items-center gap-2.5 rounded-md p-2">
+                                <Skeleton className="size-7 shrink-0 rounded-full" />
+                                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                                    <Skeleton className="h-3.5" style={{ width: `${40 + (index % 3) * 15}%` }} />
+                                    <Skeleton className="h-3 w-1/3" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : filteredUsers.length > 0 ? (
                     <Virtuoso
                         style={{ height: '100%', width: '100%' }}
                         data={filteredUsers!}
@@ -225,12 +255,28 @@ export const AddMembersStep = ({ selectedUsers, onSelectUsers, workspace }: AddM
                         }}
                     />
                 ) : filterText ? (
-                    <div className="py-8 text-center">
-                        <p className="text-sm text-ink-gray-4">
-                            {_('No users found matching your search.')}
-                        </p>
+                    <div className="flex h-full items-center justify-center">
+                        <Empty>
+                            <EmptyMedia><SearchX /></EmptyMedia>
+                            <EmptyHeader>
+                                <EmptyTitle>{_('No matches')}</EmptyTitle>
+                                <EmptyDescription>{_('No users found matching your search.')}</EmptyDescription>
+                            </EmptyHeader>
+                        </Empty>
                     </div>
-                ) : null}
+                ) : (
+                    <div className="flex h-full items-center justify-center">
+                        <Empty>
+                            <EmptyMedia><UsersRound /></EmptyMedia>
+                            <EmptyHeader>
+                                <EmptyTitle>{_('No one to add')}</EmptyTitle>
+                                <EmptyDescription>
+                                    {emptyText ?? _('There is no one else in this workspace to add.')}
+                                </EmptyDescription>
+                            </EmptyHeader>
+                        </Empty>
+                    </div>
+                )}
             </div>
         </div>
     )

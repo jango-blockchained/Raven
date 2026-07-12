@@ -8,11 +8,11 @@ import { Drawer, DrawerContent, DrawerTitle } from "@components/ui/drawer"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@components/ui/select"
 import { Switch } from "@components/ui/switch"
 import { Button } from "@components/ui/button"
-import { cn } from "@lib/utils"
 import { useTheme } from "@components/theme-provider"
 import { customEmojiCategoriesAtom } from "@lib/emojiMart"
 import { DoubleTapReactionAtom, QuickEmojisAtom, type QuickEmoji, type TimeFormat, timeFormatAtom, imageGroupingLayoutAtom } from "@utils/preferences"
 import { errorResponseToast } from "@components/ui/error-banner"
+import { PrefRow, PrefSection } from "./PrefRows"
 import _ from "@lib/translate"
 
 /** A picked emoji from emoji-mart (`native` for standard, `src`/`id` for custom). */
@@ -234,39 +234,3 @@ const EmojiFace = ({ emoji }: { emoji: QuickEmoji }) =>
         </span>
     )
 
-/** iOS-Settings-style group: an uppercase caption over a rounded card of rows. */
-const PrefSection = ({ children }: { children: React.ReactNode }) => (
-    <div className="flex flex-col gap-2">
-        <div className="flex flex-col divide-y divide-outline-gray-1">
-            {children}
-        </div>
-    </div>
-)
-
-/**
- * One setting row: label (+ optional description) with the control at the end.
- * `asLabel` renders the row as a <label> so tapping anywhere flips its Switch
- * (native label activation — same trick as ProfileRow's toggle rows).
- */
-const PrefRow = ({
-    label,
-    description,
-    control,
-    asLabel,
-}: {
-    label: string
-    description?: string
-    control: React.ReactNode
-    asLabel?: boolean
-}) => {
-    const Comp = (asLabel ? "label" : "div") as "div"
-    return (
-        <Comp className={cn("flex items-center justify-between gap-6 py-3", asLabel && "select-none")}>
-            <div className="flex min-w-0 flex-col gap-1">
-                <span className="text-base text-ink-gray-8">{label}</span>
-                {description && <span className="text-sm leading-snug text-ink-gray-5">{description}</span>}
-            </div>
-            <div className="shrink-0">{control}</div>
-        </Comp>
-    )
-}
