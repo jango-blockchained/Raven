@@ -32,7 +32,7 @@ export const RepliedMessagePreview = ({ details }: { details: RepliedMessageDeta
             <span className="text-sm-medium text-ink-gray-5 dark:text-ink-gray-7">
                 {_("Replying to {0}", [user?.full_name || user?.name || details.owner])}
             </span>
-            <div className="text-xs text-ink-gray-5 dark:text-ink-gray-7">
+            <div className="text-xs text-ink-gray-5 dark:text-ink-gray-7 flex gap-1 flex-col">
                 {details.message_type === "Poll" && (
                     <span className="flex items-center gap-1">
                         <ChartColumnIcon className="h-3.5 w-3.5" />

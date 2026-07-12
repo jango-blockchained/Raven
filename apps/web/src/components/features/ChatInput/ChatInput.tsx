@@ -322,10 +322,9 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
     // the hooks order. App-wide write-blocking is a later, broader effort.
     if (isInReadOnlyMode()) {
         return (
-            <div className={cn("px-3 pb-4 w-full", isMobile && (keyboardOpen ? "pb-0" : "pb-[calc(2rem+env(safe-area-inset-bottom))]"))}>
-                <div className="flex items-center justify-center gap-2 md:rounded-lg rounded-xl border border-outline-gray-2 bg-surface-gray-1 px-3 py-3 text-p-sm text-ink-gray-6">
-                    <Lock className="size-3 shrink-0" />
-                    <span>{_("The site is in read-only mode right now. Please wait while the site is being updated.")}</span>
+            <div className="md:p-3 w-full">
+                <div className="flex flex-col items-center justify-center gap-2 md:rounded-lg rounded-none md:border border-t border-outline-gray-2 bg-surface-gray-1 md:px-3 px-4 py-4 standalone:pb-[calc(env(safe-area-inset-bottom))] text-sm text-ink-gray-6">
+                    <span className="text-p-base text-center">{_("The site is in read-only mode right now. Please wait while the site is being updated.")}</span>
                 </div>
             </div>
         )
