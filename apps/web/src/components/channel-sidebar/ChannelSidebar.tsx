@@ -203,6 +203,21 @@ const EmptyChannels = () => {
  */
 const WorkspaceSwitcher = ({ workspaceID }: { workspaceID?: string }) => {
     const { workspaces } = useWorkspaces()
+    const { myProfile } = useCurrentRavenUser()
+
+    // Per-user order from the Raven User's pinned_workspaces child table: rows
+    // come first (in row order), workspaces NOT in the table follow in their
+    // server order — so joining a new workspace never needs a migration, it
+    // just appends until the next drag writes the full order.
+    const myWorkspaces = useMemo(() => {
+        const members = workspaces.filter((workspace) => workspace.workspace_member_name)
+        const position = new Map((myProfile?.pinned_workspaces ?? []).map((row, index) => [row.workspace, index]))
+        if (position.size === 0) return members
+        return [...members].sort(
+            (a, b) => (position.get(a.name) ?? Infinity) - (position.get(b.name) ?? Infinity),
+        )
+    }, [workspaces, myProfile?.pinned_workspaces])
+
     const navigate = useNavigate()
     const setLastWorkspace = useSetAtom(lastWorkspaceAtom)
     const setLastChannel = useSetAtom(lastChannelAtom)
@@ -228,7 +243,7 @@ const WorkspaceSwitcher = ({ workspaceID }: { workspaceID?: string }) => {
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" sideOffset={4} className="min-w-64">
-                {workspaces.filter(w => w.workspace_member_name).map((workspace) => (
+                {myWorkspaces.map((workspace) => (
                     <WorkspaceSwitcherItem
                         key={workspace.name}
                         workspace={workspace}

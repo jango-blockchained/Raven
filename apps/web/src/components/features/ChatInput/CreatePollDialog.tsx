@@ -47,7 +47,7 @@ export const CreatePollDialog = ({ channelID, open, onOpenChange, hideTrigger }:
                         for them at mount, and during the Suspense fallback the form —
                         and any header inside it — doesn't exist yet. */}
                     <div className="max-h-[85vh] overflow-y-auto px-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-                        <DrawerTitle className="pt-1 text-left text-2xl-semibold text-ink-gray-9">{_('Create Poll')}</DrawerTitle>
+                        <DrawerTitle className="pt-1 text-left text-2xl-semibold">{_('Create Poll')}</DrawerTitle>
                         <DrawerDescription className="sr-only">{_('Ask a question and add options for people to vote on.')}</DrawerDescription>
                         <Suspense fallback={<div className="flex h-64 items-center justify-center"><Spinner /></div>}>
                             <CreatePollForm channelID={channelID} onClose={() => setOpen(false)} />
