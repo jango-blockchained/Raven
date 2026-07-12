@@ -6,6 +6,18 @@ function Drawer({ ...props }: React.ComponentProps<typeof DrawerPrimitive.Root>)
     return <DrawerPrimitive.Root data-slot="drawer" {...props} />
 }
 
+/**
+ * A drawer opened from INSIDE another drawer (e.g. Add members on top of the
+ * members sheet). Must be rendered within the parent DrawerContent's tree:
+ * vaul then treats them as a stack — opening this scales/pushes the parent
+ * sheet back (the same treatment shouldScaleBackground gives the page) and
+ * dragging this one down reveals it again. A plain <Drawer> here would just
+ * paint over the parent with no stacking relationship.
+ */
+function DrawerNested({ ...props }: React.ComponentProps<typeof DrawerPrimitive.NestedRoot>) {
+    return <DrawerPrimitive.NestedRoot data-slot="drawer" {...props} />
+}
+
 function DrawerTrigger({ ...props }: React.ComponentProps<typeof DrawerPrimitive.Trigger>) {
     return <DrawerPrimitive.Trigger data-slot="drawer-trigger" {...props} />
 }
@@ -22,7 +34,15 @@ function DrawerOverlay({ className, ...props }: React.ComponentProps<typeof Draw
     return (
         <DrawerPrimitive.Overlay
             data-slot="drawer-overlay"
-            className={cn("fixed inset-0 z-50 bg-black-200 dark:bg-black-700", className)}
+            // transform-gpu: iOS standalone paints this overlay under the status
+            // bar (edge-to-edge), and WebKit is lazy about repainting that strip
+            // when a shared-layer fixed element goes away — the scrim's ghost sat
+            // in the notch area for seconds after close. Its own compositor layer
+            // gets invalidated as a unit. fill-mode:forwards: vaul's fadeOut
+            // animation otherwise snaps back to full opacity between animation
+            // end and Radix's unmount commit — normally invisible, but any lag
+            // there flashed the scrim back on.
+            className={cn("fixed inset-0 z-50 bg-black-200 dark:bg-black-700 transform-gpu [animation-fill-mode:forwards]", className)}
             {...props}
         />
     )
@@ -48,6 +68,42 @@ function DrawerContent({ className, children, showHandle = true, ...props }: Rea
                 {children}
             </DrawerPrimitive.Content>
         </DrawerPortal>
+    )
+}
+
+/**
+ * iOS-style sheet header: leading action (usually Cancel) — centered title —
+ * trailing primary action. The convention for FORM/PICKER sheets: their
+ * keyboard covers the bottom of the sheet, so a footer's primary button is
+ * unreachable exactly while the user is typing; the top bar stays visible.
+ * Menu-style sheets need no action bar, and desktop dialogs keep their
+ * bottom-right footer.
+ *
+ * Renders the accessible DrawerTitle itself — the sheet body only needs to add
+ * a (sr-only) DrawerDescription.
+ */
+function DrawerActionBar({
+    title,
+    leading,
+    trailing,
+    className,
+}: {
+    title: React.ReactNode
+    leading?: React.ReactNode
+    trailing?: React.ReactNode
+    className?: string
+}) {
+    return (
+        <div
+            data-slot="drawer-action-bar"
+            // Equal 1fr side columns keep the title truly centered even when the
+            // two actions have different widths
+            className={cn("grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 px-2 py-1", className)}
+        >
+            <div className="flex justify-start">{leading}</div>
+            <DrawerTitle className="truncate text-lg-medium">{title}</DrawerTitle>
+            <div className="flex justify-end">{trailing}</div>
+        </div>
     )
 }
 
@@ -93,11 +149,13 @@ function DrawerDescription({ className, ...props }: React.ComponentProps<typeof 
 
 export {
     Drawer,
+    DrawerActionBar,
     DrawerClose,
     DrawerContent,
     DrawerDescription,
     DrawerFooter,
     DrawerHeader,
+    DrawerNested,
     DrawerOverlay,
     DrawerPortal,
     DrawerTitle,
