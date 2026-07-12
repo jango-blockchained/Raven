@@ -77,7 +77,7 @@ export function EditProfileDrawer({ open, onOpenChange }: { open: boolean; onOpe
             <DrawerContent>
                 <DrawerTitle className="sr-only">{_("Edit profile")}</DrawerTitle>
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4 p-4 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4 p-4 pb-2">
                         <h2 className="text-xl font-medium text-ink-gray-8">{_("Edit profile")}</h2>
 
                         {/* Full name */}

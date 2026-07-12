@@ -65,7 +65,7 @@ export const MobileComposerActions = ({
                 <DrawerContent>
                     <DrawerTitle className="sr-only">{_("Composer actions")}</DrawerTitle>
                     {/* Circle icon tiles, WhatsApp-style — every option is an icon */}
-                    <div className="grid grid-cols-4 gap-x-2 gap-y-6 px-4 pt-6 pb-[calc(2.5rem+env(safe-area-inset-bottom))]">
+                    <div className="grid grid-cols-4 gap-x-2 gap-y-6 px-4 pt-6 pb-10">
                         {tiles.map((tile) => (
                             <button
                                 key={tile.label}

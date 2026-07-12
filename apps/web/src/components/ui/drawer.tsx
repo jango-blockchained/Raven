@@ -35,7 +35,11 @@ function DrawerContent({ className, children, showHandle = true, ...props }: Rea
             <DrawerPrimitive.Content
                 data-slot="drawer-content"
                 className={cn(
-                    "fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-xl border-t border-outline-gray-2 bg-surface-elevation-1 outline-none",
+                    // pb-[env(...)]: the sheet reaches the physical bottom edge of the
+                    // screen, so keep content clear of the iOS home indicator by
+                    // default. Callers that want edge-to-edge content (e.g. the full
+                    // emoji picker) pass p-0, which wins over this.
+                    "fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-xl border-t border-outline-gray-2 bg-surface-elevation-1 outline-none pb-[env(safe-area-inset-bottom)]",
                     className
                 )}
                 {...props}

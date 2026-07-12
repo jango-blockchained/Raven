@@ -119,7 +119,7 @@ export const ReactionsDialog = ({ message, open, onClose }: { message: Message |
                     <DrawerTitle className="px-4 pb-4 pt-1 text-left text-2xl-semibold text-ink-gray-9">
                         {_("Reactions")}
                     </DrawerTitle>
-                    <div className="pb-[calc(1rem+env(safe-area-inset-bottom))]">
+                    <div className="pb-4">
                         <ReactionsBody reactions={reactions} />
                     </div>
                 </DrawerContent>

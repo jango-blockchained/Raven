@@ -47,9 +47,9 @@ export const EditChannelDescriptionButton = ({
       <Tooltip>
         <TooltipTrigger asChild>
           <DialogTrigger asChild>
-            <button className="p-1 rounded-sm cursor-pointer">
-              <Edit className="w-4 h-4 text-ink-gray-4 hover:text-ink-gray-8 shrink-0" />
-            </button>
+            <Button variant="ghost" isIconButton aria-label="Edit channel description">
+              <Edit />
+            </Button>
           </DialogTrigger>
         </TooltipTrigger>
         <TooltipContent>

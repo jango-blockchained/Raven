@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@components/ui/button';
+import AddChannelMembers from './AddChannelMembers';
 import { Input } from '@components/ui/input';
 import { UserAvatar } from '@components/features/message/UserAvatar';
 import { UserMinus, SearchIcon, PlusIcon, Crown, MessagesSquareIcon, Ellipsis } from 'lucide-react';
@@ -15,10 +16,12 @@ import { useDebounceValue } from 'usehooks-ts';
 import { Badge } from '@components/ui/badge';
 import { InputGroup, InputGroupAddon } from '@components/ui/input-group';
 import { errorResponseToast } from '@components/ui/error-banner';
+import { ChannelListItem } from '@raven/types/common/ChannelListItem';
 
-const ChannelMembersList = ({ members, channelID, allowSettingChange }: { members: ChannelMemberData[], channelID: string, allowSettingChange: boolean }) => {
+const ChannelMembersList = ({ members, channel, allowSettingChange }: { members: ChannelMemberData[], channel: ChannelListItem, allowSettingChange: boolean }) => {
 
     const [searchQuery, setSearchQuery] = useDebounceValue('', 200)
+    const [addMembersOpen, setAddMembersOpen] = useState(false)
 
     const filteredMembers = useMemo(() => {
         if (!searchQuery) return members
@@ -28,7 +31,7 @@ const ChannelMembersList = ({ members, channelID, allowSettingChange }: { member
         )
     }, [members, searchQuery])
 
-    // TODO: Wire up add member, review design
+    const memberIds = useMemo(() => members.map((member) => member.name), [members])
 
     return (
         <div className="flex flex-col h-full min-h-0 gap-2">
@@ -41,13 +44,20 @@ const ChannelMembersList = ({ members, channelID, allowSettingChange }: { member
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </InputGroup>
-                {allowSettingChange && (
-                    <Button variant="subtle" size="md">
+                {allowSettingChange && channel.type !== "Open" && (
+                    <Button variant="subtle" size="md" onClick={() => setAddMembersOpen(true)}>
                         <PlusIcon />
                         {_("Add")}
                     </Button>
                 )}
             </div>
+
+            <AddChannelMembers
+                open={addMembersOpen}
+                onOpenChange={setAddMembersOpen}
+                channelID={channel.name}
+                existingMemberIds={memberIds}
+            />
 
             {/* Members List TODO: Convert this to Empty */}
             {filteredMembers.length === 0 ? (
@@ -61,18 +71,18 @@ const ChannelMembersList = ({ members, channelID, allowSettingChange }: { member
                 // sheet, which claims vertical touch drags as sheet gestures — the
                 // list never scrolled. This hands the touches back to the scroller.
                 <div className="flex-1 min-h-0 px-2" data-vaul-no-drag>
-                    <MembersList filteredMembers={filteredMembers} channelID={channelID} allowSettingChange={allowSettingChange} />
+                    <MembersList filteredMembers={filteredMembers} channelID={channel.name} allowSettingChange={allowSettingChange} />
                 </div>
             )}
         </div>
     )
 }
 
-/** Mobile: spacer past the home-indicator safe area so the last member row has a
- *  resting scroll position above it (the bottom sheet reaches the screen edge).
- *  Inside the footer because Virtuoso is its own scroller — wrapper padding would
- *  sit outside the scroll. Module-level so Virtuoso's component type stays stable. */
-const MembersListFooter = () => <div className="h-[calc(0.5rem+env(safe-area-inset-bottom))] md:h-2" aria-hidden="true" />
+/** Breathing room under the last member row. Inside the footer because Virtuoso is
+ *  its own scroller — wrapper padding would sit outside the scroll. (DrawerContent
+ *  pads past the home-indicator safe area on mobile.) Module-level so Virtuoso's
+ *  component type stays stable. */
+const MembersListFooter = () => <div className="h-2" aria-hidden="true" />
 const membersListComponents = { Footer: MembersListFooter }
 
 const MembersList = ({ filteredMembers, channelID, allowSettingChange }: { filteredMembers: ChannelMemberData[], channelID: string, allowSettingChange: boolean }) => {

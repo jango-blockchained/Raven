@@ -48,8 +48,8 @@ export const CreateChannelDialog = ({
     if (isMobile) {
         return (
             <Drawer open={open} onOpenChange={onOpenChange}>
-                <DrawerContent className="max-h-[90vh] pb-[calc(1rem+env(safe-area-inset-bottom))]">
-                    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pt-1 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+                <DrawerContent className="max-h-[90vh]">
+                    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pt-1 pb-4">
                         <DrawerTitle className="text-left text-2xl-semibold text-ink-gray-9">{_('Create Channel')}</DrawerTitle>
                         <DrawerDescription className="sr-only">
                             {_('Choose a name and type for your channel, then add members.')}

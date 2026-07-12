@@ -93,7 +93,7 @@ const CommandPalette = ({ inDrawer = false }: { inDrawer?: boolean }) => {
                 maxLength={140}
                 placeholder={isMobile ? _("Search") : _("Search or type a command")}
             />
-            <CommandList className={inDrawer ? "flex-1 overflow-auto max-h-none pb-[calc(1.5rem+env(safe-area-inset-bottom))]" : "max-h-105"}>
+            <CommandList className={inDrawer ? "flex-1 overflow-auto max-h-none pb-6" : "max-h-105"}>
 
                 <ChannelList text={text} />
                 <UserList text={text} />

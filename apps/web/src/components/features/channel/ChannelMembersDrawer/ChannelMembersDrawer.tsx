@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { Button } from '@components/ui/button';
 import { Loader2, X } from 'lucide-react';
@@ -6,11 +5,10 @@ import { useAtom } from 'jotai';
 import { channelDrawerAtom } from '@utils/channelAtoms';
 import { useCurrentChannelID } from '@hooks/useCurrentChannelID';
 import ChannelMembersList from './ChannelMembersList.tsx';
-import AddChannelMembers from './AddChannelMembers.tsx';
 import _ from '@lib/translate';
 import { useChannelMembers } from '@hooks/useChannelMembers';
 import { useChannel } from '@hooks/useChannel.ts';
-import { hasRole } from '@lib/permissions.ts';
+import { canManageChannel } from '@lib/permissions.ts';
 import { Badge } from '@components/ui/badge.tsx';
 
 const ChannelMembersDrawer = () => {
@@ -19,15 +17,7 @@ const ChannelMembersDrawer = () => {
     const { channel } = useChannel(channelID)
     const { members, isLoading } = useChannelMembers(channelID)
 
-    const allowSettingChange = useMemo(() => {
-        if (channel?.is_admin == 1) {
-            return true;
-        }
-        if (channel?.member_id && hasRole("Raven Admin")) {
-            return true;
-        }
-        return false;
-    }, [channel]);
+    const allowSettingChange = canManageChannel(channel)
 
     useHotkeys('esc', () => handleClose(), { enableOnFormTags: true })
 
@@ -67,10 +57,8 @@ const ChannelMembersDrawer = () => {
                         <Loader2 className="h-4 w-4 animate-spin text-ink-gray-8/80" />
                     </div>
                 ) : (
-                    <ChannelMembersList members={members} channelID={channelID} allowSettingChange={allowSettingChange} />
+                    <ChannelMembersList members={members} channel={channel} allowSettingChange={allowSettingChange} />
                 )}
-
-                {/* <AddChannelMembers memberIds={memberIds} channelID={channelID} onClose={handleClose} /> */}
             </div>
         </div >
     )
