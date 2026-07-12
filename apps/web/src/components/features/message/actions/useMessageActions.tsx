@@ -203,7 +203,13 @@ export const useMessageActions = (
             label: _("Copy message link"),
             icon: Link,
             onSelect: () => {
-                const url = `${window.location.origin}${window.location.pathname}?message_id=${encodeURIComponent(message.name)}`
+                // One canonical shape for EVERY message — the /message resolver route
+                // redirects it to the right place (channel, DM, or thread reply).
+                // Pathname-based links broke inside threads (?message_id belongs to
+                // the channel's stream) and in the notification/search panes (no
+                // channel in the URL at all).
+                const base = import.meta.env.VITE_BASE_NAME ? `/${import.meta.env.VITE_BASE_NAME}` : ""
+                const url = `${window.location.origin}${base}/message/${encodeURIComponent(message.name)}`
                 navigator.clipboard.writeText(url)
                 toast.success(_("Link copied"))
             },

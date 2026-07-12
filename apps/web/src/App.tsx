@@ -6,6 +6,7 @@ import Notifications from "@pages/notifications/Notifications"
 import NotificationChatRoute from "@pages/notifications/NotificationChatRoute"
 import SavedMessages from "@pages/saved-messages/SavedMessages"
 import ShareTarget from "@pages/share/ShareTarget"
+import MessagePermalink from "@pages/message/MessagePermalink"
 import Search from "@pages/search/Search"
 import Threads from "@pages/threads/Threads"
 import DirectMessages, { DirectMessagesIndex } from "@pages/dm-channel/DirectMessages"
@@ -98,6 +99,9 @@ const router = createBrowserRouter(
       <Route path="profile" element={<MobileProfile />} />
       {/* OS share sheet lands here (manifest share_target) — conversation picker */}
       <Route path="share-target" element={<ShareTarget />} />
+      {/* Permalink resolver — "Copy message link" always produces this route; it
+          redirects to the message's real home (channel, DM, or thread). */}
+      <Route path="message/:messageID" element={<MessagePermalink />} />
       {/* <Route path="settings" element={<AppSettings />}>
         <Route index element={<Navigate to="profile" replace />} />
         <Route path="profile" element={<Profile />} />
