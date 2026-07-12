@@ -42,7 +42,7 @@ function DrawerOverlay({ className, ...props }: React.ComponentProps<typeof Draw
             // animation otherwise snaps back to full opacity between animation
             // end and Radix's unmount commit — normally invisible, but any lag
             // there flashed the scrim back on.
-            className={cn("fixed inset-0 z-50 bg-black-200 dark:bg-black-700 transform-gpu [animation-fill-mode:forwards]", className)}
+            className={cn("fixed inset-0 z-50 bg-black-200 dark:bg-black-700", className)}
             {...props}
         />
     )
