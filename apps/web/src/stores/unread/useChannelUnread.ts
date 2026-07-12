@@ -13,12 +13,22 @@ export const useChannelUnread = (channelID: string): ChannelUnreadState =>
         () => channelUnreadStore.getState(channelID),
     )
 
-/** Number of channels with unread across the app (conversation count) — e.g. the tab title. */
-export const useTotalUnread = (): number =>
-    useSyncExternalStore(
-        (onChange) => channelUnreadStore.subscribeGlobal(onChange),
-        () => channelUnreadStore.getTotalUnread(),
+/**
+ * Number of conversations (channels + DMs) with unread across the app — the tab
+ * title's "(N)" prefix. MUTED conversations excluded: the title prefix is an
+ * interruption signal, same rule as the icon badge and the footer badges — every
+ * aggregate must agree. (Subscribing via the channel-list hooks also means a
+ * mute/unmute updates this without an unread-count change.)
+ */
+export const useTotalUnread = (): number => {
+    const { channels } = useChannels()
+    const { dmChannels } = useDMChannels()
+    const channelIDs = useMemo(
+        () => [...channels, ...dmChannels].filter((channel) => !channel.muted).map((channel) => channel.name),
+        [channels, dmChannels],
     )
+    return useGroupUnread(channelIDs)
+}
 
 /**
  * Number of channels in the set that have unread — a conversation count, not a
@@ -46,19 +56,38 @@ export const useGroupUnreadCount = (channelIDs: string[]): number =>
 /**
  * Number of channels with unread in a workspace (conversation count). DMs are
  * excluded — they're workspace-agnostic and surfaced under their own entry.
+ * MUTED channels are excluded too: muted means "don't interrupt me", and an
+ * aggregate badge is an interruption — aggregates must agree with the rows,
+ * which already hide their badges when muted.
  */
 export const useWorkspaceUnread = (workspaceID: string): number => {
     const { channels } = useChannels()
     const channelIDs = useMemo(
-        () => channels.filter((channel) => channel.workspace === workspaceID).map((channel) => channel.name),
+        () => channels.filter((channel) => channel.workspace === workspaceID && !channel.muted).map((channel) => channel.name),
         [channels, workspaceID],
     )
     return useGroupUnread(channelIDs)
 }
 
-/** Number of DM channels with unread (conversation count) — for the Direct Messages entry. */
+/** Number of DM channels with unread (conversation count) — for the Direct Messages
+ *  entry. Muted DMs excluded (same rule as useWorkspaceUnread). */
 export const useDMUnread = (): number => {
     const { dmChannels } = useDMChannels()
-    const channelIDs = useMemo(() => dmChannels.map((channel) => channel.name), [dmChannels])
+    const channelIDs = useMemo(() => dmChannels.filter((channel) => !channel.muted).map((channel) => channel.name), [dmChannels])
     return useGroupUnread(channelIDs)
+}
+
+/**
+ * Any non-muted CHANNEL (not DM) with unread, across all workspaces — the mobile
+ * footer's Home-tab dot. A boolean on purpose: channels are ambient (a curated
+ * sidebar, not an inbox), so Home signals "there's activity" with a dot, while
+ * the personal queues (DMs / Threads / Notifications) carry real counts.
+ */
+export const useHasUnreadChannels = (): boolean => {
+    const { channels } = useChannels()
+    const channelIDs = useMemo(() => channels.filter((channel) => !channel.muted).map((channel) => channel.name), [channels])
+    return useSyncExternalStore(
+        useCallback((onChange) => channelUnreadStore.subscribeGlobal(onChange), []),
+        () => channelIDs.some((id) => channelUnreadStore.getState(id).count > 0),
+    )
 }

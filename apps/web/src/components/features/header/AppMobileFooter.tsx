@@ -4,7 +4,7 @@ import { cn } from '@lib/utils'
 import useCurrentRavenUser from '@raven/lib/hooks/useCurrentRavenUser'
 import { useUnreadThreadsCount } from '@stores/threads/useUnreadThreads'
 import { useWorkspaces } from '@hooks/useWorkspaces'
-import { useDMUnread } from '@stores/unread/useChannelUnread'
+import { useDMUnread, useHasUnreadChannels } from '@stores/unread/useChannelUnread'
 import { BellIcon, HomeIcon, MessageSquareTextIcon, SearchIcon, UsersRoundIcon } from 'lucide-react'
 import { CircleUserRoundIcon } from "lucide-react"
 import { NavLink, useMatch } from 'react-router'
@@ -78,7 +78,7 @@ const AppMobileFooterContainer = ({ children, className, inert }: { children: Re
     </div>
 }
 
-const AppMobileFooterButton = ({ icon, title, isActive, badgeCount }: { icon: React.ReactNode, title: string, isActive: boolean, badgeCount?: number }) => {
+const AppMobileFooterButton = ({ icon, title, isActive, badgeCount, showDot }: { icon: React.ReactNode, title: string, isActive: boolean, badgeCount?: number, showDot?: boolean }) => {
 
     return <div data-active={isActive} title={title} className={cn(
         "flex items-center flex-col py-3 justify-center overflow-hidden text-ink-gray-4 active:scale-95 data-active:text-ink-gray-9 [&>svg]:size-6 data-active:[&>svg]:text-ink-gray-7"
@@ -87,6 +87,12 @@ const AppMobileFooterButton = ({ icon, title, isActive, badgeCount }: { icon: Re
             <div className='relative'>
                 {icon}
                 <UnreadBadge count={badgeCount} />
+                {/* Activity dot (no number) — Home uses it for channel unreads:
+                    channels are ambient, not an inbox, so "there's activity" is
+                    the honest signal; counts stay on the personal queues. */}
+                {showDot && !badgeCount && (
+                    <span className="absolute -top-0.5 -right-1 size-2 rounded-full bg-surface-red-6" aria-hidden="true" />
+                )}
             </div>
             <span className='text-2xs-medium text-center'>{title}</span>
         </div>
@@ -166,6 +172,10 @@ const HomeLink = () => {
     const ws = wsMatch?.params.workspaceID
     const isWorkspaceRoute = !!ws && workspaces.some((w) => w.name === ws)
 
+    // Channel unreads get a DOT, not a count — channels are ambient (curated
+    // sidebar, not an inbox); the numeric badges stay on the personal queues.
+    const hasUnreadChannels = useHasUnreadChannels()
+
     return (
         <NavLink to="/">
             {() => (
@@ -173,6 +183,7 @@ const HomeLink = () => {
                     icon={<HomeIcon />}
                     title={_("Home")}
                     isActive={isIndex || isWorkspaceRoute}
+                    showDot={hasUnreadChannels}
                 />
             )}
         </NavLink>

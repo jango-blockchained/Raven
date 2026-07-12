@@ -1,5 +1,6 @@
 import { useEffect } from "react"
 import { channelUnreadStore } from "@stores/unread/store"
+import { channelStore } from "@stores/channels/store"
 import { unreadThreadsStore } from "@stores/threads/unreadStore"
 
 /**
@@ -20,11 +21,16 @@ import { unreadThreadsStore } from "@stores/threads/unreadStore"
 export const useAppBadge = () => {
     useEffect(() => {
         if (typeof navigator.setAppBadge !== "function") return
-        // Channels + DMs + unread THREADS: pushes fire for thread replies too, so a
-        // badge definition without threads would clear the icon while a thread the
-        // user was notified about is still unread.
+        // Unread conversations (channels + DMs, MUTED excluded — muted means "don't
+        // interrupt me", and the icon badge is an interruption, same rule as every
+        // in-app aggregate) + unread THREADS (pushes fire for thread replies too, so
+        // a definition without them would clear the icon while a notified-about
+        // thread is still unread).
         const sync = () => {
-            const total = channelUnreadStore.getTotalUnread() + unreadThreadsStore.getCount()
+            const conversations = [...channelStore.getChannels(), ...channelStore.getDMChannels()]
+                .filter((channel) => !channel.muted)
+                .reduce((total, channel) => total + (channelUnreadStore.getState(channel.name).count > 0 ? 1 : 0), 0)
+            const total = conversations + unreadThreadsStore.getCount()
             if (total > 0) navigator.setAppBadge(total).catch(() => { })
             else navigator.clearAppBadge?.().catch(() => { })
         }
@@ -44,12 +50,16 @@ export const useAppBadge = () => {
             if (document.visibilityState === "visible") sync()
         }
         document.addEventListener("visibilitychange", onVisible)
-        const unsubscribeChannels = channelUnreadStore.subscribeGlobal(sync)
+        const unsubscribeUnread = channelUnreadStore.subscribeGlobal(sync)
         const unsubscribeThreads = unreadThreadsStore.subscribe(sync)
+        // Channel LIST changes matter too: muting/unmuting flips a channel in and
+        // out of the aggregate without its unread count changing.
+        const unsubscribeChannels = channelStore.subscribe(sync)
         return () => {
             document.removeEventListener("visibilitychange", onVisible)
-            unsubscribeChannels()
+            unsubscribeUnread()
             unsubscribeThreads()
+            unsubscribeChannels()
         }
     }, [])
 }

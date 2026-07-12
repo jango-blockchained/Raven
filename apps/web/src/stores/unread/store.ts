@@ -69,16 +69,10 @@ class ChannelUnreadStore {
         return () => this.globalListeners.delete(listener)
     }
 
-    /**
-     * Number of channels with unread (a conversation count, not a message sum).
-     * Primitive snapshot, safe to recompute per read. Unread threads will be
-     * folded into the app-level total separately once that count exists.
-     */
-    getTotalUnread(): number {
-        let total = 0
-        for (const state of this.states.values()) if (state.count > 0) total++
-        return total
-    }
+    // NOTE: no raw "total unread" getter on purpose — this store doesn't know which
+    // channels are MUTED, and every app-level aggregate (tab title, icon badge,
+    // footer) must exclude them. Compose totals in the hooks layer
+    // (useChannelUnread.ts), which joins against the channel list.
 
     /** Ids of the currently-unread channels (notification-shade housekeeping). */
     getUnreadChannelIDs(): string[] {
