@@ -45,15 +45,18 @@ export const MessageHoverToolbar = ({
     /** Mobile: the ellipsis opens the action bottom sheet instead of an inline dropdown. */
     onOpenFullMenu?: () => void
 }) => {
-    const actionGroups = useMessageActions(message, { canInteract })
+    const { groups: actionGroups, isOwner } = useMessageActions(message, { canInteract })
     // Promoted to toolbar icons (v2 parity). Their availability rules live in
     // useMessageActions — reply/create-thread only for channel MEMBERS, edit only
     // for the owner's own non-bot messages — so absence from the groups means
     // "don't show", no duplicated conditions here.
     const flatActions = actionGroups.flat()
-    const replyAction = flatActions.find((action) => action.id === "reply")
     const createThreadAction = flatActions.find((action) => action.id === "create-thread")
     const editAction = flatActions.find((action) => action.id === "edit")
+    // One toolbar-only rule: no quick Reply on your OWN messages (Edit sits in that
+    // slot instead). Replying to yourself stays possible via the full menu — which
+    // is why this is a presentation filter here, using the hook's own isOwner.
+    const replyAction = isOwner ? undefined : flatActions.find((action) => action.id === "reply")
     const setActionTarget = useSetAtom(messageActionTargetAtom)
     const toggleReaction = useToggleReaction()
     const [menuOpen, setMenuOpen] = useState(false)

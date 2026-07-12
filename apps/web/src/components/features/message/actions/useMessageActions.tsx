@@ -101,7 +101,14 @@ export const useMessageActions = (
          *  membership. Defaults to true for callers without a gate. */
         canInteract?: boolean
     },
-): MessageAction[][] => {
+): {
+    /** Action groups (visual sections) — menus/sheets/toolbar all render from these. */
+    groups: MessageAction[][]
+    /** The current user sent this message (and it's not a bot message) — exposed so
+     *  consumers with owner-dependent PRESENTATION (the toolbar hides quick-Reply on
+     *  own messages) don't re-derive the rule. */
+    isOwner: boolean
+} => {
     const canInteract = options?.canInteract ?? true
     const { name: currentUser } = useUserCookieData()
     const setDialog = useSetAtom(messageDialogAtom)
@@ -113,7 +120,7 @@ export const useMessageActions = (
     const pinnedString = useChannelPinnedString(message?.channel_id ?? "")
 
     return useMemo(() => {
-        if (!message) return []
+        if (!message) return { groups: [], isOwner: false }
 
         const isOwner = currentUser === message.owner && !message.is_bot_message
         const hasReactions = Object.keys(JSON.parse(message.message_reactions || "{}")).length > 0
@@ -229,8 +236,11 @@ export const useMessageActions = (
         const isSaved = (JSON.parse(message._liked_by || "[]") as string[]).includes(currentUser)
 
         const organize: MessageAction[] = []
-        // Pinning is a channel mutation — members only (same rule as reply/thread).
-        if (canInteract) {
+        // Pinning is a channel mutation — members only (same rule as reply/thread),
+        // and CHANNELS only: pins live on the channel doc and render in the channel's
+        // pinned bar, which threads don't have — so no Pin on thread messages
+        // (parentChannel is undefined there; threads never enter the channel store).
+        if (canInteract && parentChannel) {
             organize.push({
                 id: "pin",
                 label: isPinned ? _("Unpin") : _("Pin"),
@@ -306,6 +316,6 @@ export const useMessageActions = (
             })
         }
 
-        return [respond, clipboard, organize, owner].filter((group) => group.length > 0)
+        return { groups: [respond, clipboard, organize, owner].filter((group) => group.length > 0), isOwner }
     }, [message, currentUser, setDialog, navigate, call, pinnedString, canInteract])
 }
