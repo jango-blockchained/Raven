@@ -5,9 +5,17 @@ import { cn } from "@lib/utils"
 
 function ScrollArea({
   className,
+  viewportClassName,
   children,
   ...props
-}: React.ComponentProps<typeof ScrollAreaPrimitive.Root>) {
+}: React.ComponentProps<typeof ScrollAreaPrimitive.Root> & {
+  /** Classes for the VIEWPORT — the element that actually scrolls. Size
+   *  constraints like `max-h-64` must go here, not on the root: the viewport's
+   *  `size-full` resolves against the root's definite height, and a root with
+   *  only a max-height has none (content just grew past it, unclipped).
+   *  Mirrors frappe-ui ScrollArea's `viewportClass`. */
+  viewportClassName?: string
+}) {
   return (
     <ScrollAreaPrimitive.Root
       data-slot="scroll-area"
@@ -16,7 +24,7 @@ function ScrollArea({
     >
       <ScrollAreaPrimitive.Viewport
         data-slot="scroll-area-viewport"
-        className="size-full rounded-[inherit] transition-[color,box-shadow]"
+        className={cn("size-full rounded-[inherit] transition-[color,box-shadow]", viewportClassName)}
       >
         {children}
       </ScrollAreaPrimitive.Viewport>
