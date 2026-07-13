@@ -7,7 +7,7 @@ import { useHasBeenInView } from "@hooks/useHasBeenInView"
 import { useUsersById } from "@hooks/useMessageRowLookups"
 import { useSetAtom } from "jotai"
 import { pollDrawerAtom, channelDrawerAtom } from "@utils/channelAtoms"
-import { useChannelById } from "@stores/channels/useChannelList"
+import { useCanInteractInChannel } from "@stores/channels/useChannelList"
 import _ from "@lib/translate"
 import { PollVotingContainer } from "./PollVotingContainer"
 import { PollQuestionHeader } from "./PollQuestionHeader"
@@ -79,7 +79,10 @@ const LoadedPoll = ({ message }: { message: Message }) => {
     const usersById = useUsersById()
     const setPollDrawer = useSetAtom(pollDrawerAtom(message.channel_id))
     const setChannelDrawer = useSetAtom(channelDrawerAtom(message.channel_id))
-    const channel = useChannelById(message.channel_id)
+    // Boolean-snapshot hook, NOT useChannelById: the channel object's identity
+    // changes on every incoming message, and every poll card in view would
+    // re-render along with it. The boolean flips only on join/leave/type change.
+    const canVote = useCanInteractInChannel(message.channel_id)
 
     // Live poll updates (vote / retract / close) are handled by a single app-level listener
     // (usePollRealtime) that revalidates this poll's `["poll", message.name]` cache by key —
@@ -91,15 +94,9 @@ const LoadedPoll = ({ message }: { message: Message }) => {
     const { poll, current_user_votes, votes } = data.message
     const hasVoted = current_user_votes.length > 0
 
-    // Voting requires being IN the conversation: Open channels include everyone
-    // by definition; everywhere else membership = member_id — the same signal
-    // the composer's join gate reads (a public channel you can view but haven't
-    // joined is in the store WITHOUT it). Non-members still see the poll, as
-    // the read-only results card: hiding results until you vote only makes
-    // sense for someone who CAN vote. A lookup miss (`!channel`) is a THREAD —
-    // threads aren't in the channel store; voting stays enabled there and the
-    // server has the final say.
-    const canVote = !channel || channel.type === "Open" || Boolean(channel.member_id)
+    // Non-members still SEE the poll, as the read-only results card: hiding
+    // results until you vote only makes sense for someone who CAN vote.
+    // (Membership semantics — Open/member_id/threads — live on the hook.)
 
     // Resolve each option's voter ids → user objects (names/avatars) from the user store.
     // Empty for anonymous polls (the backend doesn't send voters for those).

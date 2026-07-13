@@ -46,6 +46,29 @@ export const useChannelById = (channelID: string): ChannelListItem | undefined =
 }
 
 /**
+ * Whether the current user can interact (vote, etc.) in a channel: Open
+ * channels include everyone by definition; everywhere else membership =
+ * member_id (the composer join gate's signal). Unknown ids (threads — not in
+ * this store) → true; the server has the final say there.
+ *
+ * Snapshot is the BOOLEAN, not the channel object, for the same reason as
+ * useChannelPinnedString below: the object's identity changes on every patch
+ * (each incoming message's last-message tick), which would re-render every
+ * subscriber per message — the primitive only notifies when the answer flips.
+ */
+export const useCanInteractInChannel = (channelID: string): boolean => {
+    const subscribe = useCallback(
+        (listener: () => void) => channelStore.subscribeChannel(channelID, listener),
+        [channelID],
+    )
+    const getSnapshot = useCallback(() => {
+        const channel = channelStore.getChannel(channelID)
+        return !channel || channel.type === "Open" || Boolean(channel.member_id)
+    }, [channelID])
+    return useSyncExternalStore(subscribe, getSnapshot)
+}
+
+/**
  * Just a channel's pinned-messages string. Subscribes to the channel but the snapshot is
  * the primitive string, so it only re-renders when the PINS change — not on every other
  * channel update (e.g. each incoming message's last-message tick).
