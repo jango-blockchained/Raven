@@ -1,17 +1,20 @@
 import { atom } from "jotai";
 import { atomFamily } from 'jotai-family'
-import type { RavenPoll } from "@raven/types/RavenMessaging/RavenPoll";
 import type { Message } from "@raven/types/common/Message";
-import type { UserData } from "@db";
 
 export type DrawerType = '' | 'members' | 'files' | 'pins' | 'links' | 'threads' | 'settings'
 
 export const channelDrawerAtom = atomFamily((_channelID: string) => atom<DrawerType>(''))
 
+/**
+ * IDENTITY only, not poll data: the drawer reads the shared ["poll", id] SWR
+ * cache (same key as the inline card), so it opens instantly from the warm
+ * cache and stays LIVE when poll_update revalidates it. Snapshotting poll
+ * data here froze the drawer at open time.
+ */
 export type PollDrawerData = {
-    user: UserData
-    poll: RavenPoll
-    currentUserVotes: Array<{ option: string }>
+    /** The poll MESSAGE id. */
+    messageID: string
 } | null
 
 export const pollDrawerAtom = atomFamily((_channelID: string) => atom<PollDrawerData>(null))

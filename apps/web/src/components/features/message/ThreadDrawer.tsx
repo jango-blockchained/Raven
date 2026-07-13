@@ -146,9 +146,7 @@ export default function ThreadDrawer({
         return (
             <div className="flex flex-col h-full w-full">
                 <PollDrawer
-                    user={threadPoll.user}
-                    poll={threadPoll.poll}
-                    currentUserVotes={threadPoll.currentUserVotes}
+                    messageID={threadPoll.messageID}
                     onClose={() => setThreadPoll(null)}
                 />
             </div>

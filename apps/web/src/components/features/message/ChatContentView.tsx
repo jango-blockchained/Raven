@@ -146,9 +146,7 @@ export function ChatContentView({
                 <Island className={`shrink-0 ${drawerWidth}`}>
                     {pollDrawerData ? (
                         <PollDrawer
-                            user={pollDrawerData.user}
-                            poll={pollDrawerData.poll}
-                            currentUserVotes={pollDrawerData.currentUserVotes}
+                            messageID={pollDrawerData.messageID}
                             onClose={() => setPollDrawerData(null)}
                         />
                     ) : hasContextDrawer ? (
@@ -179,9 +177,7 @@ export function ChatContentView({
                             <DrawerTitle className="sr-only">{_("Poll")}</DrawerTitle>
                             {pollDrawerData && (
                                 <PollDrawer
-                                    user={pollDrawerData.user}
-                                    poll={pollDrawerData.poll}
-                                    currentUserVotes={pollDrawerData.currentUserVotes}
+                                    messageID={pollDrawerData.messageID}
                                     onClose={() => setPollDrawerData(null)}
                                 />
                             )}

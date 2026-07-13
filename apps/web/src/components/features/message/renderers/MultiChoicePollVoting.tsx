@@ -109,7 +109,7 @@ export const MultiChoicePollVoting: React.FC<MultiChoicePollVotingProps> = ({
                         : null}
                 </div>
                 <div>
-                    {!pollClosed && (
+                    {!pollClosed && selectedOptions.length > 0 && (
                         <Button
                             size="sm"
                             onClick={handleSubmit}
