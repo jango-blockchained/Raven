@@ -10,7 +10,7 @@ import {
     Link,
     LucideIcon,
     MessageSquareText,
-    Pencil,
+    Edit3Icon,
     Pin,
     PinOff,
     Reply,
@@ -303,7 +303,7 @@ export const useMessageActions = (
                 owner.push({
                     id: "edit",
                     label: _("Edit"),
-                    icon: Pencil,
+                    icon: Edit3Icon,
                     onSelect: () => getDefaultStore().set(editingMessageAtom(editTarget.channel_id), editTarget.name),
                 })
             }
