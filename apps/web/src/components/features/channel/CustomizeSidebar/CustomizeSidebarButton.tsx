@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { FilterIcon, MoreVertical, PlusIcon, SidebarIcon } from 'lucide-react'
 import { Button } from '@components/ui/button'
+import { Spinner } from '@components/ui/spinner'
 import {
     Dialog,
     DialogContent,
@@ -16,13 +17,20 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@components/ui/dropdown-menu'
-import { CustomizeSidebarDialog } from './CustomizeSidebarDialog'
 import { CreateChannelDialog } from '@components/features/channel/CreateChannel/CreateChannelButton'
 import _ from "@lib/translate"
 import { useIsMobile } from '@hooks/use-mobile'
 import { useSetAtom } from 'jotai'
 import { settingsDialogOpenTab } from '@components/features/settings/SettingsDialog'
 import { Hash } from '@components/common/ChannelIcon/ChannelIcon'
+
+// Lazy for the same reason the settings dialog lazies its panels: this is the
+// OTHER importer of CustomizeSidebarDialog, and one eager import anywhere would
+// pull the module back into the main bundle for both. Radix only renders
+// Dialog/Drawer content while open, so the chunk loads on first open.
+const CustomizeSidebarDialog = lazy(() =>
+    import('./CustomizeSidebarDialog').then((m) => ({ default: m.CustomizeSidebarDialog })),
+)
 
 /** The channel sidebar's overflow menu — create channel + sidebar view options. */
 export const CustomizeSidebarButton = () => {
@@ -32,7 +40,11 @@ export const CustomizeSidebarButton = () => {
     const setSettingsDialogAtom = useSetAtom(settingsDialogOpenTab)
     const isMobile = useIsMobile()
 
-    const content = <CustomizeSidebarDialog onClose={() => setIsOpen(false)} />
+    const content = (
+        <Suspense fallback={<div className="flex h-full items-center justify-center"><Spinner /></div>}>
+            <CustomizeSidebarDialog onClose={() => setIsOpen(false)} />
+        </Suspense>
+    )
 
     return (
         <>

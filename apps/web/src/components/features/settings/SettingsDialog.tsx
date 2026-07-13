@@ -1,16 +1,26 @@
+import { lazy, Suspense } from 'react';
 import { Hash } from '@components/common/ChannelIcon/ChannelIcon';
 import { Dialog } from '@components/ui/dialog';
 import { SettingsDialog, SettingsPanel, SettingsPanels, SettingsTabGroup, SettingsTabItem, SettingsTabs } from '@components/ui/settings-dialog';
+import { Spinner } from '@components/ui/spinner';
 import _ from '@lib/translate'
 import { atom, useAtom } from 'jotai'
 import { BellDotIcon, BellRingIcon, BotIcon, BrainCogIcon, Building2Icon, CalendarSyncIcon, CommandIcon, CpuIcon, FileTextIcon, FolderIcon, FunctionSquareIcon, IdCardIcon, InfoIcon, KeyboardIcon, PaletteIcon, PanelLeftIcon, SlidersHorizontalIcon, SmartphoneIcon, SmilePlusIcon, UserIcon, UsersIcon, WebhookIcon, ZapIcon } from 'lucide-react'
 import { useHotkeys } from 'react-hotkeys-hook';
-import { CustomizeSidebarDialog } from '../channel/CustomizeSidebar/CustomizeSidebarDialog';
 import useCurrentRavenUser from '@raven/lib/hooks/useCurrentRavenUser';
 import { UserAvatar } from '../message/UserAvatar';
 import { UserData } from '@db';
-import Appearance from './panels/Appearance';
-import Preferences from './panels/Preferences';
+
+// Panels are CODE-SPLIT: the dialog shell ships with the app (its atom +
+// hotkey must exist at boot), but a panel's chunk loads only when its tab is
+// first opened — only the active panel is mounted (Radix Tabs unmounts the
+// rest), so each Suspense below triggers exactly one load. Add new panels as
+// lazy() consts here — an eager import drags the panel into the main bundle.
+const Appearance = lazy(() => import('./panels/Appearance'));
+const Preferences = lazy(() => import('./panels/Preferences'));
+const CustomizeSidebarPanel = lazy(() =>
+    import('../channel/CustomizeSidebar/CustomizeSidebarDialog').then((m) => ({ default: m.CustomizeSidebarDialog })),
+);
 
 const SETTINGS_TAB_GROUPS: { id: string, label: string }[] = [
     { id: "settings", label: _("Settings") },
@@ -27,35 +37,43 @@ const HR_ICON = <svg width="61" height="61" viewBox="0 0 61 61" fill="none" xmln
 </svg>
 
 
-const SETTINGS_TABS: { id: string; group: (typeof SETTINGS_TAB_GROUPS)[number]["id"]; label: string; icon: React.ElementType; component: React.ReactNode }[] = [
+const SETTINGS_TABS: {
+    id: string
+    group: (typeof SETTINGS_TAB_GROUPS)[number]["id"]
+    label: string
+    icon: React.ElementType
+    /** The panel, as a LAZY component type (see the lazy() block above) —
+     *  not an element, so nothing evaluates until the tab is opened.
+     *  Absent = panel not built yet (renders a placeholder). */
+    component?: React.ComponentType
+}[] = [
     // Core settings
     {
         id: "profile",
         group: "settings",
         label: _("Profile"),
         icon: UserIcon,
-        component: <div>Profile</div>
     },
     {
         id: "appearance",
         group: "settings",
         label: _("Appearance"),
         icon: PaletteIcon,
-        component: <Appearance />
+        component: Appearance
     },
     {
         id: "preferences",
         group: "settings",
         label: _("Preferences"),
         icon: SlidersHorizontalIcon,
-        component: <Preferences />
+        component: Preferences
     },
     {
         id: "sidebar",
         group: "settings",
         label: _("Sidebar"),
         icon: PanelLeftIcon,
-        component: <CustomizeSidebarDialog />
+        component: CustomizeSidebarPanel
     },
     // Workspace settings
     {
@@ -63,28 +81,24 @@ const SETTINGS_TABS: { id: string; group: (typeof SETTINGS_TAB_GROUPS)[number]["
         group: "workspace",
         label: _("Users"),
         icon: UsersIcon,
-        component: <div>Users</div>
     },
     {
         id: "workspaces",
         group: "workspace",
         label: _("Workspaces"),
         icon: Building2Icon,
-        component: <div>Workspaces</div>
     },
     {
         id: "channels",
         group: "workspace",
         label: _("Channels"),
         icon: Hash,
-        component: <div>Channels</div>
     },
     {
         id: "emojis",
         group: "workspace",
         label: _("Emojis"),
         icon: SmilePlusIcon,
-        component: <div>Emojis</div>
     },
     // Integrations settings
     {
@@ -92,119 +106,102 @@ const SETTINGS_TABS: { id: string; group: (typeof SETTINGS_TAB_GROUPS)[number]["
         group: "integrations",
         label: "Frappe HR",
         icon: () => HR_ICON,
-        component: <div>HR</div>
     },
     {
         id: "document-notifications",
         group: "integrations",
         label: _("Document Notifications"),
         icon: BellDotIcon,
-        component: <div>Document Notifications</div>
     },
     {
         id: "document-previews",
         group: "integrations",
         label: _("Document Previews"),
         icon: IdCardIcon,
-        component: <div>Document Previews</div>
     },
     {
         id: "message-actions",
         group: "integrations",
         label: _("Message Actions"),
         icon: ZapIcon,
-        component: <div>Message Actions</div>
     },
     {
         id: "scheduled-messages",
         group: "integrations",
         label: _("Scheduled Messages"),
         icon: CalendarSyncIcon,
-        component: <div>Scheduled Messages</div>
     },
     {
         id: "webhooks",
         group: "integrations",
         label: _("Webhooks"),
         icon: WebhookIcon,
-        component: <div>Webhooks</div>
     },
     {
         id: "agents",
         group: "ai",
         label: _("Agents"),
         icon: BotIcon,
-        component: <div>Agents</div>
     },
     {
         id: "functions",
         group: "ai",
         label: _("Functions"),
         icon: FunctionSquareIcon,
-        component: <div>Functions</div>
     },
     {
         id: "file-sources",
         group: "ai",
         label: _("File Sources"),
         icon: FolderIcon,
-        component: <div>File Sources</div>
     },
     {
         id: "instructions",
         group: "ai",
         label: _("Instructions"),
         icon: FileTextIcon,
-        component: <div>Instructions</div>
     },
     {
         id: "document-processors",
         group: "ai",
         label: _("Document Processors"),
         icon: CpuIcon,
-        component: <div>Document Processors</div>
     },
     {
         id: "commands",
         group: "ai",
         label: _("Commands"),
         icon: CommandIcon,
-        component: <div>Commands</div>
     },
     {
         id: "ai-settings",
         group: "ai",
         label: _("AI Settings"),
         icon: BrainCogIcon,
-        component: <div>AI Settings</div>
     },
     {
         id: "push-notifications",
         group: "other",
         label: _("Notifications"),
         icon: BellRingIcon,
-        component: <div>Notifications</div>
     },
     {
         id: "mobile-app",
         group: "other",
         label: _("Mobile App"),
         icon: SmartphoneIcon,
-        component: <div>Mobile App</div>
     },
     {
         id: "keyboard-shortcuts",
         group: "other",
         label: _("Keyboard Shortcuts"),
         icon: KeyboardIcon,
-        component: <div>Keyboard Shortcuts</div>
     },
     {
         id: "about",
         group: "other",
         label: _("About"),
         icon: InfoIcon,
-        component: <div>About</div>
     }
 ]
 
@@ -263,7 +260,9 @@ const RavenSettingsDialog = () => {
                 <SettingsPanels>
                     {SETTINGS_TABS.map((tab) => (
                         <SettingsPanel key={tab.id} value={tab.id}>
-                            {tab.component}
+                            <Suspense fallback={<PanelLoading />}>
+                                {tab.component ? <tab.component /> : <PanelPlaceholder label={tab.label} />}
+                            </Suspense>
                         </SettingsPanel>
                     ))}
                 </SettingsPanels>
@@ -275,5 +274,19 @@ const RavenSettingsDialog = () => {
 
     )
 }
+
+/** Chunk-load state while a panel's code fetches — one flash, first visit only. */
+const PanelLoading = () => (
+    <div className="flex h-full items-center justify-center">
+        <Spinner />
+    </div>
+)
+
+/** Stand-in for tabs whose panel isn't built yet. */
+const PanelPlaceholder = ({ label }: { label: string }) => (
+    <div className="flex h-full items-center justify-center text-sm text-ink-gray-4">
+        {label}
+    </div>
+)
 
 export default RavenSettingsDialog
