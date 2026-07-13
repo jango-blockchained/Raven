@@ -16,6 +16,7 @@ import { UserData } from '@db';
 // first opened — only the active panel is mounted (Radix Tabs unmounts the
 // rest), so each Suspense below triggers exactly one load. Add new panels as
 // lazy() consts here — an eager import drags the panel into the main bundle.
+const Profile = lazy(() => import('./panels/Profile'));
 const Appearance = lazy(() => import('./panels/Appearance'));
 const Preferences = lazy(() => import('./panels/Preferences'));
 const CustomizeSidebarPanel = lazy(() =>
@@ -53,6 +54,7 @@ const SETTINGS_TABS: {
         group: "settings",
         label: _("Profile"),
         icon: UserIcon,
+        component: Profile
     },
     {
         id: "appearance",
