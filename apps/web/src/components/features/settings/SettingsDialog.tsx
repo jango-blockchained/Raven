@@ -1,11 +1,11 @@
 import { lazy, Suspense } from 'react';
 import { Hash } from '@components/common/ChannelIcon/ChannelIcon';
 import { Dialog } from '@components/ui/dialog';
-import { SettingsDialog, SettingsPanel, SettingsPanels, SettingsTabGroup, SettingsTabItem, SettingsTabs } from '@components/ui/settings-dialog';
+import { SettingsDialog, SettingsPanel, SettingsPanelContent, SettingsPanelDescription, SettingsPanelHeader, SettingsPanels, SettingsPanelTitle, SettingsTabGroup, SettingsTabItem, SettingsTabs } from '@components/ui/settings-dialog';
 import { Spinner } from '@components/ui/spinner';
 import _ from '@lib/translate'
 import { atom, useAtom } from 'jotai'
-import { BellDotIcon, BellRingIcon, BotIcon, BrainCogIcon, Building2Icon, CalendarSyncIcon, CommandIcon, CpuIcon, FileTextIcon, FolderIcon, FunctionSquareIcon, IdCardIcon, InfoIcon, KeyboardIcon, PaletteIcon, PanelLeftIcon, SlidersHorizontalIcon, SmartphoneIcon, SmilePlusIcon, UserIcon, UsersIcon, WebhookIcon, ZapIcon } from 'lucide-react'
+import { BellDotIcon, BellRingIcon, BotIcon, BrainCogIcon, Building2Icon, CalendarSyncIcon, CommandIcon, CpuIcon, FileTextIcon, FolderIcon, FunctionSquareIcon, IdCardIcon, InfoIcon, KeyboardIcon, PaletteIcon, PanelLeftIcon, SlidersHorizontalIcon, SmilePlusIcon, UserIcon, UsersIcon, WebhookIcon, ZapIcon } from 'lucide-react'
 import { useHotkeys } from 'react-hotkeys-hook';
 import useCurrentRavenUser from '@raven/lib/hooks/useCurrentRavenUser';
 import { UserAvatar } from '../message/UserAvatar';
@@ -22,6 +22,28 @@ const Preferences = lazy(() => import('./panels/Preferences'));
 const CustomizeSidebarPanel = lazy(() =>
     import('../channel/CustomizeSidebar/CustomizeSidebarDialog').then((m) => ({ default: m.CustomizeSidebarDialog })),
 );
+const About = lazy(() => import('./panels/About').then((m) => ({ default: m.About })));
+const AISettingsPanel = lazy(() => import('./panels/AISettings').then((m) => ({ default: m.AISettings })));
+const FrappeHRPanel = lazy(() => import('./panels/FrappeHR').then((m) => ({ default: m.FrappeHR })));
+const NotificationsPanel = lazy(() => import('./panels/PushNotifications').then((m) => ({ default: m.PushNotifications })));
+// Not-yet-built panels — each has its own file (renders a PlaceholderPanel for
+// now) so building out the real UI later is just filling in that file.
+const UsersPanel = lazy(() => import('./panels/Users').then((m) => ({ default: m.Users })));
+const WorkspacesPanel = lazy(() => import('./panels/Workspaces').then((m) => ({ default: m.Workspaces })));
+const ChannelsPanel = lazy(() => import('./panels/Channels').then((m) => ({ default: m.Channels })));
+const EmojisPanel = lazy(() => import('./panels/Emojis').then((m) => ({ default: m.Emojis })));
+const DocumentNotificationsPanel = lazy(() => import('./panels/DocumentNotifications').then((m) => ({ default: m.DocumentNotifications })));
+const DocumentPreviewsPanel = lazy(() => import('./panels/DocumentPreviews').then((m) => ({ default: m.DocumentPreviews })));
+const MessageActionsPanel = lazy(() => import('./panels/MessageActions').then((m) => ({ default: m.MessageActions })));
+const ScheduledMessagesPanel = lazy(() => import('./panels/ScheduledMessages').then((m) => ({ default: m.ScheduledMessages })));
+const WebhooksPanel = lazy(() => import('./panels/Webhooks').then((m) => ({ default: m.Webhooks })));
+const AgentsPanel = lazy(() => import('./panels/Agents').then((m) => ({ default: m.Agents })));
+const FunctionsPanel = lazy(() => import('./panels/Functions').then((m) => ({ default: m.Functions })));
+const FileSourcesPanel = lazy(() => import('./panels/FileSources').then((m) => ({ default: m.FileSources })));
+const InstructionsPanel = lazy(() => import('./panels/Instructions').then((m) => ({ default: m.Instructions })));
+const DocumentProcessorsPanel = lazy(() => import('./panels/DocumentProcessors').then((m) => ({ default: m.DocumentProcessors })));
+const CommandsPanel = lazy(() => import('./panels/Commands').then((m) => ({ default: m.Commands })));
+const KeyboardShortcutsPanel = lazy(() => import('./panels/KeyboardShortcuts').then((m) => ({ default: m.KeyboardShortcuts })));
 
 const SETTINGS_TAB_GROUPS: { id: string, label: string }[] = [
     { id: "settings", label: _("Settings") },
@@ -47,6 +69,12 @@ const SETTINGS_TABS: {
      *  not an element, so nothing evaluates until the tab is opened.
      *  Absent = panel not built yet (renders a placeholder). */
     component?: React.ComponentType
+    /** Panel header shown by the loading fallback so DialogContent always has a
+     *  DialogTitle (Radix requires one) that matches the panel about to render.
+     *  Defaults to `label`; set only when the panel's own title differs. */
+    panelTitle?: string
+    /** Panel header description (also shown by the loading fallback for built panels). */
+    description?: string
 }[] = [
     // Core settings
     {
@@ -54,28 +82,33 @@ const SETTINGS_TABS: {
         group: "settings",
         label: _("Profile"),
         icon: UserIcon,
-        component: Profile
+        component: Profile,
+        description: _("Manage your Raven profile"),
     },
     {
         id: "appearance",
         group: "settings",
         label: _("Appearance"),
         icon: PaletteIcon,
-        component: Appearance
+        component: Appearance,
+        description: _("Configure how you want Raven to look."),
     },
     {
         id: "preferences",
         group: "settings",
         label: _("Preferences"),
         icon: SlidersHorizontalIcon,
-        component: Preferences
+        component: Preferences,
+        description: _("Configure behavior and preferences."),
     },
     {
         id: "sidebar",
         group: "settings",
         label: _("Sidebar"),
         icon: PanelLeftIcon,
-        component: CustomizeSidebarPanel
+        component: CustomizeSidebarPanel,
+        panelTitle: _("Customize Sidebar"),
+        description: _("Customize your sidebar channels and groups"),
     },
     // Workspace settings
     {
@@ -83,24 +116,32 @@ const SETTINGS_TABS: {
         group: "workspace",
         label: _("Users"),
         icon: UsersIcon,
+        component: UsersPanel,
+        description: _("Manage users added to Raven."),
     },
     {
         id: "workspaces",
         group: "workspace",
         label: _("Workspaces"),
         icon: Building2Icon,
+        component: WorkspacesPanel,
+        description: _("Workspaces allow you to organize your channels and teams."),
     },
     {
         id: "channels",
         group: "workspace",
         label: _("Channels"),
         icon: Hash,
+        component: ChannelsPanel,
+        description: _("Browse and manage every channel in this workspace."),
     },
     {
         id: "emojis",
         group: "workspace",
         label: _("Emojis"),
         icon: SmilePlusIcon,
+        component: EmojisPanel,
+        description: _("Add custom emojis to use for your reactions. PNG, SVG and GIFs supported."),
     },
     // Integrations settings
     {
@@ -108,102 +149,129 @@ const SETTINGS_TABS: {
         group: "integrations",
         label: "Frappe HR",
         icon: () => HR_ICON,
+        component: FrappeHRPanel,
+        panelTitle: _("Frappe HR"),
+        description: _("Connect your HR system to Raven to sync employee data and send notifications."),
     },
     {
         id: "document-notifications",
         group: "integrations",
         label: _("Document Notifications"),
         icon: BellDotIcon,
+        component: DocumentNotificationsPanel,
+        description: _("Configure alerts to be sent to users or channels when documents are updated in the system."),
     },
     {
         id: "document-previews",
         group: "integrations",
         label: _("Document Previews"),
         icon: IdCardIcon,
+        component: DocumentPreviewsPanel,
+        description: _("Customise how document links are displayed in the chat. You can add/remove fields to be displayed in the preview."),
     },
     {
         id: "message-actions",
         group: "integrations",
         label: _("Message Actions"),
         icon: ZapIcon,
+        component: MessageActionsPanel,
+        description: _("Use these to add custom actions - like creating an issue/task from a message."),
     },
     {
         id: "scheduled-messages",
         group: "integrations",
         label: _("Scheduled Messages"),
         icon: CalendarSyncIcon,
+        component: ScheduledMessagesPanel,
+        description: _("You can create a scheduled message & a bot will send it to you at the specified time."),
     },
     {
         id: "webhooks",
         group: "integrations",
         label: _("Webhooks"),
         icon: WebhookIcon,
+        component: WebhooksPanel,
+        description: _("Fire webhooks on specific events like when a message is sent or channel is created."),
     },
     {
         id: "agents",
         group: "ai",
         label: _("Agents"),
         icon: BotIcon,
+        component: AgentsPanel,
+        description: _("Use agents to send reminders, run AI assistants, and more."),
     },
     {
         id: "functions",
         group: "ai",
         label: _("Functions"),
         icon: FunctionSquareIcon,
+        component: FunctionsPanel,
+        description: _("Declare functions to be used by your AI bots."),
     },
     {
         id: "file-sources",
         group: "ai",
         label: _("File Sources"),
         icon: FolderIcon,
+        component: FileSourcesPanel,
+        description: _("Add files that can be used by AI Agents."),
     },
     {
         id: "instructions",
         group: "ai",
         label: _("Instructions"),
         icon: FileTextIcon,
+        component: InstructionsPanel,
+        description: _("Save commonly used instructions as templates for your bots."),
     },
     {
         id: "document-processors",
         group: "ai",
         label: _("Document Processors"),
         icon: CpuIcon,
+        component: DocumentProcessorsPanel,
+        description: _("Create and manage document processors for your bots."),
     },
     {
         id: "commands",
         group: "ai",
         label: _("Commands"),
         icon: CommandIcon,
+        component: CommandsPanel,
+        description: _("Save commonly used commands and prompts for your AI bots and access them via \"/\" in chat."),
     },
     {
         id: "ai-settings",
         group: "ai",
         label: _("AI Settings"),
         icon: BrainCogIcon,
+        component: AISettingsPanel,
+        description: _("Configure AI providers to use AI features in Raven."),
     },
     {
         id: "push-notifications",
         group: "other",
         label: _("Notifications"),
         icon: BellRingIcon,
-    },
-    {
-        id: "mobile-app",
-        group: "other",
-        label: _("Mobile App"),
-        icon: SmartphoneIcon,
+        component: NotificationsPanel,
+        description: _("Configure the push notification service here."),
     },
     {
         id: "keyboard-shortcuts",
         group: "other",
         label: _("Keyboard Shortcuts"),
         icon: KeyboardIcon,
+        component: KeyboardShortcutsPanel,
+        description: _("Speed up your workflow with keyboard shortcuts."),
     },
     {
         id: "about",
         group: "other",
         label: _("About"),
         icon: InfoIcon,
+        component: About,
+        description: _("About Raven, links, and support."),
     }
 ]
 
@@ -262,8 +330,10 @@ const RavenSettingsDialog = () => {
                 <SettingsPanels>
                     {SETTINGS_TABS.map((tab) => (
                         <SettingsPanel key={tab.id} value={tab.id}>
-                            <Suspense fallback={<PanelLoading />}>
-                                {tab.component ? <tab.component /> : <PanelPlaceholder label={tab.label} />}
+                            <Suspense fallback={<PanelLoading title={tab.panelTitle ?? tab.label} description={tab.description} />}>
+                                {/* Every tab has a panel component now (built-out ones and
+                                    the placeholder panels under ./panels). */}
+                                {tab.component ? <tab.component /> : null}
                             </Suspense>
                         </SettingsPanel>
                     ))}
@@ -277,18 +347,23 @@ const RavenSettingsDialog = () => {
     )
 }
 
-/** Chunk-load state while a panel's code fetches — one flash, first visit only. */
-const PanelLoading = () => (
-    <div className="flex h-full items-center justify-center">
-        <Spinner />
-    </div>
-)
-
-/** Stand-in for tabs whose panel isn't built yet. */
-const PanelPlaceholder = ({ label }: { label: string }) => (
-    <div className="flex h-full items-center justify-center text-sm text-ink-gray-4">
-        {label}
-    </div>
+/**
+ * Chunk-load state while a panel's code fetches — one flash, first visit only.
+ * Renders the SAME header the panel will (title + description) so DialogContent
+ * always has a DialogTitle — Radix requires one, and the lazy panel that owns
+ * it isn't mounted yet during Suspense. Also just looks better: the header
+ * stays put and only the body swaps in.
+ */
+const PanelLoading = ({ title, description }: { title: string; description?: string }) => (
+    <>
+        <SettingsPanelHeader>
+            <SettingsPanelTitle>{title}</SettingsPanelTitle>
+            {description && <SettingsPanelDescription>{description}</SettingsPanelDescription>}
+        </SettingsPanelHeader>
+        <SettingsPanelContent className="items-center justify-center">
+            <Spinner />
+        </SettingsPanelContent>
+    </>
 )
 
 export default RavenSettingsDialog

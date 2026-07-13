@@ -102,7 +102,7 @@ const ProfileForm = ({ myProfile }: { myProfile: RavenUser }) => {
                     {/* Tapping the avatar opens the upload / remove photo menu — the
                         same component the mobile profile page uses. Photo changes
                         apply immediately (not part of the form's save). */}
-                    <div className="flex items-center justify-center rounded-lg bg-surface-gray-1 py-6">
+                    <div className="flex items-center justify-center rounded-lg bg-surface-gray-1 dark:bg-surface-gray-2 py-6">
                         <ProfileImageMenu />
                     </div>
 

@@ -35,10 +35,14 @@ export function ProfileImageMenu() {
             // No `fieldname` on the upload — that would write user_image directly via
             // db.set_value, skipping doc events. Attach the file, then commit via setImage.
             const res = await upload(file, {
+                // A profile photo must be PUBLIC (rendered in avatars for everyone).
+                // The SDK only appends is_private when `isPrivate` is truthy, so
+                // isPrivate:false sends nothing and leans on the server default —
+                // force is_private=0 explicitly via otherData so it's always public.
                 isPrivate: false,
                 doctype: "Raven User",
                 docname: myProfile.name,
-                otherData: { optimize: "1" },
+                otherData: { optimize: "1", is_private: "0" },
             })
             await setImage(res.file_url)
             toast.success(_("Photo updated"))
