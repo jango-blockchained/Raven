@@ -73,7 +73,7 @@ export const AppMobileFooterSkeleton = () => {
 // a few px over 64) made the bar overhang the bottom of every list.
 const AppMobileFooterContainer = ({ children, className, inert }: { children: React.ReactNode, className?: string, inert?: boolean }) => {
 
-    return <div className={cn("md:hidden grid grid-flow-col auto-cols-fr shrink-0 bg-surface-elevation-2 border-t border-outline-gray-2 standalone:pb-4", className)} inert={inert}>
+    return <div className={cn("md:hidden grid grid-cols-5 shrink-0 bg-surface-elevation-2 border-t border-outline-gray-2 standalone:pb-4", className)} inert={inert}>
         {children}
     </div>
 }
@@ -81,7 +81,7 @@ const AppMobileFooterContainer = ({ children, className, inert }: { children: Re
 const AppMobileFooterButton = ({ icon, title, isActive, badgeCount, showDot }: { icon: React.ReactNode, title: string, isActive: boolean, badgeCount?: number, showDot?: boolean }) => {
 
     return <div data-active={isActive} title={title} className={cn(
-        "flex min-h-14 flex-col items-center justify-center py-2 gap-1.5 overflow-hidden text-ink-gray-5 active:scale-95 data-active:text-ink-gray-8 [&>svg]:size-6 [&>svg]:text-ink-gray-5 data-active:[&>svg]:text-ink-gray-8"
+        "flex min-h-14 flex-col items-center justify-center py-3 gap-2 overflow-hidden text-ink-gray-5 active:scale-95 data-active:text-ink-gray-8 [&>svg]:size-6 [&>svg]:text-ink-gray-5 data-active:[&>svg]:text-ink-gray-8"
     )}>
         <div className='relative'>
             {icon}
