@@ -30,6 +30,7 @@ import { usePushNotificationNavigation } from "@hooks/usePushNotificationNavigat
 import { useAppBadge } from "@hooks/useAppBadge"
 import { useClearReadNotifications } from "@hooks/useClearReadNotifications"
 import DocumentTitle from "./DocumentTitle"
+import { AppUpdateAlert } from "./AppUpdateAlert"
 import RavenSettingsDialog from "@components/features/settings/SettingsDialog"
 
 /**
@@ -137,7 +138,8 @@ const AppListeners = ({ children }: { children: React.ReactNode }) => {
     useAppBadge()
     // Sweeps tray notifications for channels/threads that are no longer unread
     useClearReadNotifications()
-    // TODO: App update listener
+
+    // TODO: Session broadcast listener
 
     if (!isReady) {
         return <MainPageSkeleton />
@@ -148,6 +150,8 @@ const AppListeners = ({ children }: { children: React.ReactNode }) => {
         {children}
         <CommandMenu />
         <AttachmentPreviewModal />
+        {/* "App was updated — refresh" prompt (chunk failures, deploys, SW updates) */}
+        <AppUpdateAlert />
     </>
 }
 
