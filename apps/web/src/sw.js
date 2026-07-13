@@ -12,12 +12,12 @@
 import { precacheAndRoute, createHandlerBoundToURL } from "workbox-precaching"
 import { NavigationRoute, registerRoute } from "workbox-routing"
 
-// OFFLINE APP SHELL. The SW is served at /raven_v3/sw.js (see raven/
+// OFFLINE APP SHELL. The SW is served at /raven/sw.js (see raven/
 // page_renderers.py) so its scope covers the app's pages — a SW can only
 // intercept fetches from clients it controls.
 //
 // 1. Precache the build output (manifest injected by vite-plugin-pwa at
-//    __WB_MANIFEST; URLs prefixed to /assets/raven/raven_v3/ in vite.config).
+//    __WB_MANIFEST; URLs prefixed to /assets/raven/raven/ in vite.config).
 // 2. App navigations are NETWORK-FIRST — online loads must keep hitting the
 //    Jinja route (fresh boot + csrf_token). Offline falls back to the cached
 //    shell — a fully RENDERED page with real boot — and, as a last resort, the
@@ -32,7 +32,7 @@ import { NavigationRoute, registerRoute } from "workbox-routing"
 precacheAndRoute(self.__WB_MANIFEST)
 
 const APP_SHELL_CACHE = "raven-app-shell"
-const APP_SHELL_KEY = "/raven_v3/"
+const APP_SHELL_KEY = "/raven/"
 
 registerRoute(
     new NavigationRoute(
@@ -42,11 +42,12 @@ registerRoute(
             } catch {
                 const cached = await caches.match(APP_SHELL_KEY)
                 if (cached) return cached
-                return createHandlerBoundToURL("/assets/raven/raven_v3/index.html")({ request, event })
+                return createHandlerBoundToURL("/assets/raven/raven/index.html")({ request, event })
             }
         },
-        // Only the app's own routes — /app (desk), /api etc. stay untouched.
-        { allowlist: [/^\/raven_v3(\/|$)/] },
+        // Only the app's own routes — /app (desk), /api, /raven_v2 (the old
+        // app) etc. stay untouched.
+        { allowlist: [/^\/raven(\/|$)/] },
     ),
 )
 
@@ -57,7 +58,7 @@ async function cacheAppShell() {
         // Only real app HTML: a redirect-following fetch can land on the login
         // page (response.ok!) — caching that would make the offline "app" a
         // login screen.
-        if (response.ok && new URL(response.url).pathname.startsWith("/raven_v3")) {
+        if (response.ok && new URL(response.url).pathname.startsWith("/raven")) {
             const cache = await caches.open(APP_SHELL_CACHE)
             await cache.put(APP_SHELL_KEY, response)
         }

@@ -7,12 +7,12 @@ from werkzeug.wrappers import Response
 
 class RavenV3ServiceWorker(BaseRenderer):
 	"""
-	Serves the v3 web app's service worker at /raven_v3/sw.js.
+	Serves the v3 web app's service worker at /raven/sw.js.
 
 	The script must be served from WITHIN the app's path (not /assets/...):
 	a service worker's scope is capped at the directory it is served from, and
 	the offline app shell + web share target both need the worker to control
-	/raven_v3/* pages. Serving through a page renderer keeps this pure app code —
+	/raven/* pages. Serving through a page renderer keeps this pure app code —
 	no nginx configuration — since non-asset paths always reach Python.
 
 	Cache-Control: no-cache makes browsers revalidate the script on each
@@ -20,13 +20,13 @@ class RavenV3ServiceWorker(BaseRenderer):
 	"""
 
 	def can_render(self):
-		# The route rules rewrite /raven_v3/* to the SPA endpoint before
+		# The route rules rewrite /raven/* to the SPA endpoint before
 		# renderers run, so match on the ORIGINAL request path.
 		request = getattr(frappe.local, "request", None)
-		return bool(request) and request.path == "/raven_v3/sw.js"
+		return bool(request) and request.path == "/raven/sw.js"
 
 	def render(self):
-		file_path = frappe.get_app_path("raven", "public", "raven_v3", "sw.js")
+		file_path = frappe.get_app_path("raven", "public", "raven", "sw.js")
 		if not os.path.exists(file_path):
 			return Response("// service worker not built", status=404, mimetype="text/javascript")
 		with open(file_path, "rb") as f:

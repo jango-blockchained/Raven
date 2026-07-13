@@ -112,7 +112,7 @@ const callNotificationAPI = async (method: "subscribe" | "unsubscribe", body: Re
  * Register the service worker (push + offline app shell). Called once from
  * main.tsx after boot is available.
  *
- * Served at /raven_v3/sw.js by a Frappe page renderer — NOT from /assets/ —
+ * Served at /raven/sw.js by a Frappe page renderer — NOT from /assets/ —
  * because a SW's scope is capped at its script's directory, and controlling
  * the app's pages is what enables the offline shell (and, later, share-target
  * files). The URL is static; the renderer sends Cache-Control: no-cache, so
@@ -121,19 +121,27 @@ const callNotificationAPI = async (method: "subscribe" | "unsubscribe", body: Re
 export const registerPushServiceWorker = () => {
     if (!("serviceWorker" in navigator)) return
 
-    // One-time migration: drop the old /assets/-scoped registration (pre-offline
-    // era) so two workers don't both handle pushes.
+    // One-time migrations — every registration that isn't ours must go:
+    //  - any /assets/…-scoped worker: the pre-offline v3 worker AND v2's old
+    //    Firebase worker at /assets/raven/raven/sw.js. The latter is load-
+    //    bearing after the URL swap: v3's sw.js is now served at that very
+    //    asset path, so the browser would UPDATE the old registration to v3's
+    //    code and both would handle pushes (double notifications).
+    //  - the /raven_v3/-scoped worker from before the app moved to /raven.
     navigator.serviceWorker
         .getRegistrations()
         .then((registrations) => {
             for (const registration of registrations) {
-                if (registration.scope.includes("/assets/raven/raven_v3")) registration.unregister()
+                const scope = new URL(registration.scope).pathname
+                if (scope.startsWith("/assets/raven/") || scope.startsWith("/raven_v3")) {
+                    registration.unregister()
+                }
             }
         })
         .catch(() => { })
 
     swRegistration = navigator.serviceWorker
-        .register("/raven_v3/sw.js", { type: "classic" })
+        .register("/raven/sw.js", { type: "classic" })
         .catch((e) => {
             console.error("Failed to register service worker", e)
             return null

@@ -32,7 +32,7 @@ export const usePushNotificationNavigation = () => {
             }
             if (target.origin !== window.location.origin) return
 
-            // Strip the router basename (e.g. /raven_v3) — navigate() re-adds it.
+            // Strip the router basename (e.g. /raven) — navigate() re-adds it.
             let path = target.pathname
             const base = import.meta.env.VITE_BASE_NAME
             if (base && path.startsWith(`/${base}`)) path = path.slice(base.length + 1) || "/"

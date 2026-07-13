@@ -125,8 +125,7 @@ def send_push_notification_via_raven_cloud(message, raven_settings):
 
 		workspace = "" if channel_doc.is_dm_thread else channel_doc.workspace
 
-		# TODO: Change this to regular URL once v3 is stable
-		url = frappe.utils.get_url() + "/raven_v3/"
+		url = frappe.utils.get_url() + "/raven/"
 		if channel_doc.is_direct_message:
 			url += "dm-channel/"
 		elif workspace and not channel_doc.is_thread:
@@ -250,9 +249,13 @@ def send_notification_to_user(user_id, title, message, data=None, user_image_pat
 
 		if push_notification.is_enabled():
 			icon_url = get_image_absolute_url(user_image_path)
+			# v3 has no /channel/:id route — link to the message permalink
+			# (client resolves its real home) or fall back to the app root.
 			link = None
-			if data.get("channel_id"):
-				link = frappe.utils.get_url() + "/raven/channel/" + data.get("channel_id", "")
+			if data.get("message_id"):
+				link = frappe.utils.get_url() + "/raven/message/" + data.get("message_id")
+			elif data.get("channel_id"):
+				link = frappe.utils.get_url() + "/raven"
 			push_notification.send_notification_to_user(
 				user_id=user_id,
 				title=title,
@@ -286,9 +289,13 @@ def send_notification_to_topic(channel_id, title, message, data=None, user_image
 
 		if push_notification.is_enabled():
 			icon_url = get_image_absolute_url(user_image_path)
+			# v3 has no /channel/:id route — link to the message permalink
+			# (client resolves its real home) or fall back to the app root.
 			link = None
-			if data.get("channel_id"):
-				link = frappe.utils.get_url() + "/raven/channel/" + data.get("channel_id", "")
+			if data.get("message_id"):
+				link = frappe.utils.get_url() + "/raven/message/" + data.get("message_id")
+			elif data.get("channel_id"):
+				link = frappe.utils.get_url() + "/raven"
 			push_notification.send_notification_to_topic(
 				topic_name=channel_id,
 				title=title,
