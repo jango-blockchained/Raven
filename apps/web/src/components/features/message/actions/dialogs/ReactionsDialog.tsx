@@ -16,7 +16,7 @@ const EmojiGlyph = ({ reaction }: { reaction: ReactionObject }) =>
     reaction.is_custom ? (
         <img src={reaction.reaction} alt={reaction.emoji_name} loading="lazy" className="h-4 w-4 object-contain" />
     ) : (
-        <em-emoji native={reaction.reaction} set="apple" size="1.1em" fallback={reaction.reaction} />
+        <em-emoji native={reaction.reaction} set="native" size="1.1em" fallback={reaction.reaction} />
     )
 
 /**

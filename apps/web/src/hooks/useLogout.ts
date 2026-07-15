@@ -101,9 +101,14 @@ export function useLogout(): { logout: () => Promise<void>; isLoggingOut: boolea
         await clearIndexedDB()
         // The offline app-shell cache holds a RENDERED page — this user's boot
         // and csrf_token baked into the HTML. A logged-out device must not keep
-        // it. The precache (public build assets) is user-independent and stays.
+        // it. Same for the sw.js image caches: raven-media holds /private/files
+        // content that must not outlive the session on a shared machine, and
+        // raven-avatars goes too so logout clears everything Raven wrote. The
+        // precache (public build assets) is user-independent and stays.
         try {
             await caches.delete("raven-app-shell")
+            await caches.delete("raven-avatars")
+            await caches.delete("raven-media")
         } catch {
             // Cache API unavailable (older browser) — nothing was cached either.
         }

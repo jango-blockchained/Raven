@@ -85,7 +85,7 @@ export const PreferencesDrawer = ({ open, onOpenChange }: { open: boolean; onOpe
                         <Picker
                             onEmojiSelect={pickEmoji}
                             theme={themeValue}
-                            set="apple"
+                            set="native"
                             custom={customEmojis}
                             previewPosition="none"
                             skinTonePosition="none"
@@ -230,7 +230,7 @@ const EmojiFace = ({ emoji }: { emoji: QuickEmoji }) =>
         <img src={emoji.src} alt={emoji.id} loading="lazy" className="h-4.5 w-4.5 object-contain" aria-hidden="true" />
     ) : (
         <span className="flex h-4.5 w-4.5 items-center justify-center" aria-hidden="true">
-            <em-emoji native={emoji.native} set="apple" size="1.1em" fallback={emoji.id} />
+            <em-emoji native={emoji.native} set="native" size="1.1em" fallback={emoji.id} />
         </span>
     )
 

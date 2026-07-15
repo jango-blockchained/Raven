@@ -130,7 +130,7 @@ export const EmojiSuggestion = Extension.create({
                             </>
                         ) : (
                             <>
-                                <em-emoji native={nativeOf(emoji)} set="apple" size="1.2em" fallback={nativeOf(emoji)} />
+                                <em-emoji native={nativeOf(emoji)} set="native" size="1.2em" fallback={nativeOf(emoji)} />
                                 <span className="truncate text-ink-gray-6">:{emoji.id}:</span>
                             </>
                         ),

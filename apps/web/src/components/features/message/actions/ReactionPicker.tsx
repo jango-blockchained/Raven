@@ -75,5 +75,5 @@ export const ReactionPickerPanel = ({ message, onClose, perLine = 9, dynamicWidt
         onClose()
     }
 
-    return <Picker onEmojiSelect={onSelect} theme={themeValue} set="apple" custom={customEmojis} skinTonePosition="none" previewPosition="none" perLine={perLine} dynamicWidth={dynamicWidth} />
+    return <Picker onEmojiSelect={onSelect} theme={themeValue} set="native" custom={customEmojis} skinTonePosition="none" previewPosition="none" perLine={perLine} dynamicWidth={dynamicWidth} />
 }

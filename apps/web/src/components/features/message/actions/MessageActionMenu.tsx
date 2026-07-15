@@ -599,7 +599,7 @@ export const MessageActionMenu = ({
                                                 // em-emoji renders from the Apple set (initialized in
                                                 // App.tsx) so reactions look the same on every platform
                                                 <span className="flex h-6 w-6 items-center justify-center" aria-hidden="true">
-                                                    <em-emoji native={emoji.native} set="apple" size="1.4em" fallback={emoji.id} />
+                                                    <em-emoji native={emoji.native} set="native" size="1.4em" fallback={emoji.id} />
                                                 </span>
                                             )}
                                         </Button>

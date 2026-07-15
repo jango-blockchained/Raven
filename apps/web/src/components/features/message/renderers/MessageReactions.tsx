@@ -170,7 +170,7 @@ const ReactionButton = ({
                         // em-emoji renders from the Apple set (initialized in
                         // App.tsx) so reactions look the same on every platform
                         <span className="flex h-4.5 w-4.5 items-center justify-center" aria-hidden="true">
-                            <em-emoji native={reaction.reaction} set="apple" size="1.1em" fallback={reaction.reaction} />
+                            <em-emoji native={reaction.reaction} set="native" size="1.1em" fallback={reaction.reaction} />
                         </span>
                     )}
                     <span>{reaction.count}</span>

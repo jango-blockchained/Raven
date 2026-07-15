@@ -226,14 +226,14 @@ const QuickEmojis = () => {
                                 // em-emoji renders from the Apple set (initialized in
                                 // App.tsx) so reactions look the same on every platform
                                 <span className="flex h-4.5 w-4.5 items-center justify-center" aria-hidden="true">
-                                    <em-emoji native={emoji.native} set="apple" size="1.1em" fallback={emoji.id} />
+                                    <em-emoji native={emoji.native} set="native" size="1.1em" fallback={emoji.id} />
                                 </span>
                             )}
                         </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
                         <Picker
-                            onEmojiSelect={(emoji: any) => handleEmojiSelect(index, emoji)} theme={themeValue} set="apple" custom={customEmojis} previewPosition="none"
+                            onEmojiSelect={(emoji: any) => handleEmojiSelect(index, emoji)} theme={themeValue} set="native" custom={customEmojis} previewPosition="none"
                         />
                     </PopoverContent>
                 </Popover>

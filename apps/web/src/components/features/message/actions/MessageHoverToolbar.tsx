@@ -105,7 +105,7 @@ export const MessageHoverToolbar = ({
                             // em-emoji renders from the Apple set (initialized in
                             // App.tsx) so reactions look the same on every platform
                             <span className="flex md:h-4.5 md:w-4.5 h-5 w-5 items-center justify-center" aria-hidden="true">
-                                <em-emoji native={emoji.native} set="apple" size="1.1em" fallback={emoji.id} />
+                                <em-emoji native={emoji.native} set="native" size="1.1em" fallback={emoji.id} />
                             </span>
                         )}
                     </Button>

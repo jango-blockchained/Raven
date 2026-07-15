@@ -11,6 +11,8 @@
 
 import { precacheAndRoute, createHandlerBoundToURL } from "workbox-precaching"
 import { NavigationRoute, registerRoute } from "workbox-routing"
+import { CacheFirst } from "workbox-strategies"
+import { ExpirationPlugin } from "workbox-expiration"
 
 // OFFLINE APP SHELL. The SW is served at /raven/sw.js (see raven/
 // page_renderers.py) so its scope covers the app's pages — a SW can only
@@ -49,6 +51,60 @@ registerRoute(
         // app) etc. stay untouched.
         { allowlist: [/^\/raven(\/|$)/] },
     ),
+)
+
+// UPLOADED IMAGES: cache-first with entry caps. Two reasons these routes exist:
+//  - Safari gives SW pass-through requests degraded HTTP-cache treatment, so on
+//    a controlled page it re-downloaded every avatar on every channel switch —
+//    answering from the SW cache sidesteps that entirely.
+//  - It's the first slice of offline media (offline plan, SW media caching).
+// Scoped to `destination === "image"` — videos must NOT match (range requests
+// don't play well with CacheFirst) and non-image files aren't worth the quota.
+// Uploaded files are immutable in practice (an edit produces a new URL), so
+// cache-first staleness is safe; the TTLs are garbage collection (orphaned URLs
+// after avatar changes / deletions), not freshness. Both wiped on logout.
+//
+// TWO caches, split by path, because the populations have opposite economics
+// and a shared LRU lets one starve the other: scrolling a photo-heavy channel
+// would flush every avatar out of a combined cache.
+//  - /files/          → avatars (uploads are forced public): tiny, high-reuse.
+//  - /private/files/  → message images (upload_file.py forces is_private=1):
+//    multi-MB, low-reuse — and the cache that must never outlive the session.
+const AVATAR_CACHE = "raven-avatars"
+const MEDIA_CACHE = "raven-media"
+
+const imageRoute = (pathPrefix) => ({ request, url }) =>
+    request.destination === "image" &&
+    url.origin === self.location.origin &&
+    url.pathname.startsWith(pathPrefix)
+
+registerRoute(
+    imageRoute("/files/"),
+    new CacheFirst({
+        cacheName: AVATAR_CACHE,
+        plugins: [
+            new ExpirationPlugin({
+                maxEntries: 500,
+                maxAgeSeconds: 90 * 24 * 60 * 60, // 90 days — lazy GC only
+                // If the cache write ever fails on a full disk, evict and retry.
+                purgeOnQuotaError: true,
+            }),
+        ],
+    }),
+)
+
+registerRoute(
+    imageRoute("/private/files/"),
+    new CacheFirst({
+        cacheName: MEDIA_CACHE,
+        plugins: [
+            new ExpirationPlugin({
+                maxEntries: 150,
+                maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+                purgeOnQuotaError: true,
+            }),
+        ],
+    }),
 )
 
 /** Fetch + cache the rendered shell — requested by standalone pages only. */
