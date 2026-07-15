@@ -10,6 +10,7 @@ import { CircleUserRoundIcon } from "lucide-react"
 import { NavLink, useMatch } from 'react-router'
 import { useRef } from 'react'
 import { HomeWorkspacesDrawer, workspacesDrawerAtom } from './HomeWorkspacesDrawer'
+import { hapticTick } from '@utils/haptics'
 import { useAtom } from 'jotai'
 
 const FOOTER_LINKS = [
@@ -205,6 +206,7 @@ const HomeLink = () => {
         const timer = window.setTimeout(() => {
             pressRef.current = null
             suppressClickUntilRef.current = performance.now() + LONG_PRESS_CLICK_GUARD_MS
+            hapticTick()
             setDrawerOpen(true)
         }, LONG_PRESS_MS)
         pressRef.current = { timer, x: event.clientX, y: event.clientY }
