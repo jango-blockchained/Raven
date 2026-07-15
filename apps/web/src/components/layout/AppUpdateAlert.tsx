@@ -84,7 +84,7 @@ export const AppUpdateAlert = () => {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>{_("Later")}</AlertDialogCancel>
-                    <Button type="button" variant="solid" onClick={() => window.location.reload()}>
+                    <Button type="button" size="md" variant="solid" onClick={() => window.location.reload()}>
                         {_("Refresh")}
                     </Button>
                 </AlertDialogFooter>
