@@ -40,6 +40,21 @@ export const useChannelReadTracker = (
     /** Live-edge state read at flush time (caught up = reached the bottom). */
     const caughtUpRef = useRef(false)
 
+    // These refs hold PER-CHANNEL state, but the hook instance survives channel
+    // switches (ChatStream isn't remounted per channel) — without a reset, the
+    // previous channel's newer watermark blocks every onMessageInView advance in
+    // the next channel, the local badge is zeroed with a foreign timestamp, and
+    // track_visit never fires — so the unread count comes back on refresh.
+    // Deliberately an EFFECT, not a render-time reset: the previous channel's
+    // pending debounce is force-flushed in an effect CLEANUP below, and that
+    // flush reads watermarkRef — cleanups run before effects, so the old channel
+    // still sees its own watermark; then this wipes the slate for the new one.
+    useEffect(() => {
+        watermarkRef.current = null
+        sentRef.current = null
+        caughtUpRef.current = false
+    }, [channelID])
+
     const flush = useCallback(() => {
         const watermark = watermarkRef.current
         if (!watermark) return
@@ -106,9 +121,18 @@ export const useChannelReadTracker = (
         document.addEventListener("visibilitychange", onVisibility)
         return () => {
             document.removeEventListener("visibilitychange", onVisibility)
-            debouncedFlush.flush()
+            // Call flush DIRECTLY, not debouncedFlush.flush(): on unmount,
+            // useDebounceCallback's own cleanup runs first (declared earlier) and
+            // cancels the pending invocation, so .flush() would find nothing and
+            // silently drop the last ~1.5s of reading (mobile back-swipe, opening
+            // the Threads/Notifications page). The raw call doesn't care about the
+            // timer, and re-posting is impossible — an unchanged watermark is a
+            // no-op via sentRef. The cancel just clears any still-armed timer on a
+            // channel switch (its late fire would also have been a no-op).
+            flush()
+            debouncedFlush.cancel()
         }
-    }, [channelID, debouncedFlush])
+    }, [channelID, debouncedFlush, flush])
 
     return { onMessageInView }
 }
