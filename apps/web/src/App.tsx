@@ -3,6 +3,7 @@ import Channel from "@pages/workspace/Channel"
 import Notifications from "@pages/notifications/Notifications"
 import NotificationChatRoute from "@pages/notifications/NotificationChatRoute"
 import { MessagePermalinkSkeleton } from "@pages/message/MessagePermalinkSkeleton"
+import ErrorPage from "@pages/ErrorPage"
 import Threads from "@pages/threads/Threads"
 import DirectMessages, { DirectMessagesIndex } from "@pages/dm-channel/DirectMessages"
 import DirectMessage from "@pages/dm-channel/DirectMessage"
@@ -77,7 +78,10 @@ const IndexRedirect = () => {
  */
 const router = createBrowserRouter(
   createRoutesFromElements(
-    <Route path="/" element={<AppShell />}>
+    // errorElement: the last-resort boundary for uncaught render/route errors
+    // anywhere in the tree (incl. stale-chunk failures after a deploy) — the
+    // router swaps the view for ErrorPage instead of white-screening.
+    <Route path="/" element={<AppShell />} errorElement={<ErrorPage />}>
       <Route index element={<IndexRedirect />} />
       {/* Workspace: channels and settings only; search is global at /search above */}
       <Route path=":workspaceID" element={<WorkspaceLayout />}>
@@ -117,6 +121,10 @@ const router = createBrowserRouter(
           </Suspense>
         }
       />
+      {/* Catch-all 404. route.lazy (not React.lazy) is fine here — the brief
+          blank-while-loading tradeoff doesn't matter for a page nobody lands
+          on intentionally, and it keeps the chunk out of the main bundle. */}
+      <Route path="*" lazy={() => import("@pages/NotFound")} />
       {/* TODO: when these settings routes come back, re-add their page imports as
           lazy() consts in the code-split block above — their old EAGER imports were
           removed (they sat in the main bundle for routes that didn't exist). */}
