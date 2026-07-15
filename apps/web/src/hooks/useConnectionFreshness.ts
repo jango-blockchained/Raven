@@ -19,10 +19,12 @@ const FROZEN_AFTER_MS = 30_000
  *  - the app becomes visible after 30s+ hidden → the phone likely froze us (above)
  *  - the page is restored from the back/forward cache → it was frozen mid-flight
  *
- * Mounted once in AppShell. This only MARKS channels as suspect — the actual
- * refetch happens per channel when it's next opened (or immediately for the one
- * on screen). So a reconnect with 20 channels warm in memory doesn't fire 20
- * requests; only the channels the user actually looks at get one.
+ * Mounted once in AppShell. This only MARKS windows as suspect — channel message
+ * windows AND the notifications/threads list views, all of which are kept live by
+ * socket events. The actual refetch happens per window when it's next looked at
+ * (or immediately for the ones on screen). So a reconnect with 20 channels and a
+ * handful of list views warm in memory doesn't fan out a request each; only what
+ * the user actually looks at gets one.
  */
 export const useConnectionFreshness = () => {
     const { socket } = useContext(FrappeContext) as FrappeConfig

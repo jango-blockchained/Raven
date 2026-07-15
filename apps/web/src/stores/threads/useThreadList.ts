@@ -1,5 +1,6 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useSyncExternalStore } from "react"
 import { FrappeConfig, FrappeContext } from "frappe-react-sdk"
+import { subscribeConnectionEpoch } from "@stores/connectionFreshness"
 import { unreadThreadsStore } from "@stores/threads/unreadStore"
 import { ThreadTab, searchViewKey, threadListStore } from "./listStore"
 import { selectThreadRows } from "./listSelectors"
@@ -7,6 +8,7 @@ import {
     loadInitialThreads,
     loadMoreThreads,
     reconcileFirstPage,
+    reconcileViewIfStale,
     reloadThreads,
     type ThreadCall,
     type ThreadFilters,
@@ -66,20 +68,31 @@ export const useThreadList = (tab: ThreadTab, { channel, onlyShowUnread, search 
         reloadThreads(client, tab, viewKey, filters)
     }, [client, tab, viewKey, isSearch, filters])
 
+    // The initial load heals staleness on OPEN — but the connection can also break
+    // while the user is sitting on the page (lock the phone on it, come back).
+    // While this view is mounted, reconcile as soon as a break is recorded. Search
+    // snapshots are excluded: they're re-run per keystroke, not kept live.
+    useEffect(() => {
+        if (isSearch) return
+        return subscribeConnectionEpoch(() => reconcileViewIfStale(client, tab, viewKey, filters))
+    }, [client, tab, viewKey, isSearch, filters])
+
     // New-unread-thread reconcile: if an unread id isn't in this view's window, refetch the
-    // first page once (the event has no row data). Keyed on the (viewKey, unread snapshot)
-    // pair — NOT on `state` — so unrelated live bumps don't re-trigger it, and an id that can
-    // never surface (Other-tab membership, a different channel filter) won't spin.
+    // first page once (the event has no row data). `state` IS a dependency so the check
+    // re-runs once the window finishes loading (without it, an unread id arriving mid-load
+    // was never re-checked). The reconciledRef guard — keyed on the (viewKey, unread
+    // snapshot) pair — is what keeps unrelated live bumps from re-FETCHING, and an id that
+    // can never surface (Other-tab membership, a different channel filter) from spinning:
+    // re-runs are a cheap set scan, a refetch needs a new unread snapshot.
     const reconcilingRef = useRef(false)
     const reconciledRef = useRef<{ viewKey: string; set: ReadonlySet<string> } | null>(null)
     useEffect(() => {
         if (isSearch) return
         if (reconciledRef.current?.viewKey === viewKey && reconciledRef.current?.set === unreadSet) return
-        const current = threadListStore.getState(viewKey)
-        if (current.status !== "ready") return
+        if (state.status !== "ready") return
         let missing = false
         for (const id of unreadSet) {
-            if (!current.byId.has(id)) {
+            if (!state.byId.has(id)) {
                 missing = true
                 break
             }
@@ -90,7 +103,7 @@ export const useThreadList = (tab: ThreadTab, { channel, onlyShowUnread, search 
         reconcileFirstPage(client, tab, viewKey, filters).finally(() => {
             reconcilingRef.current = false
         })
-    }, [client, tab, isSearch, viewKey, unreadSet, filters])
+    }, [client, tab, isSearch, viewKey, unreadSet, filters, state])
 
     const loadMore = useCallback(() => {
         loadMoreThreads(client, tab, viewKey, filters)

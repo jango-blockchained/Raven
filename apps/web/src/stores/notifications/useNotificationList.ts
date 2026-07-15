@@ -1,6 +1,7 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useSyncExternalStore } from "react"
 import { FrappeConfig, FrappeContext, useSWRConfig } from "frappe-react-sdk"
 import { UNREAD_NOTIFICATION_IDS_KEY } from "@hooks/useNotifications"
+import { subscribeConnectionEpoch } from "@stores/connectionFreshness"
 import { notificationListStore, type NotificationFilters, type NotificationTab } from "./store"
 import { unreadNotificationsStore } from "./unreadStore"
 import { selectNotificationRows } from "./selectors"
@@ -8,6 +9,7 @@ import {
     loadInitialNotifications,
     loadMoreNotifications,
     reconcileFirstPage,
+    reconcileViewIfStale,
     type NotificationCall,
 } from "./loaders"
 
@@ -37,6 +39,14 @@ export const useNotificationList = (type: NotificationTab, { unreadOnly }: { unr
     useEffect(() => {
         loadInitialNotifications(client, viewKey, filters)
     }, [client, viewKey, filters])
+
+    // The load above heals staleness on OPEN — but the connection can also break
+    // while the user is sitting on the page (lock the phone on it, come back).
+    // While this view is mounted, reconcile as soon as a break is recorded.
+    useEffect(
+        () => subscribeConnectionEpoch(() => reconcileViewIfStale(client, viewKey, filters)),
+        [client, viewKey, filters],
+    )
 
     // Session-sticky unread view: a row the user is LOOKING at must not vanish the moment
     // it's read (clicked, or its message scrolled into view in the side pane) — the unread
