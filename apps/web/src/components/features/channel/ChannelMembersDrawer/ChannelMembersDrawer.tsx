@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { Button } from '@components/ui/button';
 import { Loader2, X } from 'lucide-react';
@@ -15,7 +16,15 @@ const ChannelMembersDrawer = () => {
     const channelID = useCurrentChannelID()
     const [, setDrawerType] = useAtom(channelDrawerAtom(channelID))
     const { channel } = useChannel(channelID)
-    const { members, isLoading } = useChannelMembers(channelID)
+    const { members: allMembers, isLoading } = useChannelMembers(channelID)
+
+    // Disabled users stay channel MEMBERS on the server (nothing removes their
+    // membership rows), but a deactivated account isn't someone you can message
+    // or manage — showing them here only confuses. Filtered at the drawer (not
+    // in useChannelMembers) so permission checks and thread meta that consume
+    // the raw membership stay untouched; the count badge and the list below
+    // share this one filter so they always agree.
+    const members = useMemo(() => allMembers.filter((member) => member.enabled === 1), [allMembers])
 
     const allowSettingChange = canManageChannel(channel)
 
