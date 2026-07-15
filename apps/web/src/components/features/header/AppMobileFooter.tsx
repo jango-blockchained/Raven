@@ -8,6 +8,9 @@ import { useDMUnread, useHasUnreadChannels } from '@stores/unread/useChannelUnre
 import { BellIcon, HomeIcon, MessageSquareTextIcon, SearchIcon, UsersRoundIcon } from 'lucide-react'
 import { CircleUserRoundIcon } from "lucide-react"
 import { NavLink, useMatch } from 'react-router'
+import { useRef } from 'react'
+import { HomeWorkspacesDrawer, workspacesDrawerAtom } from './HomeWorkspacesDrawer'
+import { useAtom } from 'jotai'
 
 const FOOTER_LINKS = [
     {
@@ -157,6 +160,13 @@ const FooterNavLinkSkeleton = ({ title, icon }: { title: string, icon: React.Rea
     return <AppMobileFooterButton icon={icon} title={title} isActive={false} />
 }
 
+/** Hold Home this long (touch) to open the catch-up drawer instead of navigating. */
+const LONG_PRESS_MS = 450
+/** Finger drift beyond this cancels the long-press — it's a scroll, not a hold. */
+const LONG_PRESS_SLOP_PX = 10
+/** Suppress the synthetic click (and its navigation) after the long-press fires. */
+const LONG_PRESS_CLICK_GUARD_MS = 500
+
 const HomeLink = () => {
     // Home is active on a workspace route (`/:workspaceID` or a channel/thread under it) and on
     // the index. The catch: `/:workspaceID` is a single dynamic segment, so it also matches the
@@ -173,17 +183,75 @@ const HomeLink = () => {
     // sidebar, not an inbox); the numeric badges stay on the personal queues.
     const hasUnreadChannels = useHasUnreadChannels()
 
+    // Long-press → catch-up drawer (unread channels across workspaces + switcher).
+    // Same touch detector as the reaction pills / message rows: timer + drift
+    // slop, then a click guard so finger-lift doesn't ALSO navigate home.
+    // iOS never fires contextmenu, so a timer is the only reliable trigger; the
+    // touch-callout suppression below stops iOS's link preview from competing.
+    // Shared with the sidebar's workspace switcher (its mobile tap opens this too).
+    const [drawerOpen, setDrawerOpen] = useAtom(workspacesDrawerAtom)
+    const pressRef = useRef<{ timer: number; x: number; y: number } | null>(null)
+    const suppressClickUntilRef = useRef(0)
+
+    const cancelPress = () => {
+        if (!pressRef.current) return
+        window.clearTimeout(pressRef.current.timer)
+        pressRef.current = null
+    }
+
+    const onPointerDown = (event: React.PointerEvent) => {
+        if (event.pointerType !== "touch") return
+        cancelPress()
+        const timer = window.setTimeout(() => {
+            pressRef.current = null
+            suppressClickUntilRef.current = performance.now() + LONG_PRESS_CLICK_GUARD_MS
+            setDrawerOpen(true)
+        }, LONG_PRESS_MS)
+        pressRef.current = { timer, x: event.clientX, y: event.clientY }
+    }
+
+    const onPointerMove = (event: React.PointerEvent) => {
+        const press = pressRef.current
+        if (!press) return
+        if (Math.abs(event.clientX - press.x) > LONG_PRESS_SLOP_PX || Math.abs(event.clientY - press.y) > LONG_PRESS_SLOP_PX) {
+            cancelPress()
+        }
+    }
+
+    const onClick = (event: React.MouseEvent) => {
+        if (performance.now() < suppressClickUntilRef.current) {
+            suppressClickUntilRef.current = 0
+            event.preventDefault()
+            event.stopPropagation()
+        }
+    }
+
     return (
-        <NavLink to="/">
-            {() => (
-                <AppMobileFooterButton
-                    icon={<HomeIcon />}
-                    title={_("Home")}
-                    isActive={isIndex || isWorkspaceRoute}
-                    showDot={hasUnreadChannels}
-                />
-            )}
-        </NavLink>
+        <>
+            <NavLink
+                to="/"
+                onPointerDown={onPointerDown}
+                onPointerMove={onPointerMove}
+                onPointerUp={cancelPress}
+                onPointerCancel={cancelPress}
+                onClick={onClick}
+                // Android long-presses a link into a context menu; iOS shows a
+                // link preview via touch-callout. Both would race our timer.
+                onContextMenu={(event) => event.preventDefault()}
+                className="select-none [-webkit-touch-callout:none]"
+                draggable={false}
+            >
+                {() => (
+                    <AppMobileFooterButton
+                        icon={<HomeIcon />}
+                        title={_("Home")}
+                        isActive={isIndex || isWorkspaceRoute}
+                        showDot={hasUnreadChannels}
+                    />
+                )}
+            </NavLink>
+            <HomeWorkspacesDrawer open={drawerOpen} onOpenChange={setDrawerOpen} />
+        </>
     )
 }
 

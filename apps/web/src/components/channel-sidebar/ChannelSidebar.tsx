@@ -26,6 +26,7 @@ import { ChannelIcon } from "@components/common/ChannelIcon/ChannelIcon"
 import { CustomizeSidebarButton } from "@components/features/channel/CustomizeSidebar/CustomizeSidebarButton"
 import { MobileSearchButton } from "@components/features/header/QuickSearch/SearchButton"
 import { useWorkspaces, type WorkspaceFields } from "@hooks/useWorkspaces"
+import { workspacesDrawerAtom } from "@components/features/header/HomeWorkspacesDrawer"
 import { lastChannelAtom, lastWorkspaceAtom } from "@utils/lastVisitedAtoms"
 import { useChannels } from "@stores/channels/useChannelList"
 import { usePrefetchChannel, setChannelListScrolling } from "@stores/messages/usePrefetchChannel"
@@ -233,10 +234,25 @@ const WorkspaceSwitcher = ({ workspaceID }: { workspaceID?: string }) => {
         navigate(`/${encodeURIComponent(workspace.name)}`)
     }
 
+    const openWorkspacesDrawer = useSetAtom(workspacesDrawerAtom)
+
+    // Mobile: the same trigger opens the workspaces DRAWER (strip + unreads —
+    // hosted by AppMobileFooter, also reachable by long-pressing Home) instead
+    // of a cramped dropdown. Desktop keeps the dropdown.
+    if (isMobile) {
+        return (
+            <Button variant="ghost" size="lg" className="rounded" onClick={() => openWorkspacesDrawer(true)}>
+                {current && <WorkspaceLogo workspace={current} className="size-5" />}
+                <span className="truncate text-ink-gray-8 text-lg-medium">{current?.workspace_name || workspaceID}</span>
+                <ChevronDown className="size-4" />
+            </Button>
+        )
+    }
+
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size={isMobile ? "lg" : "md"} className="rounded">
+                <Button variant="ghost" size="md" className="rounded">
                     {current && <WorkspaceLogo workspace={current} className="size-5" />}
                     <span className="truncate text-ink-gray-8 text-lg-medium md:text-sm">{current?.workspace_name || workspaceID}</span>
                     <ChevronDown className="size-4" />
@@ -285,8 +301,9 @@ const WorkspaceSwitcherItem = ({
     )
 }
 
-/** Small square logo, first-letter fallback — same resolution as the primary rail. */
-const WorkspaceLogo = ({ workspace, className }: { workspace: WorkspaceFields, className?: string }) => (
+/** Small square logo, first-letter fallback — same resolution as the primary rail.
+ *  Exported for the mobile catch-up drawer (long-press Home). */
+export const WorkspaceLogo = ({ workspace, className }: { workspace: WorkspaceFields, className?: string }) => (
     <Avatar className={cn("size-4.5 shrink-0 rounded-sm", className)}>
         <AvatarImage src={workspace.logo} alt={workspace.workspace_name} />
         <AvatarFallback className="rounded-none bg-surface-gray-3 text-2xs text-ink-gray-5">
