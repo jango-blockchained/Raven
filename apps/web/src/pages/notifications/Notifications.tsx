@@ -14,6 +14,7 @@ import { Button } from "@components/ui/button"
 import { Badge } from "@components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@components/ui/dropdown-menu"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@components/ui/empty"
+import { Skeleton } from "@components/ui/skeleton"
 import { useIsMobile } from "@hooks/use-mobile"
 import { PageHeader } from "@components/layout/PageHeader"
 import AppMobileFooter from "@components/features/header/AppMobileFooter"
@@ -170,7 +171,8 @@ export default function Notifications() {
                             </div>
                         )}
                         <div className="flex min-h-0 flex-1">
-                            {(currentData.length > 0 || isLoading) && (
+                            {currentData.length === 0 && isLoading && <NotificationListSkeleton />}
+                            {currentData.length > 0 && (
                                 <Virtuoso
                                     className="flex-1 min-h-0"
                                     style={{ height: "100%" }}
@@ -219,6 +221,29 @@ export default function Notifications() {
         </div>
     )
 }
+
+/** Loading placeholder for the notifications list — mirrors the row anatomy
+ * (avatar · name + relative date · channel context · two body lines) so the
+ * real rows land without a layout jump. Width variance keeps it organic. */
+const NotificationListSkeleton = () => (
+    <div className="flex-1 overflow-hidden px-2 py-0.5" aria-hidden="true">
+        {[56, 40, 64, 48, 72, 44, 60, 52].map((nameWidth, i) => (
+            <div key={i} className="flex w-full items-start gap-3 px-2 py-3 md:py-2">
+                <Skeleton className="size-9 shrink-0 rounded-full" />
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2">
+                        <Skeleton className="h-2.5" style={{ width: nameWidth * 2 }} />
+                        <Skeleton className="h-2 w-10" />
+                    </div>
+                    <div className="pt-1.5 space-y-1.5">
+                        <Skeleton className="h-2.5" style={{ width: `${nameWidth + 20}%` }} />
+                        <Skeleton className="h-4" style={{ width: `${nameWidth}%` }} />
+                    </div>
+                </div>
+            </div>
+        ))}
+    </div>
+)
 
 const EmptyState = ({ showUnread }: { showUnread: boolean }) => (
     <Empty>
