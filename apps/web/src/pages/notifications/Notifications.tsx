@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react"
 import { Outlet, useMatch, useNavigate } from "react-router-dom"
-import { BellCheckIcon, Check, Inbox, MoreVertical } from "lucide-react"
+import { BellCheckIcon, Check, CheckCheckIcon, Inbox, MoreVertical } from "lucide-react"
 import { Virtuoso } from "react-virtuoso"
 import { useNotificationList } from "@stores/notifications/useNotificationList"
 import { useUnreadNotificationsCount } from "@hooks/useNotifications"
@@ -121,9 +121,9 @@ export default function Notifications() {
                                     {unreadCount > 99 ? "99+" : unreadCount}
                                 </Badge>
                             )}
-                            <div className="ml-auto flex items-center gap-1">
+                            <div className="ml-auto flex items-center gap-2">
                                 <div className="hidden md:flex items-center gap-2 px-1">
-                                    <Label htmlFor="unread-toggle" className="text-xs font-medium text-ink-gray-4 cursor-pointer">
+                                    <Label htmlFor="unread-toggle" className="text-xs-medium text-ink-gray-6 cursor-pointer">
                                         {_("Unread only")}
                                     </Label>
                                     <Switch
@@ -133,19 +133,10 @@ export default function Notifications() {
                                     />
                                 </div>
                                 {unreadCount > 0 && (
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size={isMobile ? "lg" : "sm"} isIconButton aria-label={_("More options")}>
-                                                <MoreVertical />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={markAllRead}>
-                                                <Check />
-                                                {_("Mark all as read")}
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
+                                    <Button variant="subtle" size={isMobile ? "lg" : "sm"} onClick={markAllRead} aria-label={_("Mark all as read")}>
+                                        <CheckCheckIcon />
+                                        {_("Mark all as read")}
+                                    </Button>
                                 )}
                             </div>
                         </PageHeader>
