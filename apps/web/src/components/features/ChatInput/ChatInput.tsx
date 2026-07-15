@@ -128,9 +128,10 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
 
     const editor = useRavenEditor({ submitRef: sendRef, linkRef, filesRef, cancelReplyRef, editLastRef, content: initialDraft || undefined, autofocus: true, placeholder: _("Type a message...") })
 
-    // On mobile the composer bottom padding is keyboard-aware: closed → clear the home indicator
-    // (safe-area inset); open → flush (pb-0), since the composer sits above the keyboard and the
-    // inset would be dead space. Desktop keeps its plain pb-3/pb-4. Scoped to this editor's focus.
+    // On mobile the composer bottom padding is keyboard-aware: closed → clear the home
+    // indicator (safe-area inset, with an Android floor); open → just the row's own py-2,
+    // since the composer sits above the keyboard and the inset would be dead space.
+    // Desktop keeps its plain pb-3/pb-4. Scoped to this editor's focus.
     // Gated to mobile so desktop doesn't attach unused focus + visualViewport listeners.
     const keyboardOpen = useIsKeyboardOpen(editor, isMobile)
 
@@ -323,7 +324,7 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
     if (isInReadOnlyMode()) {
         return (
             <div className="md:p-3 w-full">
-                <div className="flex flex-col items-center justify-center gap-2 md:rounded-lg rounded-none md:border border-t border-outline-gray-2 bg-surface-gray-1 md:px-3 px-4 py-4 standalone:pb-[calc(env(safe-area-inset-bottom))] text-sm text-ink-gray-6">
+                <div className="flex flex-col items-center justify-center gap-2 md:rounded-lg rounded-none md:border border-t border-outline-gray-2 bg-surface-gray-1 md:px-3 px-4 py-4 standalone:pb-[max(env(safe-area-inset-bottom),1rem)] text-sm text-ink-gray-6">
                     <span className="text-p-base text-center">{_("The site is in read-only mode right now. Please wait while the site is being updated.")}</span>
                 </div>
             </div>
@@ -377,7 +378,12 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                             // (EDITOR_MIN_H etc.) with a compact one-line-that-grows box — these values
                             // are mobile-specific and intentionally NOT tied to EDITOR_MIN_H.
                             // Unequal paddings are added to make the entire thing optically balanced since the Plus button is bare (ghost) and does not have a structure.
-                            <div className={cn("flex items-end gap-0 pe-2 ps-1 py-2 border-t border-outline-gray-2 bg-surface-base", isMobile && (keyboardOpen ? "pb-0 standalone:pb-0" : "standalone:pb-[calc(env(safe-area-inset-bottom))]"))}>
+                            // max(inset, 0.75rem): iOS reports the 34px home-indicator inset, but
+                            // Android Chrome reports 0 (content doesn't extend under the nav bar),
+                            // which left the composer flush against the screen bottom. Keyboard
+                            // open → no override: the row's own py-2 gives a little breathing
+                            // room above the keyboard.
+                            <div className={cn("flex items-end gap-0 pe-2 ps-1 py-2 border-t border-outline-gray-2 bg-surface-base", isMobile && !keyboardOpen && "standalone:pb-[max(env(safe-area-inset-bottom),0.75rem)]")}>
                                 <div className="flex items-center justify-center h-10">
                                     <MobileComposerActions channelID={channelID} />
                                 </div>
