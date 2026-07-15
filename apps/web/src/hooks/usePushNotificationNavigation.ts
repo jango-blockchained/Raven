@@ -3,18 +3,19 @@ import { useNavigate } from "react-router-dom"
 import { consumePendingNotificationClick } from "@lib/push"
 
 /**
- * Routes push-notification clicks client-side. The SW hands the page the
- * target URL (client.navigate() would be a full reload), on TWO paths — both
- * land here:
+ * Routes push-notification clicks client-side. sw.js can't navigate our pages
+ * (its scope doesn't control them), so when a notification is clicked with an
+ * app window already open it focuses the window and hands over the target URL
+ * on TWO paths — both land here:
  *
  *  1. postMessage at click time — instant, works while the page is live
  *     (desktop, Android, foreground-adjacent states).
- *  2. Pull on load/resume — covers the states where path 1 can't deliver:
- *     a FROZEN backgrounded iOS PWA (the message dies in a suspended event
- *     loop) and the COLD open (the SW deliberately opens the app root, not the
- *     deep URL — see sw.js notificationclick — so the swipe-back stack stays
- *     sane; this pull then does the in-app jump). Consuming clears the stored
- *     copy, so between the two paths a click navigates once.
+ *  2. Pull on resume — a backgrounded iOS PWA is FROZEN, so path 1's message
+ *     dies in the suspended event loop. The SW holds the URL instead, and we
+ *     consume it when the page becomes visible again (and once on mount, in
+ *     case the resume beat the listener). Consuming clears it in the SW, so
+ *     between the two paths a click navigates exactly once-ish (a duplicate
+ *     navigate to the same route is a no-op for the router).
  */
 export const usePushNotificationNavigation = () => {
     const navigate = useNavigate()

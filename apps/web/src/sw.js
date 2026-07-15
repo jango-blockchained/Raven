@@ -217,39 +217,12 @@ self.addEventListener("notificationclose", (event) => {
 // message lands in a suspended event loop. So the page also PULLS this on
 // resume (visibilitychange → raven:consume-notification-click), with a
 // MessageChannel port reply. Consumed = cleared, so it never re-fires.
-//
-// Held in the Cache API, not a module variable: on the COLD path the OS can
-// kill this worker between the click and the new page's pull — a variable
-// would come back null and the navigation would be lost.
-const PENDING_CLICK_CACHE = "raven-pending-click"
-const PENDING_CLICK_KEY = "/__pending-notification-click"
-
-async function setPendingClick(url) {
-    try {
-        const cache = await caches.open(PENDING_CLICK_CACHE)
-        await cache.put(PENDING_CLICK_KEY, new Response(url))
-    } catch {
-        // Storage unavailable — the live postMessage path still works.
-    }
-}
-
-/** Read + clear (one consumer gets it, repeats get null). */
-async function takePendingClick() {
-    try {
-        const cache = await caches.open(PENDING_CLICK_CACHE)
-        const hit = await cache.match(PENDING_CLICK_KEY)
-        if (!hit) return null
-        await cache.delete(PENDING_CLICK_KEY)
-        return await hit.text()
-    } catch {
-        return null
-    }
-}
+let pendingNotificationClickUrl = null
 
 self.addEventListener("message", (event) => {
     if (event.data?.type === "raven:consume-notification-click") {
-        const port = event.ports[0]
-        event.waitUntil?.(takePendingClick().then((url) => port?.postMessage({ url })))
+        event.ports[0]?.postMessage({ url: pendingNotificationClickUrl })
+        pendingNotificationClickUrl = null
     }
     if (event.data?.type === "raven:cache-shell") {
         event.waitUntil?.(cacheAppShell())
@@ -266,8 +239,6 @@ self.addEventListener("notificationclick", (event) => {
             // The clicked channel is being addressed — drop its tag from the
             // fallback badge. (The page re-syncs the exact count on focus.)
             await updateBadgeFromNotifications(event.notification.tag)
-            // Stored FIRST, for both branches — the page pulls it on load/resume.
-            await setPendingClick(url)
             const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true })
             const existing = windows.find((client) => new URL(client.url).origin === self.location.origin)
             if (existing) {
@@ -275,20 +246,13 @@ self.addEventListener("notificationclick", (event) => {
                 // reload, and illegal for yet-uncontrolled clients anyway). Two
                 // delivery paths:
                 //  - postMessage: instant, works when the page is live (desktop/Android)
-                //  - the pending-click store: pulled by the page on resume,
+                //  - pendingNotificationClickUrl: pulled by the page on resume,
                 //    covering the frozen-PWA case where the postMessage is lost
+                pendingNotificationClickUrl = url
                 await existing.focus()
                 existing.postMessage({ type: "raven:notification-click", url })
             } else {
-                // COLD open: open the app ROOT and let the page pull the target
-                // from the pending-click store (same pull as the frozen case) —
-                // NOT openWindow(url). iOS loads an openWindow target as a fresh
-                // document on top of an about:blank entry; deep-opening the chat
-                // put that dead blank page directly under it, so the OS
-                // back-swipe landed on a stuck blank "browser" view. Opening the
-                // root keeps history = [blank, home, chat(pushState)] — the
-                // swipe lands on a live home instead.
-                await self.clients.openWindow(APP_SHELL_KEY)
+                await self.clients.openWindow(url)
             }
         })(),
     )
