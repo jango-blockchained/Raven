@@ -539,7 +539,14 @@ export const MessageActionMenu = ({
             </ContextMenuContent>
 
             {isMobile && (
-                <Drawer open={!!target} onOpenChange={(open) => !open && closeSheet()}>
+                // Ownership gate on the GLOBAL target atom: one menu instance is
+                // mounted per ChatStream, and a thread page has two streams
+                // (channel underneath + thread layer) — without the channel_id
+                // check, a thread long-press opened BOTH instances' drawers
+                // (the covered one escapes the inert island via vaul's portal).
+                // A thread message's channel_id IS the thread id, so each
+                // drawer only answers for its own stream's messages.
+                <Drawer open={!!target && target.channel_id === channelID} onOpenChange={(open) => !open && closeSheet()}>
                     <DrawerContent
                         className={sheetView === "picker" ? "p-0 pt-1" : ""}
                         showHandle={sheetView !== "picker"}

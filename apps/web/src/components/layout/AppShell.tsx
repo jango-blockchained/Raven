@@ -32,6 +32,7 @@ import { useClearReadNotifications } from "@hooks/useClearReadNotifications"
 import DocumentTitle from "./DocumentTitle"
 import { AppUpdateAlert } from "./AppUpdateAlert"
 import RavenSettingsDialog from "@components/features/settings/SettingsDialog"
+import { MessageActionDialogs } from "@components/features/message/actions/MessageActionDialogs"
 
 /**
  * The AppShell is used to wrap the entire application and provide all the utilities
@@ -57,6 +58,11 @@ const AppShell = () => {
                 <AppShellLayout>
                     <Outlet />
                 </AppShellLayout>
+                {/* SINGLE host for the message dialogs (delete/reactions/forward).
+                    They're driven by the global messageDialogAtom and fully derive
+                    from dialog.message — hosting them per ChatStream double-rendered
+                    every dialog when two streams were mounted (channel + thread). */}
+                <MessageActionDialogs />
             </AppListeners>
         </ProtectedRoute>
     )

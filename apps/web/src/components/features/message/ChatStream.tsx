@@ -18,7 +18,6 @@ import { useChannelReadTracker } from "@stores/unread/useChannelReadTracker"
 import { usePollRealtime } from "@hooks/usePollRealtime"
 import { useStreamScroll } from "./useStreamScroll"
 import { MessageActionMenu } from "./actions/MessageActionMenu"
-import { MessageActionDialogs } from "./actions/MessageActionDialogs"
 import { messageTargetAtom, messageActionTargetAtom, messagePressTargetAtom, makeMessageTarget } from "@utils/channelAtoms"
 import { ScrollViewportContext } from "@hooks/useHasBeenInView"
 import { createDateTracker, DateTrackerContext, FloatingDatePill, type DateOrderEntry } from "./messageDateTracker"
@@ -329,7 +328,6 @@ export default function ChatStream({ channelID, pinnedMessagesString, initialMes
                             </div>
                         </div>
                     </MessageActionMenu>
-                    <MessageActionDialogs />
 
                     {showJumpButton && (
                         <div className="absolute bottom-3 right-4 z-50">
