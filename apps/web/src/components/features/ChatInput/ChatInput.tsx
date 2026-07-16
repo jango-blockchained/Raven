@@ -14,6 +14,7 @@ import { CreatePollDialog } from "./CreatePollDialog"
 import { uploadedFilesAtom, uploadingFilesAtom, pendingSendAtom, useAttachFile } from "./useFileInput"
 import { registerComposerFocus } from "./composerFocus"
 import { useRavenEditor, EDITOR_MIN_H } from "@components/features/editor/useRavenEditor"
+import { linkifyBeforeSend } from "@components/features/editor/linkifyOnSend"
 import { EditorFormattingToolbar } from "@components/features/editor/EditorFormattingToolbar"
 import { ReplyPreviewBanner } from "./ReplyPreviewBanner"
 import { MentionWarningBanner } from "./MentionWarningBanner"
@@ -202,6 +203,9 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
         const isEmpty = editor.isEmpty
         if (isEmpty && files.length === 0) return
 
+        // Catch URLs the live linkifiers missed (mobile IME paste fires no
+        // ClipboardEvent; autolink waits for a delimiter that send never types).
+        if (!isEmpty) linkifyBeforeSend(editor)
         const content = isEmpty ? "" : editor.getHTML()
         const outgoingFiles = files.map((f) => ({ file_url: f.fileURL, file_size: f.size }))
         const batchId = randomUUID()

@@ -2,6 +2,7 @@ import { useContext, useRef, useState } from "react"
 import { FrappeConfig, FrappeContext, useFrappeUpdateDoc } from "frappe-react-sdk"
 import { useSetAtom } from "jotai"
 import { EditorContent } from "@tiptap/react"
+import { linkifyBeforeSend } from "@components/features/editor/linkifyOnSend"
 import { Button } from "@components/ui/button"
 import { TooltipProvider } from "@components/ui/tooltip"
 import { EditorFormattingToolbar } from "@components/features/editor/EditorFormattingToolbar"
@@ -74,6 +75,8 @@ export const EditMessageComposer = ({ message }: { message: Message }) => {
 
     const onSave = () => {
         if (!editor) return
+        // Same send-time linkify as ChatInput — edits paste links on mobile too.
+        if (!editor.isEmpty) linkifyBeforeSend(editor)
         const newHTML = editor.isEmpty ? "" : editor.getHTML()
         close()
 
