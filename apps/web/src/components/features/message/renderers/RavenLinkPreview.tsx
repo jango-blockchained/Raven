@@ -143,10 +143,16 @@ const useChannelContext = (channel?: ChannelListItem): string => {
 const MessageLinkCard = ({ messageID, to, label }: { messageID: string; to: string; label?: string }) => {
     const { ref, hasBeenInView } = useHasBeenInView()
     // Same SWR key as MessagePermalink — clicking through is a cache hit.
+    // No retry / no focus revalidation: an error here is almost always a 403
+    // (viewer can't access the linked channel) — permanent for this session, so
+    // re-firing the doomed request on every retry tick or tab focus is waste.
+    // The card just stays absent. (Options are per-hook; MessagePermalink's use
+    // of the same key keeps its own defaults.)
     const { data: message } = useFrappeGetDoc<Message>(
         "Raven Message",
         messageID,
         hasBeenInView ? `raven_message:${messageID}` : null,
+        { shouldRetryOnError: false, revalidateOnFocus: false },
     )
     const channel = useChannelById(message?.channel_id ?? "")
     const sender = useUserLite(message?.owner)
