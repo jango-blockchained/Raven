@@ -7,6 +7,7 @@ import type { Message } from "@raven/types/common/Message"
 import _ from "@lib/translate"
 import { useCopyToClipboard } from "usehooks-ts"
 import { toast } from "sonner"
+import { matchRavenLink, RavenLinkCard } from "./RavenLinkPreview"
 
 /**
  * Brand glyphs served by the backend (raven/public/brand_icons). Most are
@@ -597,6 +598,12 @@ const MeetingCard = ({ href, brand, label, detail }: { href: string; brand?: Bra
  * one place; adding a provider = adding one function here.
  */
 const PROVIDERS: Array<(href: string) => ReactElement | null> = [
+    // Raven's own links (message permalinks, channels, threads, DMs) — FIRST,
+    // so an internal link can never fall through to an external provider.
+    (href) => {
+        const raven = matchRavenLink(href)
+        return raven ? <RavenLinkCard link={raven} /> : null
+    },
     (href) => {
         const yt = matchYouTube(href)
         // Keyed by video so an edit that swaps the link resets playing + thumbnail state.
