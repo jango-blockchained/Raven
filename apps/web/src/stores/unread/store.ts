@@ -124,6 +124,25 @@ class ChannelUnreadStore {
         this.update(channelID, { count: caughtUp ? 0 : state.count, lastSeen: timestamp })
     }
 
+    /**
+     * Mark a channel unread back to `watermark` with a server-computed `count`.
+     * The deliberate BACKWARD counterpart to markRead (which is forward-only and
+     * would drop this): the user marked a channel/message unread, rolling
+     * last_visit backward server-side, so we set lastSeen backward and the count
+     * directly. Mirrors set_channel_unread's guard bypass on the backend.
+     */
+    markUnread(channelID: string, watermark: string, count: number) {
+        this.update(channelID, { count, lastSeen: watermark })
+        // Roll the PRISTINE server baseline back too — the server's last_visit
+        // just moved backward, and the read tracker seeds its "don't re-post"
+        // guard from this map. Left at the old (higher) value, re-reading the
+        // channel would post nothing (watermark <= baseline → skip), the server
+        // would keep it unread, and the badge would come back on refresh. Only
+        // a fresh get_messages response would otherwise overwrite it — which a
+        // warm re-entry never triggers.
+        this.serverWatermarks.set(channelID, watermark)
+    }
+
     /** Register the channel open at the live edge (or null). It won't accumulate increments. */
     setActiveReadChannel(channelID: string | null) {
         this.activeReadChannelID = channelID
