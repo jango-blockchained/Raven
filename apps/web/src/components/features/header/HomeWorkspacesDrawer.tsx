@@ -141,15 +141,15 @@ const DrawerBody = ({ onNavigate }: { onNavigate: () => void }) => {
             {/* Zone 1 — the workspace grid. WRAPS instead of scrolling: every
                 workspace stays visible (a hidden one with unreads would defeat
                 the triage job) and each keeps a fixed position (spatial memory —
-                the whole point of a switcher). Fixed tile width makes the row
-                count responsive: ~5 per row on a 390px phone, 4 on narrower. */}
-            <div className="flex flex-wrap items-start gap-1 px-3 pb-3 pt-1">
+                the whole point of a switcher). Fixed FOUR columns: tiles line up
+                in a stable grid and get room for their two-line names. */}
+            <div className="grid grid-cols-4 items-start gap-1 px-3 pb-3 pt-1">
                 {myWorkspaces.map((workspace) => (
                     <button
                         key={workspace.name}
                         type="button"
                         onClick={() => openWorkspace(workspace)}
-                        className="flex w-18 shrink-0 flex-col items-center gap-2 rounded-lg py-2 active:bg-surface-gray-2"
+                        className="flex w-full flex-col items-center gap-2 rounded-lg px-1 py-2 active:bg-surface-gray-2"
                     >
                         <span className="relative">
                             <WorkspaceLogo
