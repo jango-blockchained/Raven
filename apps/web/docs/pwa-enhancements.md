@@ -43,7 +43,13 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
    Nothing changes on screen, but now the swipe has somewhere to go. Each kind of
    page declares its natural parent (a channel's is the channel list, a thread's
    is the threads page, anything opened from notifications goes back to
-   notifications).
+   notifications). One honest limitation: when a push notification *cold-starts*
+   the app, iOS creates the window with a blank page underneath it, at the
+   operating-system level — below anything we can rewrite. A swipe can still
+   reach that blank page. We tried routing cold opens through the app's home
+   page to bury it; on real devices iOS slid straight past our repair onto the
+   blank page anyway, so we reverted. Filed under "the platform always gets the
+   last word".
 6. **Panels behave differently per device — on purpose.** On desktop, opening the
    members panel and switching channels keeps it open when you return: it's a
    workspace, panels are furniture. On mobile the same panel is a bottom sheet,
@@ -83,12 +89,24 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
     only if you opt in with one `viewport-fit=cover` tag. We'd been *using* those
     measurements all over the app while the opt-in was missing, so they silently
     measured zero, and lists ended underneath the home indicator. One line in the
-    HTML fixed padding across the whole app at once.
+    HTML fixed padding across the whole app at once. Android needs the opposite
+    care: it reports those measurements as *zero* (content doesn't extend under
+    its navigation bar), so padding that was "the system inset" on iOS was
+    nothing at all on Android and the composer sat flush against the screen
+    edge. The fix is a floor: `max(system inset, 12px)` — iOS keeps its 34px,
+    Android gets breathing room.
 12. **Keyboard choreography.** The message box sits above the home indicator when
-    the keyboard is closed and flush against the keyboard when open. And on iOS,
+    the keyboard is closed and snug against the keyboard when open. On iOS,
     the keyboard only appears if you focus a text field *during* the user's tap —
     focus it a moment later (after an await, say) and nothing happens. Every
     "focus the composer" call in the app is written with that constraint in mind.
+    Android has its own trap: since Chrome 108, the keyboard *overlays* the page
+    instead of resizing it, and Chrome only promises to scroll the text caret
+    into view — so as our message box grew to multiple lines, its send button
+    slid underneath the keyboard. One viewport property
+    (`interactive-widget=resizes-content`) restores the old behavior: the page
+    shrinks, the layout tracks the keyboard, and the composer grows *upward*.
+    iOS ignores the property entirely, which for once is what we wanted.
 13. **Edge-to-edge where it should be.** Message rows and content cards drop
     their rounded corners and shadows on mobile — a full-width phone layout with
     desktop card styling looks like a website pretending.
@@ -155,28 +173,74 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
 
 ## The details people feel but don't notice
 
-24. **Proper icons and manifest** — square, maskable icons so no platform crops
-    or letterboxes them; correct theme color; installable manifest.
-25. **Real iOS launch screens** for every device size, so the app opens onto a
+24. **Proper icons and manifest — with three lessons the hard way.** First:
+    icon paths in a manifest resolve relative to the *manifest's URL*, not the
+    page's. Ours pointed at a folder that didn't exist, every icon 404'd, and
+    Chrome silently downgraded "Install app" to a plain bookmark shortcut —
+    no error anywhere. Second: Android doesn't accept custom splash images at
+    all (those `apple-touch-startup-image` tags are iOS-only); it *generates*
+    the splash from your manifest's icon, name, and background color — so a
+    broken icon also means a broken splash. Third: maskable icons (the ones
+    Android crops into circles and squircles) need their background to match
+    the splash background color, or the splash shows a visible box around your
+    logo instead of a floating glyph.
+25. **The status bar is an app decision, not a platform accident.** Android
+    paints the system status bar from a `theme-color` meta tag — which we had
+    hardcoded to one dark color while the app has light and dark themes. The
+    fix is two meta tags — one for light system theme, one for dark — so the
+    very first paint is right before any JavaScript runs, plus
+    the theme switcher rewriting them with the app's real surface color on
+    every theme change — read from the design tokens, so future palette changes
+    can't drift. (iOS ignores all of this in installed apps and simply shows
+    the page's own background under the status bar — which is why iOS looked
+    right while Android didn't.)
+26. **Real iOS launch screens** for every device size, so the app opens onto a
     branded splash instead of a white flash.
-26. **Instant channel opens** — pointing at (or touching) a channel in the
+27. **Instant channel opens** — pointing at (or touching) a channel in the
     sidebar quietly pre-loads its messages, with unread channels loading more
     eagerly. Pre-loading pauses while you're scrolling the list so a fast scroll
     doesn't fire a burst of requests.
-27. **A floating date pill** that appears while you scroll and fades when you
+28. **A floating date pill** that appears while you scroll and fades when you
     stop, replacing a pile of sticky date headers.
-28. **Haptic ticks** at gesture commit points — small, but it's half of why
+29. **Haptic ticks** at gesture commit points — small, but it's half of why
     gestures feel native.
+30. **The service worker that broke image caching — and then fixed it.** A
+    surprise from Safari: once a page is controlled by a service worker,
+    requests the worker doesn't answer get *worse* HTTP caching — Safari
+    re-downloaded every avatar on every channel switch, on requests the browser
+    used to serve from disk. Since we can't opt individual images out of the
+    worker, the fix was to lean in: the worker now answers image requests
+    itself, cache-first. Two separate caches on purpose — avatars (tiny, reused
+    constantly, kept ~90 days) and message photos (huge, rarely revisited, kept
+    ~30 days) — because one shared cache let a photo-heavy channel scroll evict
+    every avatar. Uploaded files never change under a URL (an edit makes a new
+    URL), so cache-first can't show stale images; the expiry is garbage
+    collection, not freshness. Both caches are wiped on logout — private images
+    must not outlive the session on a shared machine. Bonus: images you've seen
+    now work offline.
+31. **Emoji with no strings attached.** Our emoji pickers and reaction pills
+    were rendering Apple-style emoji *images*, fetched one PNG at a time from a
+    public CDN — blocked on many corporate networks (and in China), dead
+    offline, and a privacy leak (every emoji told a third party your IP). And we
+    couldn't fix it by hosting the images ourselves: Apple's emoji artwork is
+    copyrighted, and shipping it inside our product is a legal risk that the
+    third-party CDN had quietly been hiding. The fix was to stop using images
+    entirely: the platform's own emoji font renders everything, matches the
+    emoji in message text (which was already native), costs zero requests, and
+    works offline. The lesson: if a design choice needs a CDN, ask what happens
+    on networks that hate CDNs.
 
 ## What's still on the list
 
 - **Full offline mode**: storing messages themselves on-device, so channels open
   with content even with no connection at all — then syncing differences when
   back online. (Much of the machinery above — the catch-up counters, the
-  outboxes — was deliberately built to slot into this.)
-- **Permanent message links** that work for any message anywhere, including
-  thread replies.
+  outboxes, the image caches — was deliberately built to slot into this.)
+- **Offline attachments**: queueing a photo you attached while offline, not
+  just the text.
+- **Document previews** (Frappe document links unfurling in chat) and the
+  generic link-preview card for arbitrary websites. Provider embeds (YouTube,
+  Spotify, meeting links…) and previews for links to Raven's own messages,
+  channels and threads have shipped.
 - **Rendering optimizations** for very busy channels (only re-drawing rows that
   changed).
-- **Link and document previews** that load lazily as they scroll into view.
-- **Live-updating threads list.**

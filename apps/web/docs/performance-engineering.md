@@ -105,17 +105,24 @@ once per screen:
   shuffled so it's not always the same alphabetical faces — but the shuffle is
   seeded by the channel id (deterministic), so it doesn't reshuffle on every
   render or every visit.
-- **Animations and gestures.** While your finger drags a message (swipe to reply),
-  we move the row directly on screen without involving React at all — React only
-  hears about it when you let go. Continuous motion is handled by hand; on/off
-  state is handled by React. That split is a rule for us now. 
-  - What it means. When you drag a message sideways to reply, your finger position updates 60–120 times per second, and the message row has to follow it exactly — any lag and the gesture feels rubbery.
-
-  The "normal" React way to do this would be: on every finger movement, update a piece of state → React re-runs the component → compares the new output to the old → applies the difference to the screen. That whole pipeline, 120 times a second, just to change x by a few pixels. It's a lot of machinery for a tiny change, and on a mid-range phone it drops frames — the row visibly stutters behind your finger.
-
-  So instead, while your finger is down, we bypass React entirely: the touch handler writes the position straight onto the DOM element (row.style.transform = "translateX(37px)"). No state, no re-render, no comparison — one line, one frame, done. React doesn't even know the drag is happening. Only when you lift your finger does React get involved again: "did this commit as a reply or not?" is a real state change, it happens once, and we want React's declarative machinery for what follows (showing the reply banner, focusing the composer).
-
-  The rule we extracted from this: continuous motion is handled by hand, on/off state is handled by React. Anything that changes every frame (drag position, glyph opacity tracking the drag) is a direct style write. Anything that changes once per user decision (highlight on, menu open, reply set) goes through React state. Mixing them up in either direction hurts — per-frame React state stutters, and hand-managed on/off state gets silently wiped whenever React re-renders for its own reasons.
+- **Animations and gestures.** While your finger drags a message (swipe to
+  reply), your position updates 60–120 times per second, and the row has to
+  follow it exactly — any lag feels rubbery. The "normal" React way would be:
+  every movement updates state → React re-runs the component → diffs the output
+  → applies the change. That whole pipeline, 120 times a second, to move a row
+  by a few pixels — on a mid-range phone it drops frames. So while your finger
+  is down we bypass React entirely: the touch handler writes the position
+  straight onto the element (`row.style.transform = "translateX(37px)"`). One
+  line, one frame, done. Only when you lift your finger does React get involved
+  again — "did this commit as a reply?" is a real state change, it happens
+  once, and we want React's machinery for what follows (the reply banner, the
+  composer focus). The rule we extracted: **continuous motion is handled by
+  hand, on/off state is handled by React.** Anything that changes every frame
+  (drag position, glyph opacity) is a direct style write. Anything that changes
+  once per user decision (highlight on, menu open, reply set) goes through
+  state. Mixing them up hurts in both directions — per-frame React state
+  stutters, and hand-managed on/off state gets silently wiped whenever React
+  re-renders for its own reasons.
 
 ## Give every race condition a name
 
@@ -198,7 +205,51 @@ unreproducible bugs — and the small mechanisms that now prevent them:
   entered (so it doesn't vanish while you're reading), recomputes on a warm
   re-entry, and — after stacked navigation kept channels alive under threads —
   also recomputes when you come back from a thread, since "coming back" no longer
-  remounts anything.
+  remounts anything. And it never anchors on your *own* messages: sending
+  doesn't advance your server-side reading position (only the read tracker
+  does, a moment later), so without that rule the divider often appeared above
+  a message you just wrote — most visibly in threads, where your membership row
+  is created an instant before your first reply. One exception inside the
+  exception: a bot can post a message *owned by you*, and you didn't write
+  that — those do count as new.
+- **A failed fetch that counted as "loaded".** A list view had three states —
+  never loaded, loading, loaded — and error was lumped in with loaded. So one
+  flaky request on the first open of the notifications page left it empty
+  *forever*: every later open said "already loaded, skip", and the refresh
+  checks only ran on healthy views. The page showed "You're all caught up"
+  while the badge showed a count. The fix is a fourth state with its own rule:
+  an errored view is retried on the next open, always. The general lesson —
+  every fetch path must answer "what happens on error, on refocus, on
+  reconnect" on the day it's written, not after the bug report.
+- **A failed refresh that counted as fresh.** When a live event triggers a
+  quiet refetch and that refetch *fails*, the error is ignored on purpose (it
+  was best-effort) — but the view must not keep its "fresh" stamp, or the
+  missed row never appears. A failed refresh now drops the stamp, so the next
+  look retries.
+- **Five things asking for the same refetch at once.** A live event, the
+  resume check, and the on-open check can all request the same page refetch in
+  the same moment. Firing them all is waste; dropping the extras loses data (a
+  request already in flight may have started *before* the newest event's data
+  existed). The rule: one request in flight, and at most one follow-up queued
+  behind it. Every extra ask just flips the follow-up flag.
+- **A hook that outlives its channel.** The read tracker holds "how far has
+  the user read" in refs. The component that hosts it is NOT remounted when
+  you switch channels (deliberately — remounting would rebuild the scroll
+  engine), so the refs silently carried channel A's reading position into
+  channel B. Result: B's badge cleared locally but the server was never told —
+  the unread came back on refresh. The fix is a reset keyed on the channel id,
+  and it must run as an *effect*, not during render: the old channel's final
+  flush reads those refs during cleanup, and cleanups run before effects.
+- **The library that cancels your last save.** Our debounce helper cancels its
+  pending call in its own unmount cleanup — which runs *before* ours, because
+  effects clean up in declaration order. So our "flush the pending save on
+  unmount" found nothing to flush, and the last 1.5 seconds of reading were
+  silently lost on every back-swipe. The fix: call the underlying function
+  directly in the unmount cleanup — running it twice is harmless, so it doesn't
+  matter whether the debouncer already fired — instead of asking the cancelled
+  debouncer to flush. Extra cruelty: development mode double-mounts
+  components, which made the flush *appear* to work in dev — the loss only
+  existed in production builds.
 
 ## The scroll engine
 
@@ -252,11 +303,15 @@ More of the same discipline:
   into view — those are collected and flushed in one call, not one per message.
   The reading-position report debounces 1.5s and force-flushes when you switch
   channels or hide the tab (a pending report must not be lost with the tab).
-- **Two freshness strategies for two data shapes.** Cheap "whole truth in one
-  call" data (all unread counts, who's online, the channel list) simply
-  re-fetches on window focus. Per-channel data (message windows) can't afford
-  that — it revalidates only after a detected connection break, and only what's
-  actually viewed. Choosing per shape is the whole game.
+- **Three freshness strategies for three data shapes.** Cheap "whole truth in
+  one call" data (all unread counts, who's online, the channel list) simply
+  re-fetches on window focus. Event-driven lists (notifications, threads)
+  refetch their first page the moment a relevant event arrives, and merge it in
+  without disturbing rows on screen. Per-channel data (message windows) can't
+  afford either — it revalidates only after a detected connection break, and
+  only what's actually viewed. The break counter also backstops the lists, for
+  events lost while the connection was down. Choosing per shape is the whole
+  game.
 
 ## Counting things correctly
 
@@ -314,6 +369,12 @@ Lessons we now treat as rules:
   hot-reloading can manufacture ghosts.
 - To find out if a piece of code is still used, don't search for its name (names
   repeat) — delete it and let the compiler list every real usage.
+- Every hand-rolled fetch path must answer three questions on day one: what
+  happens on error, on refocus, on reconnect. Data-fetching libraries answer
+  them for free; if you opt out of the library, you inherit the questions.
+- Development mode double-mounts components (StrictMode), which can *mask*
+  unmount bugs — our lost-on-unmount save worked in dev and failed only in
+  production. Test teardown paths in a production build.
 
 ## The through-line
 
