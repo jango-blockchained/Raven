@@ -133,7 +133,7 @@ export default function Notifications() {
                                     />
                                 </div>
                                 {unreadCount > 0 && (
-                                    <Button variant="subtle" size={isMobile ? "lg" : "sm"} onClick={markAllRead} aria-label={_("Mark all as read")}>
+                                    <Button variant={isMobile ? "ghost" : "subtle"} size={isMobile ? "md" : "sm"} onClick={markAllRead} aria-label={_("Mark all as read")}>
                                         <CheckCheckIcon />
                                         {_("Mark all as read")}
                                     </Button>
