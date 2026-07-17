@@ -60,6 +60,13 @@ export const markWindowFresh = (windowKey: string, epochAtFetchStart: number) =>
     windowEpochs.set(windowKey, epochAtFetchStart)
 }
 
+/** Mark one window as suspect without a connection break. Used when a live
+ *  refetch FAILS: the error itself is ignored (best effort), so dropping the
+ *  stamp is what makes the next look retry instead of trusting the window. */
+export const markWindowSuspect = (windowKey: string) => {
+    windowEpochs.delete(windowKey)
+}
+
 /** True if the connection has broken since this window was last fetched
  *  (or it was never stamped at all). */
 export const isWindowStale = (windowKey: string) => (windowEpochs.get(windowKey) ?? 0) < epoch

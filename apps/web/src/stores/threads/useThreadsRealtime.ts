@@ -1,5 +1,6 @@
-import { useFrappeEventListener } from "frappe-react-sdk"
-import useCurrentRavenUser from "@raven/lib/hooks/useCurrentRavenUser"
+import { useContext } from "react"
+import { FrappeConfig, FrappeContext, useFrappeEventListener } from "frappe-react-sdk"
+import { reconcileUnknownThread, type ThreadCall } from "@stores/threads/listLoaders"
 import { threadMetaStore } from "@stores/threads/store"
 import { threadListStore } from "@stores/threads/listStore"
 import { unreadThreadsStore } from "@stores/threads/unreadStore"
@@ -34,12 +35,21 @@ export const useThreadsRealtime = () => {
     const { name } = useUserCookieData()
     const currentUser = name
 
+    const { call } = useContext(FrappeContext) as FrappeConfig
+    const client = call as ThreadCall
+
     // Broadcast to everyone — keeps the "N replies" pill live for all channel members.
     useFrappeEventListener("thread_reply", (event: ThreadReplyEvent) => {
         if (!event?.channel_id) return
         // Count → threadMetaStore (the list + pill read it there); order → list windows.
         threadMetaStore.patch(event.channel_id, event.number_of_replies, event.last_message_timestamp)
         threadListStore.bump(event.channel_id, event.last_message_timestamp)
+        // bump only reorders rows a view already has. If a loaded view is missing
+        // this thread (it's brand new — often the user's OWN new thread, which the
+        // unread backstop never sees), refetch that view's page 0 so the row shows
+        // up. Each (view, thread) pair is only tried once, so a busy thread that
+        // doesn't belong in a view can't keep triggering fetches.
+        reconcileUnknownThread(client, event.channel_id)
     })
 
     // Scoped to the thread's participants — marks a thread unread for the sidebar badge.

@@ -29,6 +29,9 @@ export const searchViewKey = (tab: ThreadTab): string => `${tab}:search`
  */
 class ThreadListStore {
     private states = new Map<string, ThreadListState>()
+    /** Each view's (tab, server filters), saved on load so the realtime hook
+     *  knows how to refetch that view (same idea as notificationListStore). */
+    private viewParams = new Map<string, { tab: ThreadTab; filters: object }>()
     private listeners = new Map<string, Set<Listener>>()
 
     getState(viewKey: string): ThreadListState {
@@ -51,6 +54,24 @@ class ThreadListStore {
             set.delete(listener)
             if (set.size === 0) this.listeners.delete(viewKey)
         }
+    }
+
+    /** Record a view's fetch params so realtime reconciles can refetch it. */
+    setViewParams(viewKey: string, tab: ThreadTab, filters: object) {
+        this.viewParams.set(viewKey, { tab, filters })
+    }
+
+    /** All loaded live views with their fetch params — for the realtime hook.
+     *  Search views are skipped (they re-run on every keystroke; they're not
+     *  kept live). */
+    loadedViews(): { viewKey: string; tab: ThreadTab; filters: object }[] {
+        const out: { viewKey: string; tab: ThreadTab; filters: object }[] = []
+        for (const [viewKey, state] of this.states) {
+            if (viewKey.endsWith(":search") || state.status === "idle") continue
+            const params = this.viewParams.get(viewKey)
+            if (params) out.push({ viewKey, tab: params.tab, filters: params.filters })
+        }
+        return out
     }
 
     isLoaded(viewKey: string): boolean {

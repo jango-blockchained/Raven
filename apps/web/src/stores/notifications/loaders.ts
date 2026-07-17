@@ -1,23 +1,22 @@
 import type { FrappeConfig } from "frappe-react-sdk"
-import { getConnectionEpoch, isWindowStale, markWindowFresh } from "@stores/connectionFreshness"
+import { getConnectionEpoch, isWindowStale, markWindowFresh, markWindowSuspect } from "@stores/connectionFreshness"
 import { notificationListStore, type NotificationFilters, type NotificationObject } from "./store"
 
 export type NotificationCall = FrappeConfig["call"]
 
 export const PAGE_SIZE = 10
 
-/** Key under which this view's "last fetched before/after the connection broke"
- *  stamp is stored. Prefixed so it can't collide with the channel ids the
- *  message windows use in the same stamp map. */
+/** Key for this view's freshness stamp. The prefix keeps it from clashing
+ *  with channel ids, which share the same stamp map. */
 const freshnessKey = (viewKey: string) => `notifications:${viewKey}`
 
-/** Views with a page-0 reconcile currently running. Several callers can ask for
- *  the same reconcile in one moment (a realtime event, the resume check, the
- *  on-open check) — instead of firing duplicate requests, the extra asks set
- *  `rerun` and ONE follow-up fetch runs when the current one finishes. The
- *  follow-up matters: a request that was already in flight when a new event
- *  arrived may predate that event's data, so simply dropping the ask could lose
- *  the newest notification. */
+/** Views that are refetching page 0 right now. Many things can ask for the
+ *  same refetch at the same time (an event, the resume check, the on-open
+ *  check). We never fire duplicate requests: extra asks set `rerun`, and ONE
+ *  follow-up fetch runs after the current one finishes. The follow-up is
+ *  important — a request that was already running may have started before the
+ *  new event's data existed, so just ignoring the ask could lose the newest
+ *  notification. */
 const reconcilesInFlight = new Map<string, { rerun: boolean }>()
 
 type NotificationsResponse = { message: NotificationObject[] }
@@ -39,10 +38,10 @@ const fetchPage = (
         })
         .then((res) => res.message ?? [])
 
-/** Initial load of a view's window. Warm views aren't refetched — but if the
- *  realtime connection broke since the window was fetched (phone locked, PWA
- *  frozen), the events that kept it live were dropped, so quietly merge a fresh
- *  page 0 behind the instant render instead of trusting it. */
+/** First load of a view. An already-loaded view is shown as-is — but if the
+ *  connection broke since it was fetched (phone locked, app frozen), the
+ *  events that kept it fresh were lost, so we quietly refetch page 0 behind
+ *  the instant render. */
 export const loadInitialNotifications = async (
     call: NotificationCall,
     viewKey: string,
@@ -50,10 +49,16 @@ export const loadInitialNotifications = async (
 ) => {
     // Record the filters even when warm, so the realtime hook can always refetch this view.
     notificationListStore.setFilters(viewKey, filters)
-    if (notificationListStore.isLoaded(viewKey)) {
+    const status = notificationListStore.getState(viewKey).status
+    if (status === "ready") {
         reconcileViewIfStale(call, viewKey, filters)
         return
     }
+    if (status === "loading") return
+    // idle OR error: do a full fetch. A view whose first load FAILED must try
+    // again on the next open. Before this check, an errored view counted as
+    // already loaded, so it stayed empty forever — the page said "all caught
+    // up" while the badge showed a count.
     notificationListStore.startLoading(viewKey)
     const epochAtStart = getConnectionEpoch()
     try {
@@ -81,10 +86,10 @@ export const loadMoreNotifications = async (
     }
 }
 
-/** Refetch page 0 and merge it into the window. This is how new rows actually
- *  arrive: the mention/reaction events carry no row data, only "something
- *  changed" — so whoever hears one calls this. Merging keeps rows the page
- *  already had (nothing the user is looking at disappears). */
+/** Refetch page 0 and merge it in. This is how new rows arrive: the mention
+ *  and reaction events don't carry the row itself, only "something changed" —
+ *  so whoever hears one calls this. Merging keeps the rows the view already
+ *  had, so nothing the user is looking at disappears. */
 export const reconcileFirstPage = async (
     call: NotificationCall,
     viewKey: string,
@@ -97,15 +102,19 @@ export const reconcileFirstPage = async (
     }
     const token = { rerun: false }
     reconcilesInFlight.set(viewKey, token)
-    // Read the break counter BEFORE fetching: if the connection breaks while the
-    // request runs, the response is from before the break and must stay suspect.
+    // Read the break counter BEFORE the fetch: if the connection breaks while
+    // the request runs, the response is old news and must not count as fresh.
     const epochAtStart = getConnectionEpoch()
     try {
         const rows = await fetchPage(call, 0, filters)
         notificationListStore.reconcilePage(viewKey, rows)
         markWindowFresh(freshnessKey(viewKey), epochAtStart)
     } catch {
-        /* best-effort backstop; ignore */
+        // The error itself is ignored on purpose (this is a best-effort fetch).
+        // But the view can't be trusted anymore — drop its freshness stamp so
+        // the next open retries. Without this, a failed refetch kept a "fresh"
+        // stamp and the missed row never showed up.
+        markWindowSuspect(freshnessKey(viewKey))
     } finally {
         reconcilesInFlight.delete(viewKey)
         // Someone asked again while we were fetching — run once more so the
@@ -114,17 +123,17 @@ export const reconcileFirstPage = async (
     }
 }
 
-/** Refetch page 0 only if the connection broke since this view was last fetched
- *  (events from the gap are lost — the window can't be trusted). While the
- *  connection never broke this is a few map lookups and no request, so it's
- *  safe to call on every page open and every recorded break. */
+/** Refetch page 0 only if the connection broke since this view was last
+ *  fetched (events from that gap are lost, so the view can't be trusted).
+ *  While the connection never broke, this costs a couple of map lookups and
+ *  no request — safe to call on every page open. */
 export const reconcileViewIfStale = (
     call: NotificationCall,
     viewKey: string,
     filters: NotificationFilters,
 ) => {
-    // Only a fully loaded window can be quietly out of date — a loading one is
-    // being fetched right now, and an error one gets no silent fixups.
+    // Only a loaded view can be quietly out of date. A loading view is being
+    // fetched right now, and an errored view is retried by the initial loader.
     if (notificationListStore.getState(viewKey).status !== "ready") return
     if (!isWindowStale(freshnessKey(viewKey))) return
     reconcileFirstPage(call, viewKey, filters)

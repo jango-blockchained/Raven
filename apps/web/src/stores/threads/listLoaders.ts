@@ -1,23 +1,22 @@
 import type { FrappeConfig } from "frappe-react-sdk"
 import type { ThreadMessage } from "src/types/ThreadMessage"
-import { getConnectionEpoch, isWindowStale, markWindowFresh } from "@stores/connectionFreshness"
+import { getConnectionEpoch, isWindowStale, markWindowFresh, markWindowSuspect } from "@stores/connectionFreshness"
 import { ThreadTab, threadListStore } from "./listStore"
 
 export type ThreadCall = FrappeConfig["call"]
 
 export const PAGE_SIZE = 10
 
-/** Key under which this view's "last fetched before/after the connection broke"
- *  stamp is stored. Prefixed so it can't collide with the channel ids the
- *  message windows use in the same stamp map. */
+/** Key for this view's freshness stamp. The prefix keeps it from clashing
+ *  with channel ids, which share the same stamp map. */
 const freshnessKey = (viewKey: string) => `threads:${viewKey}`
 
-/** Views with a page-0 reconcile currently running. Several callers can ask for
- *  the same reconcile in one moment (the missing-unread-id backstop, the resume
- *  check, the on-open check) — instead of firing duplicate requests, the extra
- *  asks set `rerun` and ONE follow-up fetch runs when the current one finishes.
- *  The follow-up matters: a request already in flight when a new ask arrived may
- *  predate whatever that ask was about, so simply dropping it could lose rows. */
+/** Views that are refetching page 0 right now. Many things can ask for the
+ *  same refetch at the same time (the unread backstop, the resume check, the
+ *  on-open check). We never fire duplicate requests: extra asks set `rerun`,
+ *  and ONE follow-up fetch runs after the current one finishes. The follow-up
+ *  is important — a request that was already running may have started before
+ *  the new ask's data existed, so just ignoring it could lose rows. */
 const reconcilesInFlight = new Map<string, { rerun: boolean }>()
 
 /**
@@ -63,20 +62,28 @@ const fetchPage = (
         })
         .then((res) => res.message ?? [])
 
-/** First page for a view (live tab or a filter combo). Warm views aren't
- *  refetched — but if the realtime connection broke since the window was fetched
- *  (phone locked, PWA frozen), the thread_reply bumps from that gap were dropped,
- *  so quietly merge a fresh page 0 behind the instant render. */
+/** First load of a view (a tab or a filter combo). An already-loaded view is
+ *  shown as-is — but if the connection broke since it was fetched (phone
+ *  locked, app frozen), the events from that gap were lost, so we quietly
+ *  refetch page 0 behind the instant render. */
 export const loadInitialThreads = async (
     call: ThreadCall,
     tab: ThreadTab,
     viewKey: string,
     filters: ThreadFilters,
 ) => {
-    if (threadListStore.isLoaded(viewKey)) {
+    // Record the fetch params even when warm, so the realtime hook can always
+    // refetch this view (new-thread reconcile below).
+    threadListStore.setViewParams(viewKey, tab, filters)
+    const status = threadListStore.getState(viewKey).status
+    if (status === "ready") {
         reconcileViewIfStale(call, tab, viewKey, filters)
         return
     }
+    if (status === "loading") return
+    // idle OR error: do a full fetch. A view whose first load FAILED must try
+    // again on the next open. Before this check, an errored view counted as
+    // already loaded, so it stayed empty forever.
     threadListStore.startLoading(viewKey)
     const epochAtStart = getConnectionEpoch()
     try {
@@ -138,15 +145,19 @@ export const reconcileFirstPage = async (
     }
     const token = { rerun: false }
     reconcilesInFlight.set(viewKey, token)
-    // Read the break counter BEFORE fetching: if the connection breaks while the
-    // request runs, the response is from before the break and must stay suspect.
+    // Read the break counter BEFORE the fetch: if the connection breaks while
+    // the request runs, the response is old news and must not count as fresh.
     const epochAtStart = getConnectionEpoch()
     try {
         const rows = await fetchPage(call, tab, 0, filters)
         threadListStore.reconcilePage(viewKey, rows)
         markWindowFresh(freshnessKey(viewKey), epochAtStart)
     } catch {
-        /* best-effort backstop; ignore */
+        // The error itself is ignored on purpose (this is a best-effort fetch).
+        // But the view can't be trusted anymore — drop its freshness stamp so
+        // the next open retries. Without this, a failed refetch kept a "fresh"
+        // stamp and the missed row never showed up.
+        markWindowSuspect(freshnessKey(viewKey))
     } finally {
         reconcilesInFlight.delete(viewKey)
         // Someone asked again while we were fetching — run once more so the
@@ -155,19 +166,44 @@ export const reconcileFirstPage = async (
     }
 }
 
-/** Refetch page 0 only if the connection broke since this view was last fetched
- *  (events from the gap are lost — the window can't be trusted). While the
- *  connection never broke this is a few map lookups and no request, so it's
- *  safe to call on every page open and every recorded break. */
+/** Refetch page 0 only if the connection broke since this view was last
+ *  fetched (events from that gap are lost, so the view can't be trusted).
+ *  While the connection never broke, this costs a couple of map lookups and
+ *  no request — safe to call on every page open. */
 export const reconcileViewIfStale = (
     call: ThreadCall,
     tab: ThreadTab,
     viewKey: string,
     filters: ThreadFilters,
 ) => {
-    // Only a fully loaded window can be quietly out of date — a loading one is
-    // being fetched right now, and an error one gets no silent fixups.
+    // Only a loaded view can be quietly out of date. A loading view is being
+    // fetched right now, and an errored view is retried by the initial loader.
     if (threadListStore.getState(viewKey).status !== "ready") return
     if (!isWindowStale(freshnessKey(viewKey))) return
     reconcileFirstPage(call, tab, viewKey, filters)
+}
+
+/** Remembers which (view, thread) pairs we already tried to refetch — one
+ *  try per pair. If the refetch didn't bring the thread in, it doesn't belong
+ *  in that view (not a participant, filtered out), and further replies to it
+ *  must not trigger a fetch every time. If membership changes later, a normal
+ *  load or reconcile picks it up. */
+const attemptedUnknownThreads = new Set<string>()
+
+/**
+ * A reply arrived for a thread that a loaded view doesn't have. `bump` can only
+ * reorder rows that are already there, so a NEW thread would stay invisible in
+ * an already-loaded list until a full reload — including the user's own new
+ * threads (the unread backstop ignores your own replies). Refetch page 0 of
+ * each view missing the thread; the merge either brings the row in or shows it
+ * doesn't belong there.
+ */
+export const reconcileUnknownThread = (call: ThreadCall, threadID: string) => {
+    for (const { viewKey, tab, filters } of threadListStore.loadedViews()) {
+        if (threadListStore.hasThread(viewKey, threadID)) continue
+        const attemptKey = `${viewKey}:${threadID}`
+        if (attemptedUnknownThreads.has(attemptKey)) continue
+        attemptedUnknownThreads.add(attemptKey)
+        reconcileFirstPage(call, tab, viewKey, filters as ThreadFilters)
+    }
 }
