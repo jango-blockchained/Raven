@@ -125,17 +125,6 @@ const router = createBrowserRouter(
           blank-while-loading tradeoff doesn't matter for a page nobody lands
           on intentionally, and it keeps the chunk out of the main bundle. */}
       <Route path="*" lazy={() => import("@pages/NotFound")} />
-      {/* TODO: when these settings routes come back, re-add their page imports as
-          lazy() consts in the code-split block above — their old EAGER imports were
-          removed (they sat in the main bundle for routes that didn't exist). */}
-      {/* <Route path="settings" element={<AppSettings />}>
-        <Route index element={<Navigate to="profile" replace />} />
-        <Route path="profile" element={<Profile />} />
-        <Route path="preferences" element={<Preferences />} />
-        <Route path="workspaces" element={<WorkspaceList />} />
-        <Route path="channels" element={<ManageChannels />} />
-        <Route path="emojis" element={<CustomEmojiList />} />
-      </Route> */}
     </Route>,
   ),
   { basename: import.meta.env.VITE_BASE_NAME },

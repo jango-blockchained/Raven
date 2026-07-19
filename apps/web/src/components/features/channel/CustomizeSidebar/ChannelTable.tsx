@@ -58,16 +58,19 @@ export const ChannelTable = ({ data }: { data: ChannelSidebarData }) => {
       id: 'channel_name',
       header: _('Name'),
       accessorKey: 'channel_name',
-      size: 240,
+      meta: {
+        gridWidth: 'minmax(160px,1fr)',
+        getTooltipText: (row) => (row as ChannelTable).channel_name,
+      } satisfies ListViewColumnMeta,
       cell: ({ row }) => {
         const r = row.original
         return (
-          <div className='flex items-center gap-2'>
+          <div className='flex items-center gap-2 min-w-0'>
             <ChannelIcon
               type={r.type || "Public"}
               className="w-4 h-4 shrink-0"
             />
-            <span className='text-sm font-medium line-clamp-1 text-ellipsis'>{r.channel_name}</span>
+            <span className='font-medium truncate'>{r.channel_name}</span>
           </div>
         )
       },
@@ -87,8 +90,9 @@ export const ChannelTable = ({ data }: { data: ChannelSidebarData }) => {
       id: 'channel_group',
       header: _('Group'),
       accessorKey: 'channel_group',
-      size: 210,
       meta: {
+        // Holds the group Select (w-52 ≈ 208px) — keep a fixed track, don't flex.
+        gridWidth: '220px',
         truncate: false,
       } satisfies ListViewColumnMeta,
       cell: ({ row }) => <ChannelGroupDropdown channel={row.original} />,
@@ -97,12 +101,12 @@ export const ChannelTable = ({ data }: { data: ChannelSidebarData }) => {
 
   return (
     <ListView
-      className="flex-1 min-h-0"
+      className="flex-1 min-h-0 pr-2"
       data={tableData}
       columns={columns}
       getRowId={(row) => row.name}
       scrollAreaClassName="flex-1"
-      maxHeight={600}
+      maxHeight="100%"
       emptyState={<span className="text-ink-gray-4">No channels found.</span>}
     />
   )

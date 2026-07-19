@@ -28,10 +28,10 @@ const FrappeHRPanel = lazy(() => import('./panels/FrappeHR').then((m) => ({ defa
 const NotificationsPanel = lazy(() => import('./panels/PushNotifications').then((m) => ({ default: m.PushNotifications })));
 // Not-yet-built panels — each has its own file (renders a PlaceholderPanel for
 // now) so building out the real UI later is just filling in that file.
-const UsersPanel = lazy(() => import('./panels/Users').then((m) => ({ default: m.Users })));
-const WorkspacesPanel = lazy(() => import('./panels/Workspaces').then((m) => ({ default: m.Workspaces })));
-const ChannelsPanel = lazy(() => import('./panels/Channels').then((m) => ({ default: m.Channels })));
-const EmojisPanel = lazy(() => import('./panels/Emojis').then((m) => ({ default: m.Emojis })));
+const UsersPanel = lazy(() => import('./panels/Users/Users').then((m) => ({ default: m.Users })));
+const WorkspacesPanel = lazy(() => import('./panels/Workspaces/Workspaces').then((m) => ({ default: m.Workspaces })));
+const ChannelsPanel = lazy(() => import('./panels/Channels/Channels').then((m) => ({ default: m.Channels })));
+const EmojisPanel = lazy(() => import('./panels/Emojis/Emojis').then((m) => ({ default: m.Emojis })));
 const DocumentNotificationsPanel = lazy(() => import('./panels/DocumentNotifications').then((m) => ({ default: m.DocumentNotifications })));
 const DocumentPreviewsPanel = lazy(() => import('./panels/DocumentPreviews').then((m) => ({ default: m.DocumentPreviews })));
 const MessageActionsPanel = lazy(() => import('./panels/MessageActions').then((m) => ({ default: m.MessageActions })));

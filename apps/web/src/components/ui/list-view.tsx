@@ -7,6 +7,7 @@ import {
     type OnChangeFn,
     type Row,
     type RowSelectionState,
+    type SortingState,
     flexRender,
     functionalUpdate,
     getCoreRowModel,
@@ -14,6 +15,7 @@ import {
 } from "@tanstack/react-table"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { useDebounceCallback } from "usehooks-ts"
+import { ArrowDownIcon, ArrowUpIcon, ChevronsUpDownIcon } from "lucide-react"
 
 import { Checkbox } from "@components/ui/checkbox"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@components/ui/tooltip"
@@ -150,16 +152,51 @@ function ListViewCellBody<TData>({
     )
 }
 
-function gridTemplateFromHeaders<TData>(headers: Header<TData, unknown>[]) {
+/** Has the user dragged this column to an explicit width? (entry present in the sizing state). */
+function isUserResized<TData>(header: Header<TData, unknown>, columnSizing: ColumnSizingState): boolean {
+    return columnSizing[header.column.id] != null
+}
+
+function gridTemplateFromHeaders<TData>(headers: Header<TData, unknown>[], columnSizing: ColumnSizingState) {
     return headers
         .map((header) => {
             const meta = header.column.columnDef.meta as ListViewColumnMeta | undefined
+            // A user-dragged column becomes a FIXED px track (its resize handle is otherwise
+            // inert against an `fr`/`minmax` gridWidth — the drag updates TanStack sizing but
+            // the template must honor it). Flexible siblings then absorb the slack.
+            if (isUserResized(header, columnSizing)) {
+                return `${header.getSize()}px`
+            }
             if (meta?.gridWidth) {
                 return meta.gridWidth
             }
             return `${header.getSize()}px`
         })
         .join(" ")
+}
+
+/**
+ * A column's true minimum pixel width — what it needs before the row must scroll.
+ * A user-resized column contributes its chosen px width. Otherwise, for `gridWidth`
+ * tracks the layout is CSS Grid, so the TanStack pixel `size` is a meaningless
+ * placeholder (defaults to 150); the real floor is the `minmax(…px,…)` lower bound,
+ * a bare `…px` track, or 0 for a pure `fr` track that can shrink freely. Columns
+ * WITHOUT `gridWidth` fall back to the resolved TanStack size.
+ */
+function columnMinWidth<TData>(header: Header<TData, unknown>, columnSizing: ColumnSizingState): number {
+    if (isUserResized(header, columnSizing)) {
+        return header.getSize()
+    }
+    const meta = header.column.columnDef.meta as ListViewColumnMeta | undefined
+    const gw = meta?.gridWidth
+    if (gw) {
+        const minmax = /minmax\(\s*([\d.]+)px/.exec(gw)
+        if (minmax) return parseFloat(minmax[1])
+        const fixed = /^\s*([\d.]+)px\s*$/.exec(gw)
+        if (fixed) return parseFloat(fixed[1])
+        return 0
+    }
+    return header.getSize()
 }
 
 function defaultGetRowId<TData>(row: TData, index: number) {
@@ -194,6 +231,14 @@ export type ListViewProps<TData> = {
     rowSelection?: RowSelectionState
     onRowSelectionChange?: OnChangeFn<RowSelectionState>
     onRowClick?: (row: TData, event: React.MouseEvent) => void
+    /**
+     * Controlled sorting state (TanStack `SortingState`). ListView never reorders
+     * `data` itself — it renders sortable headers + indicators and reports changes;
+     * the consumer is responsible for ordering `data` (client memo or server fetch).
+     * Sortable headers only appear when `onSortingChange` is provided.
+     */
+    sorting?: SortingState
+    onSortingChange?: OnChangeFn<SortingState>
 }
 
 function ListViewInner<TData>({
@@ -214,6 +259,8 @@ function ListViewInner<TData>({
     rowSelection: controlledRowSelection,
     onRowSelectionChange: controlledOnRowSelectionChange,
     onRowClick,
+    sorting,
+    onSortingChange,
 }: ListViewProps<TData>) {
     const parentRef = React.useRef<HTMLDivElement>(null)
 
@@ -223,6 +270,9 @@ function ListViewInner<TData>({
     const [internalRowSelection, setInternalRowSelection] = React.useState<RowSelectionState>({})
     const rowSelection = controlledRowSelection ?? internalRowSelection
     const setRowSelection = controlledOnRowSelectionChange ?? setInternalRowSelection
+
+    // Id of the column being dragged, for the active resize-guide styling.
+    const [resizingColId, setResizingColId] = React.useState<string | null>(null)
 
     const debouncedSizingCommit = useDebounceCallback(
         (sizing: ColumnSizingState) => {
@@ -300,6 +350,10 @@ function ListViewInner<TData>({
 
     const direction = useDirection()
 
+    // Sorting is MANUAL: ListView shows the controls + indicators but never
+    // reorders `data` — the consumer supplies already-ordered rows.
+    const sortingEnabled = !!onSortingChange
+
     const table = useReactTable({
         data,
         columns,
@@ -310,20 +364,75 @@ function ListViewInner<TData>({
         columnResizeMode: "onChange",
         columnResizeDirection: direction,
         enableColumnResizing,
+        enableSorting: sortingEnabled,
+        manualSorting: true,
         getCoreRowModel: getCoreRowModel(),
         getRowId,
         onColumnSizingChange: onColumnSizingChangeInternal,
         onRowSelectionChange: setRowSelection,
+        onSortingChange,
         state: {
             columnSizing,
             rowSelection,
+            sorting: sorting ?? [],
         },
         enableRowSelection,
     })
 
+    /**
+     * Custom column resize (replaces TanStack's `getResizeHandler`). Two reasons:
+     *  - Starts from the column's ACTUAL rendered width, so the `fr`→`px` transition
+     *    is seamless (TanStack would start from the 150px `size` placeholder, which
+     *    jumps and mis-tracks the cursor on the first drag).
+     *  - Clamps the dragged column's max so the table never grows past its container:
+     *    max = container − (every other column's floor) − gaps − padding. Widening
+     *    only shrinks the flexible siblings down to their floors, then stops.
+     */
+    const startColumnResize = React.useCallback(
+        (e: React.PointerEvent<HTMLDivElement>, header: Header<TData, unknown>) => {
+            e.preventDefault()
+            e.stopPropagation()
+            const colId = header.column.id
+            const cell = (e.currentTarget as HTMLElement).closest('[role="columnheader"]') as HTMLElement | null
+            const startWidth = cell?.getBoundingClientRect().width ?? header.getSize()
+            const startX = e.clientX
+            const dir = direction === "rtl" ? -1 : 1
+            const minW = header.column.columnDef.minSize ?? 50
+
+            const headers = table.getHeaderGroups()[0]?.headers ?? []
+            const gaps = Math.max(0, headers.length - 1) * 16
+            const sizingAtStart = table.getState().columnSizing
+            const othersFloor = headers
+                .filter((h) => h.column.id !== colId)
+                .reduce((sum, h) => sum + columnMinWidth(h, sizingAtStart), 0)
+
+            document.body.classList.add("select-none", "cursor-col-resize")
+            setResizingColId(colId)
+
+            const onMove = (ev: PointerEvent) => {
+                const container = parentRef.current?.clientWidth ?? Number.POSITIVE_INFINITY
+                const maxW = Number.isFinite(container)
+                    ? Math.max(minW, container - othersFloor - gaps - 24)
+                    : Number.POSITIVE_INFINITY
+                let w = startWidth + (ev.clientX - startX) * dir
+                w = Math.min(Math.max(w, minW), maxW)
+                onColumnSizingChangeInternal((prev) => ({ ...prev, [colId]: Math.round(w) }))
+            }
+            const onUp = () => {
+                document.body.classList.remove("select-none", "cursor-col-resize")
+                setResizingColId(null)
+                window.removeEventListener("pointermove", onMove)
+                window.removeEventListener("pointerup", onUp)
+            }
+            window.addEventListener("pointermove", onMove)
+            window.addEventListener("pointerup", onUp)
+        },
+        [direction, table, onColumnSizingChangeInternal],
+    )
+
     const headerGroup = table.getHeaderGroups()[0]
     const gridTemplateColumns = headerGroup
-        ? gridTemplateFromHeaders(headerGroup.headers)
+        ? gridTemplateFromHeaders(headerGroup.headers, columnSizing)
         : ""
 
     const { rows } = table.getRowModel()
@@ -351,12 +460,19 @@ function ListViewInner<TData>({
         )
     }
 
-    /** Tracks + column gaps + horizontal padding (`px-2` × 2) so header and body share one scroll width. */
+    /**
+     * The row's intrinsic minimum width: sum of each column's true floor
+     * (see `columnMinWidth`) + column gaps (`gap-x-4`) + horizontal padding
+     * (`px-3` × 2). Applied as `min-width: max(100%, …)` on header and body so
+     * they share one scroll width. Using column FLOORS (not TanStack's 150px
+     * placeholder for `fr` columns) means flexible tables shrink to fit their
+     * container instead of forcing spurious horizontal scroll.
+     */
     const colCount = headerGroup?.headers.length ?? 0
     const minTableOuterWidth =
-        table.getCenterTotalSize() +
+        (headerGroup?.headers.reduce((sum, header) => sum + columnMinWidth(header, columnSizing), 0) ?? 0) +
         Math.max(0, colCount - 1) * 16 +
-        16
+        24
 
     return (
         <div className={cn("flex min-w-0 flex-col", className)} role="grid">
@@ -367,7 +483,7 @@ function ListViewInner<TData>({
             >
                 {headerGroup ? (
                     <div
-                        className="bg-surface-gray-2 sticky top-0 z-10 mb-2 grid w-full items-center gap-x-4 rounded p-2"
+                        className="bg-surface-gray-2 sticky top-0 z-10 mb-2 grid w-full items-center gap-x-4 rounded px-3 py-2"
                         role="row"
                         style={{
                             display: "grid",
@@ -378,6 +494,11 @@ function ListViewInner<TData>({
                     >
                         {headerGroup.headers.map((header) => {
                             const meta = header.column.columnDef.meta as ListViewColumnMeta | undefined
+                            const canSort = sortingEnabled && header.column.getCanSort()
+                            const sorted = header.column.getIsSorted()
+                            const label = header.isPlaceholder
+                                ? null
+                                : flexRender(header.column.columnDef.header, header.getContext())
                             return (
                                 <div
                                     key={header.id}
@@ -386,12 +507,26 @@ function ListViewInner<TData>({
                                         alignClass(meta),
                                     )}
                                     role="columnheader"
+                                    aria-sort={sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : undefined}
                                 >
-                                    <div className="min-w-0 flex-1 truncate">
-                                        {header.isPlaceholder
-                                            ? null
-                                            : flexRender(header.column.columnDef.header, header.getContext())}
-                                    </div>
+                                    {canSort ? (
+                                        <button
+                                            type="button"
+                                            onClick={header.column.getToggleSortingHandler()}
+                                            className="flex min-w-0 items-center gap-1 rounded transition-colors hover:text-ink-gray-7 focus-visible:focus-ring"
+                                        >
+                                            <span className="truncate">{label}</span>
+                                            {sorted === "asc" ? (
+                                                <ArrowUpIcon className="size-3.5 shrink-0" />
+                                            ) : sorted === "desc" ? (
+                                                <ArrowDownIcon className="size-3.5 shrink-0" />
+                                            ) : (
+                                                <ChevronsUpDownIcon className="size-3.5 shrink-0 opacity-50" />
+                                            )}
+                                        </button>
+                                    ) : (
+                                        <div className="min-w-0 flex-1 truncate">{label}</div>
+                                    )}
                                     {enableColumnResizing && header.column.getCanResize() ? (
                                         <>
                                             <span
@@ -400,7 +535,7 @@ function ListViewInner<TData>({
                                                     "pointer-events-none absolute ltr:-right-2 rtl:-left-2 z-1 w-0.5 bg-outline-gray-4",
                                                     "opacity-0 transition-[opacity,background-color] ease-in-out duration-150",
                                                     "group-hover:opacity-100 group-hover:bg-outline-gray-4",
-                                                    header.column.getIsResizing() && "bg-outline-gray-6 opacity-100",
+                                                    resizingColId === header.column.id && "bg-outline-gray-6 opacity-100",
                                                 )}
                                                 style={{ height: "100%" }}
                                             />
@@ -408,19 +543,7 @@ function ListViewInner<TData>({
                                                 role="separator"
                                                 aria-orientation="vertical"
                                                 aria-label="Resize column"
-                                                onMouseDown={(e) => {
-                                                    e.preventDefault()
-                                                    document.body.classList.add("select-none", "cursor-col-resize")
-                                                    const end = () => {
-                                                        document.body.classList.remove("select-none", "cursor-col-resize")
-                                                        window.removeEventListener("mouseup", end)
-                                                        window.removeEventListener("touchend", end)
-                                                    }
-                                                    window.addEventListener("mouseup", end)
-                                                    window.addEventListener("touchend", end)
-                                                    header.getResizeHandler()(e)
-                                                }}
-                                                onTouchStart={header.getResizeHandler()}
+                                                onPointerDown={(e) => startColumnResize(e, header)}
                                                 className="absolute top-0 ltr:-right-2 rtl:-left-2 z-10 h-full w-2 max-w-[12px] cursor-col-resize touch-none select-none bg-transparent"
                                             />
                                         </>
@@ -449,7 +572,7 @@ function ListViewInner<TData>({
                                 data-index={virtualRow.index}
                                 role="row"
                                 className={cn(
-                                    "absolute top-0 ltr:left-0 rtl:right-0 w-full min-w-0 rounded px-2 transition-colors",
+                                    "absolute top-0 ltr:left-0 rtl:right-0 w-full min-w-0 rounded px-3 transition-colors",
                                     // virtualRow.index > 0 && "border-t border-outline-gray-1",
                                     !row.getIsSelected() && "hover:bg-surface-gray-1",
                                     row.getIsSelected() && "bg-surface-gray-2 hover:bg-surface-gray-3",
@@ -467,7 +590,7 @@ function ListViewInner<TData>({
                                     if (onRowClick) onRowClick(row.original, e)
                                 }}
                             >
-                                {virtualRow.index > 0 && <div className="absolute top-0 inset-s-2 inset-e-2 h-px bg-outline-gray-1" />}
+                                {virtualRow.index > 0 && <div className="absolute top-0 inset-s-3 inset-e-3 h-px bg-outline-gray-1" />}
                                 {row.getVisibleCells().map((cell, cellIndex) => {
                                     const meta = cell.column.columnDef.meta as ListViewColumnMeta | undefined
                                     return (
@@ -507,4 +630,4 @@ export function ListView<TData>(props: ListViewProps<TData>) {
     return <ListViewInner {...props} />
 }
 
-export type { ColumnSizingState, RowSelectionState }
+export type { ColumnSizingState, RowSelectionState, SortingState }
