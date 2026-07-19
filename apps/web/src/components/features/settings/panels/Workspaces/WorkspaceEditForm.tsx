@@ -11,7 +11,7 @@ const WorkspaceEditForm = () => {
     const { control } = useFormContext<WorkspaceFormData>()
 
     return (
-        <div className="flex flex-col gap-5 max-w-lg">
+        <div className="flex flex-col gap-5 w-full">
             <div className="flex items-center justify-center rounded-lg bg-surface-gray-1 dark:bg-surface-gray-2 py-6">
                 <WorkspaceLogoField />
             </div>

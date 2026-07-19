@@ -94,7 +94,7 @@ const WorkspaceDetailContent = ({
                         </div>
                     }
                 >
-                    <SettingsPanelTitle>
+                    <SettingsPanelTitle className="items-center h-auto -ml-2">
                         <Button
                             type="button" variant="ghost" size="sm" isIconButton
                             onClick={onBack} aria-label={_("Back to workspaces")}
