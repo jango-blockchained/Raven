@@ -454,7 +454,7 @@ const ChannelRow = ({ channel, workspaceID }: { channel: ChannelListItem; worksp
                 </Tooltip>
             )}
             {unread > 0 && !channel.muted && (
-                <Badge size="sm" variant="ghost" theme="gray" className="shrink-0 justify-center tabular-nums">
+                <Badge size="sm" variant="ghost" theme="gray" className="shrink-0 px-0 justify-center tabular-nums">
                     {unread > 9 ? "9+" : unread}
                 </Badge>
             )}
