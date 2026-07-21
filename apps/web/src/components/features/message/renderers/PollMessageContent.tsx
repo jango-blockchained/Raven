@@ -156,14 +156,32 @@ const LoadedPoll = ({ message }: { message: Message }) => {
                     </div>
                 </TooltipProvider>
             ) : (
-                <>
+                <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={openPollDrawer}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault()
+                            openPollDrawer()
+                        }
+                    }}
+                    className="flex w-full cursor-pointer flex-col gap-3 rounded-md focus-visible:outline-none"
+                    title={_("View poll details")}
+                >
                     <PollQuestionHeader poll={poll} />
-                    {poll.is_multi_choice === 1 ? (
-                        <MultiChoicePollVoting poll={poll} options={poll.options} onSubmit={submitVote} />
-                    ) : (
-                        <SingleChoicePollVoting poll={poll} options={poll.options} onOptionSelect={(option) => submitVote([option.name])} />
-                    )}
-                </>
+                    {/* The voting controls sit inside the drawer-opening card, so their
+                        clicks (and Enter/Space presses) bubble up to the wrapper above —
+                        casting a vote would ALSO open the poll drawer. Stop both here.
+                        The question header stays clickable as the drawer target. */}
+                    <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                        {poll.is_multi_choice === 1 ? (
+                            <MultiChoicePollVoting poll={poll} options={poll.options} onSubmit={submitVote} />
+                        ) : (
+                            <SingleChoicePollVoting poll={poll} options={poll.options} onOptionSelect={(option) => submitVote([option.name])} />
+                        )}
+                    </div>
+                </div>
             )}
         </PollVotingContainer>
     )

@@ -1,7 +1,7 @@
 import { useContext, useMemo } from "react"
 import { getDefaultStore, useSetAtom } from "jotai"
 import { useNavigate } from "react-router-dom"
-import { FrappeConfig, FrappeContext } from "frappe-react-sdk"
+import { FrappeConfig, FrappeContext, useFrappeGetCall, type FrappeError } from "frappe-react-sdk"
 import { toast } from "sonner"
 import {
     Bookmark,
@@ -16,6 +16,7 @@ import {
     Reply,
     SmilePlus,
     Trash2,
+    ListXIcon,
 } from "lucide-react"
 import { editingMessageAtom, messageDialogAtom, replyToMessageAtom } from "@utils/channelAtoms"
 import { focusComposer } from "@components/features/ChatInput/composerFocus"
@@ -29,6 +30,7 @@ import _ from "@lib/translate"
 import type { Message } from "@raven/types/common/Message"
 import { useUserCookieData } from "@hooks/useUserCookieData"
 import { errorResponseToast } from "@components/ui/error-banner"
+import type { PollData } from "../renderers/PollMessageContent"
 
 export type MessageAction = {
     id: string
@@ -118,6 +120,16 @@ export const useMessageActions = (
     // so subscribe to the channel's pinned string here. Without this, reopening the menu
     // on the same (unchanged) message would return the memo's stale "Pin" label.
     const pinnedString = useChannelPinnedString(message?.channel_id ?? "")
+    // Poll state, for the "Retract vote" action. Same SWR key as the poll card,
+    // and the menu only ever targets a visible message — so this is a cache
+    // read, not a new request. Null key skips the hook for non-poll messages.
+    const isPoll = message?.message_type === "Poll"
+    const { data: pollData, mutate: mutatePoll } = useFrappeGetCall<{ message: PollData }>(
+        "raven.api.raven_poll.get_poll",
+        { message_id: message?.name },
+        isPoll && message ? ["poll", message.name] : null,
+        { dedupingInterval: 10000 },
+    )
 
     return useMemo(() => {
         if (!message) return { groups: [], isOwner: false }
@@ -316,6 +328,28 @@ export const useMessageActions = (
             })
         }
 
-        return { groups: [respond, clipboard, organize, owner].filter((group) => group.length > 0), isOwner }
-    }, [message, currentUser, setDialog, navigate, call, pinnedString, canInteract])
+        // Poll: retract your vote. Shown only when the poll is loaded, you have
+        // voted, and the poll is still open (the server enforces the same rules).
+        const pollActions: MessageAction[] = []
+        const pollInfo = isPoll ? pollData?.message : undefined
+        const hasVoted = (pollInfo?.current_user_votes.length ?? 0) > 0
+        const pollClosed = pollInfo?.poll.is_disabled === 1
+        if (pollInfo && hasVoted && !pollClosed && canInteract) {
+            pollActions.push({
+                id: "retract-vote",
+                label: _("Retract vote"),
+                icon: ListXIcon,
+                onSelect: () => {
+                    call
+                        .post("raven.api.raven_poll.retract_vote", { poll_id: pollInfo.poll.name })
+                        // The realtime poll_update event also revalidates this key;
+                        // mutating directly just makes it instant for the voter.
+                        .then(() => mutatePoll())
+                        .catch((e) => errorResponseToast(_("Could not retract your vote"), e as FrappeError))
+                },
+            })
+        }
+
+        return { groups: [respond, pollActions, clipboard, organize, owner].filter((group) => group.length > 0), isOwner }
+    }, [message, currentUser, setDialog, navigate, call, pinnedString, canInteract, isPoll, pollData, mutatePoll])
 }
