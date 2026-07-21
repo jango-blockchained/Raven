@@ -1,52 +1,98 @@
 import { useState } from "react"
 import { useController, useFormContext } from "react-hook-form"
 import { useFrappeFileUpload } from "frappe-react-sdk"
-import { CameraIcon, Trash2Icon } from "lucide-react"
-import {
-    AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-    AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
-    AlertDialogTitle, AlertDialogTrigger,
-} from "@components/ui/alert-dialog"
+import { ImagePlus, Trash2 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@components/ui/avatar"
 import { Button } from "@components/ui/button"
 import {
-    Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+    Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@components/ui/dialog"
+import {
+    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@components/ui/dropdown-menu"
 import { FileDropzone } from "@components/ui/file-dropzone"
 import ErrorBanner from "@components/ui/error-banner"
 import { Spinner } from "@components/ui/spinner"
 import _ from "@lib/translate"
 import type { WorkspaceFormData } from "./WorkspaceDetailView"
 
-/** Logo display + upload/remove controls; writes the file URL into the form's `logo` field. */
+/**
+ * Logo display + upload/remove controls; writes the file URL into the form's `logo`
+ * field (persisted on Save). Tapping the logo opens an Upload / Remove menu — the
+ * same interaction the Profile panel's avatar uses.
+ */
 const WorkspaceLogoField = () => {
     const { control, watch } = useFormContext<WorkspaceFormData>()
     const name = watch("name")
     const { field: { value, onChange } } = useController({ control, name: "logo" })
+    const [uploadOpen, setUploadOpen] = useState(false)
+
+    const avatar = (
+        <Avatar className="h-24 w-24 rounded-xl">
+            {value && <AvatarImage src={value} alt={_("Workspace Logo")} className="object-cover" />}
+            <AvatarFallback className="rounded-xl text-2xl">
+                {name?.charAt(0)?.toUpperCase()}
+            </AvatarFallback>
+        </Avatar>
+    )
 
     return (
-        <div className="relative">
-            <Avatar className="h-24 w-24 rounded-xl">
-                {value && <AvatarImage src={value} alt={_("Workspace Logo")} className="object-cover" />}
-                <AvatarFallback className="rounded-xl text-2xl">
-                    {name?.charAt(0)?.toUpperCase()}
-                </AvatarFallback>
-            </Avatar>
-            <UploadLogoDialog workspaceID={name} onUploaded={onChange} />
-            {value && <RemoveLogoDialog onRemove={() => onChange("")} />}
-        </div>
+        <>
+            {value ? (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <button
+                            type="button"
+                            aria-label={_("Change logo")}
+                            className="rounded-xl outline-none focus-visible:outline-none active:opacity-90"
+                        >
+                            {avatar}
+                        </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="center" className="w-44">
+                        <DropdownMenuItem onClick={() => setUploadOpen(true)}>
+                            <ImagePlus />
+                            {_("Upload logo")}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem variant="destructive" onClick={() => onChange("")}>
+                            <Trash2 />
+                            {_("Remove logo")}
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            ) : (
+                <button
+                    type="button"
+                    onClick={() => setUploadOpen(true)}
+                    aria-label={_("Upload logo")}
+                    className="rounded-xl outline-none focus-visible:outline-none active:opacity-90"
+                >
+                    {avatar}
+                </button>
+            )}
+            <UploadLogoDialog
+                workspaceID={name}
+                open={uploadOpen}
+                onOpenChange={setUploadOpen}
+                onUploaded={onChange}
+            />
+        </>
     )
 }
 
 const UploadLogoDialog = ({
-    workspaceID, onUploaded,
-}: { workspaceID: string; onUploaded: (url: string) => void }) => {
-    const [open, setOpen] = useState(false)
+    workspaceID, open, onOpenChange, onUploaded,
+}: {
+    workspaceID: string
+    open: boolean
+    onOpenChange: (open: boolean) => void
+    onUploaded: (url: string) => void
+}) => {
     const [files, setFiles] = useState<File[]>([])
     const { upload, loading, error, reset } = useFrappeFileUpload()
 
-    const onOpenChange = (next: boolean) => {
-        setOpen(next)
+    const handleOpenChange = (next: boolean) => {
+        onOpenChange(next)
         if (!next) {
             setFiles([])
             reset()
@@ -64,21 +110,12 @@ const UploadLogoDialog = ({
             isPrivate: false,
         }).then((res) => {
             onUploaded(res.file_url)
-            onOpenChange(false)
+            handleOpenChange(false)
         })
     }
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogTrigger asChild>
-                <Button
-                    type="button" size="sm" isIconButton
-                    className="absolute -right-2 -bottom-1 rounded-md shadow-md"
-                    aria-label={_("Upload logo")}
-                >
-                    <CameraIcon />
-                </Button>
-            </DialogTrigger>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent className="sm:max-w-[420px]">
                 <DialogHeader>
                     <DialogTitle>{_("Upload logo")}</DialogTitle>
@@ -100,31 +137,5 @@ const UploadLogoDialog = ({
         </Dialog>
     )
 }
-
-const RemoveLogoDialog = ({ onRemove }: { onRemove: () => void }) => (
-    <AlertDialog>
-        <AlertDialogTrigger asChild>
-            <Button
-                type="button" variant="outline" size="sm" isIconButton
-                className="absolute -right-2 bottom-7 rounded-md shadow-md"
-                aria-label={_("Remove logo")}
-            >
-                <Trash2Icon className="text-ink-red-3" />
-            </Button>
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-                <AlertDialogTitle>{_("Remove logo")}</AlertDialogTitle>
-                <AlertDialogDescription>
-                    {_("Are you sure you want to remove the logo?")}
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-                <AlertDialogCancel>{_("Cancel")}</AlertDialogCancel>
-                <AlertDialogAction onClick={onRemove}>{_("Remove")}</AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-    </AlertDialog>
-)
 
 export default WorkspaceLogoField

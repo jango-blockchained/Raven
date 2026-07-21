@@ -40,7 +40,7 @@ const WorkspaceActionMenu = ({ workspaceID, workspaceName, onDeleted, onRenamed 
                         <EllipsisVertical />
                     </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent>
+                <DropdownMenuContent align="start">
                     <DropdownMenuItem onClick={() => setRenameOpen(true)}>
                         <PencilIcon />
                         {_("Rename")}
