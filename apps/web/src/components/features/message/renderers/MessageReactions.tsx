@@ -146,7 +146,7 @@ const ReactionButton = ({
                     className={cn(
                         "flex cursor-pointer items-center justify-center gap-1 rounded-full px-2 py-1 text-sm outline-none transition focus-visible:focus-ring",
                         isUserReacted
-                            ? "bg-surface-violet-2 dark:bg-surface-gray-4 text-ink-violet-9 dark:text-ink-gray-9 hover:bg-surface-violet-3 dark:hover:bg-surface-gray-5"
+                            ? "bg-surface-blue-2 dark:bg-surface-gray-4 text-ink-blue-9 dark:text-ink-gray-9 hover:bg-surface-blue-3 dark:hover:bg-surface-gray-5"
                             : "bg-surface-gray-2 text-ink-gray-6 hover:bg-surface-gray-3",
                     )}
                     onClick={onClick}
