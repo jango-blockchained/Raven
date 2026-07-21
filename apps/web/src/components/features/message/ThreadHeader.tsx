@@ -6,10 +6,10 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@components/ui/dropdown-menu"
-import { useMatch } from "react-router-dom"
+import { useLocation } from "react-router-dom"
 import _ from "@lib/translate"
 import { useIsMobile } from "@hooks/use-mobile"
-import { useMobileBack } from "@hooks/useMobileBack"
+import { PANE_HOSTS, useMobileBack } from "@hooks/useMobileBack"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@components/ui/tooltip"
 
 export interface ThreadHeaderProps {
@@ -36,12 +36,13 @@ export interface ThreadHeaderProps {
 export const ThreadHeader = ({ onClose, onOpenChannel, onLeave, onRequestDelete, leaving, canLeave, canDelete }: ThreadHeaderProps) => {
 
     const isMobile = useIsMobile()
-    // Pop history so back lands wherever the thread was opened from (channel, threads
-    // page, notifications). Cold start (push notification / deep link) has no history —
-    // the hook then repairs the stack with the threads page (or the notifications page
-    // when hosted there) beneath, so the OS back-swipe works too.
-    const inNotifications = !!useMatch("/notifications/*")
-    const goBack = useMobileBack(inNotifications ? "/notifications" : "/threads")
+    // Every thread lives on a real route (channel/DM `/thread/`, the `/threads` page, or
+    // a chat-pane host's chat route), so back pops history to wherever it was opened
+    // from; on a cold start (deep link) the hook repairs the stack — with the pane
+    // host's list beneath it when rendered inside one — so the OS back-swipe works too.
+    const path = useLocation().pathname
+    const paneHost = PANE_HOSTS.find((p) => path.startsWith(p + "/"))
+    const goBack = useMobileBack(paneHost ?? "/threads")
 
     return <div className="flex items-center justify-between h-11 pl-2 pr-4 md:pl-4 md:pr-2 py-0 md:py-2 border-b shrink-0">
         <div className="flex min-w-0 items-center gap-1">

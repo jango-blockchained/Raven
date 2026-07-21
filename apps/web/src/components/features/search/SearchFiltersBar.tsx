@@ -1,9 +1,8 @@
 import { useEffect } from 'react'
 import { ChannelSelect } from '@components/common/ChannelSelect/ChannelSelect'
 import { UserFilter } from './UserFilter'
-import { ClearFiltersButton, useClearSearchFilters } from './ClearFiltersButton'
+import { useClearSearchFilters } from './useClearSearchFilters'
 import { SearchFiltersPopoverContent } from './SearchFiltersPopover'
-import { Button } from '@components/ui/button'
 import { Popover, PopoverTrigger } from '@components/ui/popover'
 import { ListFilter, X } from 'lucide-react'
 import { SearchFilters as SearchFiltersType } from './types'
@@ -52,12 +51,15 @@ export function SearchFiltersBar({ filters, channels, dmChannels, isMobile, onCh
     const hasFilters = filters.channel_id !== '' || filters.owner !== '' || moreFiltersCount > 0
 
     return (
-        <div className="flex flex-row items-center gap-2 md:items-start md:flex-wrap">
-            {!isMobile && hasFilters && <ClearFiltersButton />}
-            {/* On mobile each select sits in a flex-1 wrapper so it shrinks to share the row
-                (trigger goes w-full + truncates); on desktop the wrapper is content-width and
-                the trigger keeps its fixed w-40 — unchanged. */}
-            <div className="flex-1 min-w-0 md:flex-none">
+        <div className="flex flex-row items-center gap-2 md:flex-nowrap">
+            {/* Each select fills its wrapper (trigger w-full + truncates); the wrapper does
+                the sizing. Mobile: flex-1 shares the row. Desktop: fixed width with a
+                min-width floor — when the clear-all X appears the selects give up a little
+                width to absorb it, so no horizontal scroll on normal screens. Below the
+                floors the row's overflow-x-auto (see Search.tsx) takes over as fallback.
+                (width, not flex-basis: a basis is ignored in the parent's max-content
+                sizing, which collapsed the selects to their text width by default.) */}
+            <div className="flex-1 min-w-0 md:flex-initial md:w-[8.5rem] md:min-w-[7rem]">
                 <UserFilter
                     filters={filters}
                     users={userFilterOptions}
@@ -65,11 +67,11 @@ export function SearchFiltersBar({ filters, channels, dmChannels, isMobile, onCh
                     showLabel={false}
                     size="sm"
                     dropdownClassName="w-60"
-                    triggerClassName={isMobile ? "w-full" : "w-40"}
-                    className={isMobile ? "w-full min-w-0" : undefined}
+                    triggerClassName="w-full"
+                    className="w-full min-w-0"
                 />
             </div>
-            <div className="flex-1 min-w-0 md:flex-none">
+            <div className="flex-1 min-w-0 md:flex-initial md:w-40 md:min-w-[8.5rem]">
                 <ChannelSelect
                     channels={channels}
                     dmChannels={dmChannels}
@@ -81,8 +83,8 @@ export function SearchFiltersBar({ filters, channels, dmChannels, isMobile, onCh
                     allLabel={_("In Any Channel")}
                     size="sm"
                     dropdownClassName="w-68"
-                    triggerClassName={isMobile ? "w-full" : "w-40"}
-                    className={isMobile ? "w-full min-w-0" : undefined}
+                    triggerClassName="w-full"
+                    className="w-full min-w-0"
                     showLabel={false}
                     label="Channel"
                     searchable
@@ -90,48 +92,40 @@ export function SearchFiltersBar({ filters, channels, dmChannels, isMobile, onCh
             </div>
             {/* TODO: Add date range filter capability to sqlite search, either Frappe side or override in Raven */}
 
+            {/* Compact icon Filters button — segmented with a clear-all X when any filter
+                is active. The floating count badge overhangs the top-right corner. */}
             <Popover>
-                {isMobile ? (
-                    <div className="shrink-0 inline-flex h-7 items-stretch rounded border border-outline-gray-2 bg-surface-base divide-x divide-outline-gray-2">
-                        <PopoverTrigger asChild>
-                            <button
-                                type="button"
-                                aria-label={_("Filters")}
-                                className="relative flex items-center justify-center px-2 rounded-l-[3px] text-ink-gray-7 hover:bg-surface-gray-2 active:bg-surface-gray-3 transition-colors"
-                            >
-                                <ListFilter className="h-4 w-4" />
-                                {moreFiltersCount > 0 && (
-                                    <Badge
-                                        variant="solid"
-                                        theme="gray"
-                                        size="sm"
-                                        className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-1 text-2xs"
-                                    >
-                                        {moreFiltersCount}
-                                    </Badge>
-                                )}
-                            </button>
-                        </PopoverTrigger>
-                        {hasFilters && (
-                            <button
-                                type="button"
-                                onClick={clearAll}
-                                aria-label={_("Clear All")}
-                                className="flex items-center justify-center px-2 rounded-r-[3px] text-ink-gray-7 hover:bg-surface-gray-2 active:bg-surface-gray-3 transition-colors"
-                            >
-                                <X className="h-4 w-4" />
-                            </button>
-                        )}
-                    </div>
-                ) : (
+                <div className="shrink-0 inline-flex h-8 sm:h-7 items-stretch rounded border border-outline-gray-2 bg-surface-base divide-x divide-outline-gray-2">
                     <PopoverTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                            <ListFilter />
-                            {_("Filters")}
-                            {moreFiltersCount > 0 && <Badge variant="subtle" theme="gray" size="sm">{moreFiltersCount}</Badge>}
-                        </Button>
+                        <button
+                            type="button"
+                            aria-label={_("Filters")}
+                            className="relative flex items-center justify-center px-2 rounded-l-[3px] text-ink-gray-7 hover:bg-surface-gray-2 active:bg-surface-gray-3 transition-colors"
+                        >
+                            <ListFilter className="h-4 w-4" />
+                            {moreFiltersCount > 0 && (
+                                <Badge
+                                    variant="solid"
+                                    theme="gray"
+                                    size="sm"
+                                    className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-1 text-2xs"
+                                >
+                                    {moreFiltersCount}
+                                </Badge>
+                            )}
+                        </button>
                     </PopoverTrigger>
-                )}
+                    {hasFilters && (
+                        <button
+                            type="button"
+                            onClick={clearAll}
+                            aria-label={_("Clear All")}
+                            className="flex items-center justify-center px-2 rounded-r-[3px] text-ink-gray-7 hover:bg-surface-gray-2 active:bg-surface-gray-3 transition-colors"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    )}
+                </div>
                 <SearchFiltersPopoverContent filters={filters} />
             </Popover>
         </div>
