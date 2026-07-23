@@ -10,6 +10,7 @@ import DirectMessage from "@pages/dm-channel/DirectMessage"
 import ThreadDrawerRoute from "@components/features/message/ThreadDrawerRoute"
 import { WorkspaceRedirect } from "@components/workspace-switcher/WorkspaceRedirect"
 import { FrappeProvider } from 'frappe-react-sdk'
+import { redirectToLoginIfSessionDied } from '@lib/authRecovery'
 import { initEmojiMart } from '@lib/emojiMart'
 import Cookies from 'js-cookie'
 import { Toaster } from "@components/ui/sonner"
@@ -169,7 +170,16 @@ function App() {
           url={import.meta.env.VITE_FRAPPE_PATH ?? ''}
           socketPort={import.meta.env.VITE_SOCKET_PORT ? import.meta.env.VITE_SOCKET_PORT : undefined}
           swrConfig={{
-            errorRetryCount: 2,
+            // NO global errorRetryCount: SWR's default retry is UNLIMITED
+            // exponential backoff, and that's what we want for the fetches
+            // that gate the whole UI (channel list etc.) — a cap here once
+            // stranded cold starts on flaky networks on skeletons forever.
+            // Hooks that shouldn't retry set shouldRetryOnError/errorRetryCount
+            // themselves.
+            // Dead-session recovery: Frappe rewrites the user_id cookie to
+            // "Guest" on the failing response itself, so any fetch error while
+            // the cookie says Guest means the session is gone — go to login.
+            onError: redirectToLoginIfSessionDied,
             // @ts-ignore - SWR config
             provider: localStorageProvider
           }}
