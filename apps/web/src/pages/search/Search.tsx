@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Outlet, useMatch, useNavigate, useSearchParams } from 'react-router-dom'
-import { useHotkeys } from 'react-hotkeys-hook'
+import { useEscHotkey } from '@hooks/useEscHotkey'
 import { Search as SearchIcon, X } from 'lucide-react'
 
 import SearchTabsBar, { SearchTab } from '@components/features/search/SearchTabsBar'
@@ -82,7 +82,7 @@ export default function Search() {
     }
 
     // Esc closes the open chat — the static right pane falls back to its empty state.
-    useHotkeys('esc', () => {
+    useEscHotkey(() => {
         if (hasSelection) navigate({ pathname: '/search', search: searchParams.toString() })
     }, { enableOnFormTags: true }, [hasSelection, searchParams])
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react"
 import { useOutlet } from "react-router-dom"
-import { useHotkeys } from "react-hotkeys-hook"
+import { useEscHotkey } from "@hooks/useEscHotkey"
 import { useAtom } from "jotai"
 import { recomputeUnreadAnchor } from "@stores/messages/loaders"
 import ChatStream from "@components/features/message/ChatStream"
@@ -90,7 +90,9 @@ export function ChatContentView({
 
     // Escape closes the top overlay (poll, then context). A thread underneath keeps its own
     // Escape (ThreadDrawer), gated so it doesn't fire while an overlay is up.
-    useHotkeys("esc", () => {
+    // useEscHotkey stands down while any modal (attachment preview, dialogs, ...)
+    // is open, so one press never closes both the modal and the drawer.
+    useEscHotkey(() => {
         if (pollDrawerData) setPollDrawerData(null)
         else if (hasContextDrawer) setChannelDrawer("")
     }, {

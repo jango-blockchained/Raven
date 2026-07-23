@@ -1,4 +1,4 @@
-import { useHotkeys } from 'react-hotkeys-hook';
+import { useEscHotkey } from '@hooks/useEscHotkey';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
 import { Button } from '@components/ui/button';
 import { X } from 'lucide-react';
@@ -28,7 +28,7 @@ const ChannelSettingsDrawer = ({ peerUser }: ChannelSettingsDrawerProps) => {
     const isDM = !!peerUser
 
     // useHotkeys keeps the callback fresh, so this always closes the drawer for the *current* channelID
-    useHotkeys('esc', () => handleClose(), { enableOnFormTags: true })
+    useEscHotkey(() => handleClose(), { enableOnFormTags: true })
 
     const onTabChange = (value: string) => {
         setDrawerType(value as '' | 'files' | 'pins' | 'links' | 'threads' | 'settings')

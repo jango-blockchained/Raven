@@ -1,7 +1,7 @@
 import { useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useFrappePostCall, useFrappeDeleteDoc } from "frappe-react-sdk"
-import { useHotkeys } from "react-hotkeys-hook"
+import { useEscHotkey } from "@hooks/useEscHotkey"
 import { useAtom } from "jotai"
 import { toast } from "sonner"
 import { Button } from "@components/ui/button"
@@ -132,15 +132,15 @@ export default function ThreadDrawer({
     }
 
     // Esc closes the thread's poll drawer first, then the thread. enableOnContentEditable because
-    // the composer (ProseMirror) is a contentEditable, not a form tag. Disabled while the
-    // delete-confirm dialog is open — it owns Esc (Radix), so one press doesn't close both.
-    useHotkeys(
-        "esc",
+    // the composer (ProseMirror) is a contentEditable, not a form tag. useEscHotkey
+    // stands down while any modal (delete confirm, attachment preview, ...) is open,
+    // so one press never closes both the modal and the thread.
+    useEscHotkey(
         () => {
             if (threadPoll) setThreadPoll(null)
             else onClose()
         },
-        { enableOnFormTags: true, enableOnContentEditable: true, enabled: !confirmDelete },
+        { enableOnFormTags: true, enableOnContentEditable: true },
     )
 
     // A poll in this thread takes over the rail (its detail drawer overlays the thread).

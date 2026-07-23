@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Outlet, useMatch, useNavigate } from "react-router-dom"
-import { useHotkeys } from "react-hotkeys-hook"
+import { useEscHotkey } from '@hooks/useEscHotkey'
 import { Search as SearchIcon, X } from "lucide-react"
 
 import AppMobileFooter from "@components/features/header/AppMobileFooter"
@@ -58,7 +58,7 @@ const SavedMessages = () => {
     }
 
     // Esc closes the open chat — the static right pane falls back to its empty state.
-    useHotkeys('esc', () => {
+    useEscHotkey(() => {
         if (hasSelection) navigate('/saved-messages')
     }, { enableOnFormTags: true }, [hasSelection])
 
