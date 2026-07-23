@@ -277,6 +277,28 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
     the right-click target) bought a fix with no timing assumptions left. The
     lesson: on the web, a "gesture" is often several platform events wearing a
     trench coat, and each one needs an answer.
+35. **The app that loaded perfectly and showed nothing — skeletons forever.**
+    An offline-capable shell has a dark side: the app can *render* flawlessly
+    from cache while every actual request fails — expired login session, dead
+    network, either one. Some Android phones would open to an eternal skeleton
+    screen, and refreshing didn't help (the shell comes from cache; the
+    requests still fail). Two fixes, both smaller than the investigation.
+    First: the give-up was self-inflicted. Our data library (SWR) retries
+    failures forever with growing gaps — *by default*. A config line we'd
+    carried along capped it at 2 retries, so a flaky cold start gave up within
+    seconds and nothing ever tried again. Deleting that line restored the
+    self-healing we thought we had to build. Second: expired sessions needed
+    an exit. v2 solved this by asking the server "am I logged in?" on every
+    single boot — a blocking round-trip every open, and exactly what an
+    offline-first app can't afford. The trick that made it free: when a
+    session expires, Frappe's *failing response itself* rewrites the readable
+    `user_id` cookie to "Guest". So on any request error, we just read that
+    cookie — no extra request, no guessing — and if it says Guest, we send the
+    user to login (and back to where they were, after). Optimistic boot,
+    event-driven correction. The lesson twice over: before building recovery
+    machinery, check whether you disabled the built-in kind — and when the
+    server already tells you the answer on the way down, you don't need to
+    call back and ask.
 
 ## What's still on the list
 
