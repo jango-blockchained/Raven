@@ -244,6 +244,39 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
     without the sheet, so the swipe back is clean. The lesson generalizes:
     anything visible at the instant of navigation is frozen into the back-swipe
     — overlays that navigate must vanish *before* they go anywhere.
+33. **One character in the manifest decided when the browser bar appears.** An
+    installed Android PWA shows a browser toolbar (X, refresh, the URL) whenever
+    the current page falls outside the manifest's declared `scope` — that's how
+    Chrome marks "you've left the app". Our scope was `/raven/`, with a trailing
+    slash — and scope matching is a dumb string-prefix check on the path. The
+    app's own home URL is `/raven`, *without* the slash — which does not start
+    with `/raven/` — so sitting on the home page counted as having left the app,
+    and the toolbar flickered in and out as you navigated. The fix was deleting
+    one character: scope `/raven` matches both forms. The kicker: v2 never had
+    this bug because its config was *more* wrong — its start URL sat outside its
+    own declared scope, which per spec makes the browser throw the scope away
+    entirely and treat the whole site as the app. An invalid config that
+    accidentally looked correct, hiding the trap for the valid one.
+34. **The long-press that fired twice — but only on some Androids.** Holding a
+    reaction pill opens "who reacted". Holding a message opens the action
+    sheet. On certain Android phones, holding a pill opened *both* — stacked
+    on top of each other. The reason: a long-press on Android exists twice.
+    We detect it ourselves with a timer (because iOS gives web apps no
+    long-press event at all — see #8), but Android *also* fires its own native
+    long-press event (`contextmenu`), on its own schedule, typically ~50ms
+    after our timer — and the exact delay varies by manufacturer, which is why
+    only some phones showed it. Our pill swallowed the first signal but let
+    the second bubble up to the message row, which treats `contextmenu` as
+    its long-press trigger (that part is deliberate — it's how right-click
+    works on desktop). One hold, two independent signals, two drawers. The
+    fix: pills simply have no context menu at all — the native signal is
+    swallowed unconditionally. We first tried suppressing it only while our
+    own timer was mid-hold, preserving desktop right-click on pills — but that
+    guard quietly assumed the manufacturer's timing, the exact thing that
+    varied. Giving up a right-click nobody needs (the rest of the message is
+    the right-click target) bought a fix with no timing assumptions left. The
+    lesson: on the web, a "gesture" is often several platform events wearing a
+    trench coat, and each one needs an answer.
 
 ## What's still on the list
 
