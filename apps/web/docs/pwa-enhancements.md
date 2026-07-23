@@ -229,6 +229,21 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
     emoji in message text (which was already native), costs zero requests, and
     works offline. The lesson: if a design choice needs a CDN, ask what happens
     on networks that hate CDNs.
+32. **The drawer that haunted the back-swipe.** The workspace switcher is a
+    bottom sheet; tapping an unread channel in it navigates to that channel.
+    Then, swiping back, the sheet appeared *still open* for a moment — even
+    though the app had long since closed it. The culprit is the screenshot trick
+    from #1, biting instead of helping: the system's back-gesture animation
+    replays a screenshot of the previous page *taken at the moment you navigated
+    away* — and at that moment, the sheet was still on screen (its closing
+    animation had barely started). Nothing in the live app was wrong; the ghost
+    lived in the operating system's photo of the past. The fix follows from the
+    diagnosis: when a tap in the sheet navigates, we skip the closing animation
+    entirely — remove the sheet at once, let the browser paint one clean frame,
+    and only then navigate. The screenshot the system takes now shows the page
+    without the sheet, so the swipe back is clean. The lesson generalizes:
+    anything visible at the instant of navigation is frozen into the back-swipe
+    — overlays that navigate must vanish *before* they go anywhere.
 
 ## What's still on the list
 
