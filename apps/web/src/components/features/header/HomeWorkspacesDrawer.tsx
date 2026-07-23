@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer } from "react"
+import { useEffect, useMemo, useReducer, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { atom, useAtomValue, useSetAtom } from "jotai"
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@components/ui/drawer"
@@ -46,6 +46,33 @@ export const HomeWorkspacesDrawer = ({
     open: boolean
     onOpenChange: (open: boolean) => void
 }) => {
+    const navigate = useNavigate()
+
+    // Navigation taps skip the exit animation on purpose. The OS back-swipe
+    // gesture animates with a SCREENSHOT of this page taken at the moment we
+    // navigate away — if the drawer is still on screen then (even mid-close),
+    // the screenshot keeps it, and swiping back from the channel shows the
+    // switcher "still open" until the live page paints. So: unmount the drawer
+    // at once, let one clean frame paint, and only then navigate. The flag only
+    // covers that two-frame handoff — it resets right after navigating (the
+    // drawer is closed by then, so remounting it renders nothing).
+    const [hiddenForNavigation, setHiddenForNavigation] = useState(false)
+
+    const handleNavigate = (to: string) => {
+        setHiddenForNavigation(true)
+        onOpenChange(false)
+        // Double rAF: the first fires before the next paint, so navigating in
+        // the second guarantees at least one drawer-free frame was painted.
+        requestAnimationFrame(() =>
+            requestAnimationFrame(() => {
+                navigate(to)
+                setHiddenForNavigation(false)
+            }),
+        )
+    }
+
+    if (hiddenForNavigation) return null
+
     return (
         <Drawer open={open} onOpenChange={onOpenChange}>
             <DrawerContent>
@@ -57,7 +84,7 @@ export const HomeWorkspacesDrawer = ({
                 </DrawerHeader>
                 {/* Content only mounts while open (vaul unmounts closed drawers),
                     so the store subscription below never runs in the background. */}
-                <DrawerBody onNavigate={() => onOpenChange(false)} />
+                <DrawerBody onNavigate={handleNavigate} />
             </DrawerContent>
         </Drawer>
     )
@@ -65,7 +92,7 @@ export const HomeWorkspacesDrawer = ({
 
 type UnreadRow = { channel: ChannelListItem; workspace: WorkspaceFields; count: number }
 
-const DrawerBody = ({ onNavigate }: { onNavigate: () => void }) => {
+const DrawerBody = ({ onNavigate }: { onNavigate: (to: string) => void }) => {
     const { workspaces } = useWorkspaces()
     const { channels } = useChannels()
     const { myProfile } = useCurrentRavenUser()
@@ -103,23 +130,23 @@ const DrawerBody = ({ onNavigate }: { onNavigate: () => void }) => {
         [unreadRows],
     )
 
-    const navigate = useNavigate()
     const setLastWorkspace = useSetAtom(lastWorkspaceAtom)
     const setLastChannel = useSetAtom(lastChannelAtom)
+
+    // Both handlers hand the destination to the parent (onNavigate) instead of
+    // navigating here — the parent dismisses the drawer first, then navigates.
 
     const openWorkspace = (workspace: WorkspaceFields) => {
         // Persist immediately — on mobile no channel opens after a switch (the
         // list IS the page), so the Channel page's pair-write never fires.
         setLastWorkspace(workspace.name)
         setLastChannel("")
-        navigate(`/${encodeURIComponent(workspace.name)}`)
-        onNavigate()
+        onNavigate(`/${encodeURIComponent(workspace.name)}`)
     }
 
     const openChannel = (row: UnreadRow) => {
         // The Channel page records last-visited itself; just go.
-        navigate(`/${encodeURIComponent(row.workspace.name)}/${encodeURIComponent(row.channel.name)}`)
-        onNavigate()
+        onNavigate(`/${encodeURIComponent(row.workspace.name)}/${encodeURIComponent(row.channel.name)}`)
     }
 
     // Rows are already in workspace order — fold them into per-workspace
@@ -176,7 +203,12 @@ const DrawerBody = ({ onNavigate }: { onNavigate: () => void }) => {
             {/* Zone 2 — unread channels, or the caught-up state. */}
             {unreadRows.length > 0 && (
                 <div className="border-t border-outline-gray-2 pt-4">
-                    <div className="max-h-[50vh] min-h-0 overflow-y-auto px-2 pb-2" data-vaul-no-drag>
+                    {/* Capped so the whole sheet stays near half the screen even
+                        with many unread channels — the workspace grid on top
+                        should stay within thumb reach, not ride up the screen.
+                        dvh, not vh: in a browser tab vh ignores the collapsing
+                        URL bar and would overshoot. */}
+                    <div className="max-h-[35dvh] min-h-0 overflow-y-auto px-2 pb-2" data-vaul-no-drag>
                         {sections.map(({ workspace, rows }) => (
                             <section key={workspace.name} className="mb-2">
                                 {showSectionHeaders && (
