@@ -1,4 +1,5 @@
 import dayjs from "dayjs"
+import { SYSTEM_TIMEZONE } from "@lib/date"
 import type { FrappeError } from "frappe-react-sdk"
 import type { Message } from "@raven/types/common/Message"
 import type { OutboxMessage } from "@db"
@@ -21,8 +22,15 @@ export type OutgoingFile = {
     file_size: number
 }
 
-/** Backend datetime shape (6-digit microseconds) so the placeholder sorts at the live edge. */
-const optimisticNow = () => dayjs().format("YYYY-MM-DD HH:mm:ss.SSS") + "000"
+/**
+ * Backend datetime shape (6-digit microseconds) so the placeholder sorts at the
+ * live edge. Must be in the SERVER's timezone, not the browser's: `creation`
+ * strings are naive (no offset) and sorted as plain text, so a browser in a
+ * different timezone would write a "now" that reads hours in the past or future
+ * — the sent message then sorts above older messages (or below later ones)
+ * until the server copy replaces it.
+ */
+const optimisticNow = () => dayjs().tz(SYSTEM_TIMEZONE).format("YYYY-MM-DD HH:mm:ss.SSS") + "000"
 
 /**
  * Builds the messages we show on screen the instant the user hits send — before the
