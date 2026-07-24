@@ -237,13 +237,26 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
     replays a screenshot of the previous page *taken at the moment you navigated
     away* — and at that moment, the sheet was still on screen (its closing
     animation had barely started). Nothing in the live app was wrong; the ghost
-    lived in the operating system's photo of the past. The fix follows from the
-    diagnosis: when a tap in the sheet navigates, we skip the closing animation
-    entirely — remove the sheet at once, let the browser paint one clean frame,
-    and only then navigate. The screenshot the system takes now shows the page
-    without the sheet, so the swipe back is clean. The lesson generalizes:
-    anything visible at the instant of navigation is frozen into the back-swipe
-    — overlays that navigate must vanish *before* they go anywhere.
+    lived in the operating system's photo of the past. Our first fix followed
+    the diagnosis with frame-level precision: remove the sheet instantly, let
+    the browser paint one clean frame, then navigate. Correct on paper — and it
+    still ghosted on a real iPhone. The catch: those frame guarantees are about
+    *our* process, and iOS composites frames and records its screenshot in a
+    *different* process, on its own schedule. You cannot win a timing race
+    against a clock you can't see. The fix that held: navigate only when the
+    sheet's closing animation has finished — several hundred milliseconds of
+    sheet-free frames that no cross-process lag can outrun. The cost is honest
+    and visible (the tap waits out the close animation) instead of hidden and
+    racy — and then we made the wait *work for its living*: the tap starts
+    fetching the channel's messages immediately, so the download runs behind
+    the closing animation, and by the time navigation fires the channel usually
+    opens already rendered. The same half-second that used to end on a loading
+    skeleton now ends on finished messages — which reads as *faster* than the
+    instant navigation ever did. Three lessons: anything visible around the
+    instant of navigation can be frozen into the back-swipe; when you're racing
+    another process's clock, don't cut it fine — buy margin you can see; and
+    when a delay is forced on you, overlap it with work the user was about to
+    wait for anyway.
 33. **One character in the manifest decided when the browser bar appears.** An
     installed Android PWA shows a browser toolbar (X, refresh, the URL) whenever
     the current page falls outside the manifest's declared `scope` — that's how

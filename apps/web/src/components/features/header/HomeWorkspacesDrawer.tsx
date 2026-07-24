@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useReducer, useState } from "react"
+import { useContext, useEffect, useMemo, useReducer } from "react"
 import { useNavigate } from "react-router-dom"
+import { FrappeContext, type FrappeConfig } from "frappe-react-sdk"
+import { prefetchChannel, type FrappeCallClient } from "@stores/messages/loaders"
 import { atom, useAtomValue, useSetAtom } from "jotai"
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@components/ui/drawer"
 import { Badge } from "@components/ui/badge"
@@ -39,6 +41,9 @@ import _ from "@lib/translate"
  */
 export const workspacesDrawerAtom = atom(false)
 
+/** vaul's exit-animation duration (TRANSITIONS.DURATION = 0.5s). */
+const DRAWER_EXIT_MS = 500
+
 export const HomeWorkspacesDrawer = ({
     open,
     onOpenChange,
@@ -48,30 +53,26 @@ export const HomeWorkspacesDrawer = ({
 }) => {
     const navigate = useNavigate()
 
-    // Navigation taps skip the exit animation on purpose. The OS back-swipe
-    // gesture animates with a SCREENSHOT of this page taken at the moment we
-    // navigate away — if the drawer is still on screen then (even mid-close),
-    // the screenshot keeps it, and swiping back from the channel shows the
-    // switcher "still open" until the live page paints. So: unmount the drawer
-    // at once, let one clean frame paint, and only then navigate. The flag only
-    // covers that two-frame handoff — it resets right after navigating (the
-    // drawer is closed by then, so remounting it renders nothing).
-    const [hiddenForNavigation, setHiddenForNavigation] = useState(false)
-
+    // Navigation waits for the drawer to FINISH closing. The OS back-swipe
+    // gesture animates with a SCREENSHOT of this page taken around the moment
+    // we navigate away — if the drawer is on screen then, the screenshot keeps
+    // it, and swiping back from the channel shows the switcher "still open"
+    // until the live page paints. We first tried the fast version — unmount the
+    // drawer instantly, paint one clean frame (double rAF), navigate — and it
+    // still ghosted on real iOS: the rAFs prove OUR process painted, but iOS
+    // presents frames and records its snapshot in a separate process on its own
+    // schedule, and a two-frame margin isn't enough. Waiting out the exit
+    // animation gives the compositor ~500ms of drawer-free frames, which no
+    // timing race can beat. Cost: the tap waits out the close animation.
+    //
+    // A plain timer, NOT vaul's onAnimationEnd: that callback only fires for
+    // closes vaul initiates itself (drag, scrim tap) — a controlled close like
+    // this one never triggers it. And internally it's the same thing anyway:
+    // vaul "detects" animation end with a 500ms setTimeout, not a real event.
     const handleNavigate = (to: string) => {
-        setHiddenForNavigation(true)
         onOpenChange(false)
-        // Double rAF: the first fires before the next paint, so navigating in
-        // the second guarantees at least one drawer-free frame was painted.
-        requestAnimationFrame(() =>
-            requestAnimationFrame(() => {
-                navigate(to)
-                setHiddenForNavigation(false)
-            }),
-        )
+        window.setTimeout(() => navigate(to), DRAWER_EXIT_MS)
     }
-
-    if (hiddenForNavigation) return null
 
     return (
         <Drawer open={open} onOpenChange={onOpenChange}>
@@ -132,6 +133,7 @@ const DrawerBody = ({ onNavigate }: { onNavigate: (to: string) => void }) => {
 
     const setLastWorkspace = useSetAtom(lastWorkspaceAtom)
     const setLastChannel = useSetAtom(lastChannelAtom)
+    const { call } = useContext(FrappeContext) as FrappeConfig
 
     // Both handlers hand the destination to the parent (onNavigate) instead of
     // navigating here — the parent dismisses the drawer first, then navigates.
@@ -145,6 +147,10 @@ const DrawerBody = ({ onNavigate }: { onNavigate: (to: string) => void }) => {
     }
 
     const openChannel = (row: UnreadRow) => {
+        // Start fetching the channel's messages NOW — navigation waits out the
+        // drawer's 500ms close (see the parent), and this fetch runs during it,
+        // so the channel usually opens already loaded. No-op if already warm.
+        prefetchChannel(call as FrappeCallClient, row.channel.name)
         // The Channel page records last-visited itself; just go.
         onNavigate(`/${encodeURIComponent(row.workspace.name)}/${encodeURIComponent(row.channel.name)}`)
     }
