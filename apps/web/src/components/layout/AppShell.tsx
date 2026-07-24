@@ -31,6 +31,7 @@ import { useAppBadge } from "@hooks/useAppBadge"
 import { useClearReadNotifications } from "@hooks/useClearReadNotifications"
 import DocumentTitle from "./DocumentTitle"
 import { AppUpdateAlert } from "./AppUpdateAlert"
+import { SessionBroadcast } from "./SessionBroadcast"
 import RavenSettingsDialog from "@components/features/settings/SettingsDialog"
 import { MessageActionDialogs } from "@components/features/message/actions/MessageActionDialogs"
 
@@ -145,8 +146,6 @@ const AppListeners = ({ children }: { children: React.ReactNode }) => {
     // Sweeps tray notifications for channels/threads that are no longer unread
     useClearReadNotifications()
 
-    // TODO: Session broadcast listener
-
     if (!isReady) {
         return <MainPageSkeleton />
     }
@@ -158,6 +157,7 @@ const AppListeners = ({ children }: { children: React.ReactNode }) => {
         <AttachmentPreviewModal />
         {/* "App was updated — refresh" prompt (chunk failures, deploys, SW updates) */}
         <AppUpdateAlert />
+        <SessionBroadcast />
     </>
 }
 
