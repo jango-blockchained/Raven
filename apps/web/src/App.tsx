@@ -49,20 +49,26 @@ const IndexRedirect = () => {
   const isMobile = useIsMobile()
   const { workspaces, isLoading } = useWorkspaces()
 
-  if (lastWorkspace) {
-    // Desktop reopens the exact channel; mobile lands on the workspace's
-    // channel list (the channel pair is written together, so it's consistent)
+  // Decide only once the workspace list is known — otherwise a deleted
+  // lastWorkspace can't be told apart from one that just hasn't loaded yet.
+  if (isLoading) return null
+
+  // Reopen the remembered workspace only if it STILL EXISTS — it may have been
+  // deleted (here or by another admin) or the user removed from it, leaving the
+  // atom stale. Desktop reopens the exact channel; mobile lands on the
+  // workspace's channel list (the channel pair is written together).
+  const lastExists = lastWorkspace && workspaces.some((w) => w.name === lastWorkspace)
+  if (lastExists) {
     if (lastChannel && !isMobile) {
       return <Navigate to={`/${encodeURIComponent(lastWorkspace)}/${encodeURIComponent(lastChannel)}`} replace />
     }
     return <Navigate to={`/${encodeURIComponent(lastWorkspace)}`} replace />
   }
 
-  // No remembered workspace — fresh install, or an installed PWA's isolated
-  // storage on first launch. Fall back to the first workspace the user belongs
-  // to instead of rendering nothing: a blank index has no desktop sidebar to
-  // mask it on mobile, so `return null` here shows as a black screen.
-  if (isLoading) return null
+  // No valid remembered workspace — fresh install, an installed PWA's isolated
+  // storage on first launch, or a stale/deleted one. Fall back to the first
+  // workspace the user belongs to instead of rendering nothing: a blank index
+  // has no desktop sidebar to mask it on mobile, so `return null` shows black.
   const fallback = workspaces.find((w) => w.workspace_member_name) ?? workspaces[0]
   if (!fallback) return null
   return <Navigate to={`/${encodeURIComponent(fallback.name)}`} replace />

@@ -10,7 +10,7 @@ import type { ColumnDef } from "@tanstack/react-table"
 import { Badge } from "@components/ui/badge"
 import { UserAvatar } from "@components/features/message/UserAvatar"
 import { usersStore } from "@stores/usersStore"
-import { isSystemManager } from "@utils/roles"
+import { hasRole } from "@lib/permissions"
 import _ from "@lib/translate"
 import type { UserData } from "@db"
 import AddUserDialog from "./AddUserDialog"
@@ -29,7 +29,7 @@ export const Users = () => {
 
     return (
         <>
-            <SettingsPanelHeader actions={isSystemManager() ? <AddUserDialog /> : null}>
+            <SettingsPanelHeader actions={hasRole("System Manager") ? <AddUserDialog /> : null}>
                 <SettingsPanelTitle>{_("Users")}</SettingsPanelTitle>
                 <SettingsPanelDescription>{_("Manage users added to Raven.")}</SettingsPanelDescription>
             </SettingsPanelHeader>

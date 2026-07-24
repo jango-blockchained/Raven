@@ -139,6 +139,10 @@ const DeleteWorkspaceForm = ({
         if (!isNameTyped) return
         deleteDoc("Raven Workspace", workspaceID).then(() => {
             toast.success(_("Workspace deleted"))
+            // Refreshing the list is enough to self-heal a stale active/last
+            // workspace: WorkspaceLayout bounces out of a workspace that's no
+            // longer in the list, and IndexRedirect ignores a deleted
+            // lastWorkspace — both land on a valid workspace.
             globalMutate("workspaces_list")
             globalMutate("channel_list")
             onDeleted()

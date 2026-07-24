@@ -21,7 +21,7 @@ import { RadioGroup, RadioGroupItem } from "@components/ui/radio-group"
 import { FileDropzone } from "@components/ui/file-dropzone"
 import ErrorBanner from "@components/ui/error-banner"
 import { Spinner } from "@components/ui/spinner"
-import { hasRavenAdminRole } from "@utils/roles"
+import { hasRole } from "@lib/permissions"
 import type { RavenWorkspace } from "@raven/types/Raven/RavenWorkspace"
 import _ from "@lib/translate"
 
@@ -33,7 +33,7 @@ type WorkspaceFormData = RavenWorkspace & {
 /** "Create" in the Workspaces panel header; jumps to the new workspace's detail view on success. */
 const CreateWorkspaceButton = ({ onCreated }: { onCreated: (workspaceID: string) => void }) => {
     const [open, setOpen] = useState(false)
-    const isRavenAdmin = hasRavenAdminRole()
+    const isRavenAdmin = hasRole("Raven Admin")
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
