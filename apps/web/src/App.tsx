@@ -160,21 +160,25 @@ const router = createBrowserRouter(
 
 function App() {
 
-  useEffect(() => {
-    // Check if user is logged in by checking the Cookie "user_id"
-    // In Frappe, unauthenticated users are "Guest"
-    const userId = document.cookie?.split('; ').find(row => row.startsWith('user_id='))?.split('=')[1]?.trim()
-    const isLoggedIn = userId !== 'Guest'
+  // Login check, SYNCHRONOUS and before the router renders. It used to live in
+  // a post-paint effect, so a logged-out visitor rendered the whole app for a
+  // few frames — ProtectedRoute's "no access" alert flashed — before the
+  // redirect kicked in. Checked during render, we paint nothing instead while
+  // the browser navigates to login. (Frappe marks anonymous visitors with
+  // user_id=Guest; dev builds skip the redirect — there's no local login page.)
+  const userId = Cookies.get('user_id')
+  const isLoggedIn = !!userId && userId !== 'Guest'
+  const shouldRedirectToLogin = !isLoggedIn && !import.meta.env.DEV
 
-    if (!isLoggedIn) {
-      if (import.meta.env.DEV) {
-        return
-      }
-      // Redirect to Frappe login page with the correct redirect to the current route
+  useEffect(() => {
+    if (shouldRedirectToLogin) {
       window.location.href = `/login?redirect-to=${window.location.pathname}`
-      return
     }
-  }, [])
+  }, [shouldRedirectToLogin])
+
+  if (shouldRedirectToLogin) {
+    return null
+  }
 
   return (
     <LucideProvider

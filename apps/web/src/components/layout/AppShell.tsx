@@ -1,4 +1,5 @@
 import { MainPageSkeleton } from "@components/features/main-page/MainPageSkeleton"
+import Cookies from "js-cookie"
 import { Alert, AlertDescription, AlertTitle } from "@components/ui/alert"
 import { useIsMobile } from "@hooks/use-mobile"
 import { useLoadUsers } from "@hooks/useLoadUsers"
@@ -73,6 +74,15 @@ const AppShell = () => {
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
     const hasRavenUserRole = hasRole('Raven User')
+
+    // A GUEST lacking the role isn't a permissions problem — they're just not
+    // logged in, and App.tsx is redirecting them to login. Render nothing so
+    // the "no access" alert can't flash at them on the way out (it's meant for
+    // LOGGED-IN users who genuinely lack the Raven User role).
+    const userId = Cookies.get('user_id')
+    if (!userId || userId === 'Guest') {
+        return null
+    }
 
     if (!hasRavenUserRole) {
         return <div className="h-screen w-screen flex justify-center items-center">
