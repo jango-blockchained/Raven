@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useHotkeys } from 'react-hotkeys-hook';
+import { useEscHotkey } from '@hooks/useEscHotkey';
 import { Button } from '@components/ui/button';
 import { Loader2, X } from 'lucide-react';
 import { useAtom } from 'jotai';
@@ -28,7 +28,7 @@ const ChannelMembersDrawer = () => {
 
     const allowSettingChange = canManageChannel(channel)
 
-    useHotkeys('esc', () => handleClose(), { enableOnFormTags: true })
+    useEscHotkey(() => handleClose(), { enableOnFormTags: true })
 
     const handleClose = () => {
         setDrawerType('')

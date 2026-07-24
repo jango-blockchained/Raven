@@ -312,6 +312,23 @@ More of the same discipline:
   only what's actually viewed. The break counter also backstops the lists, for
   events lost while the connection was down. Choosing per shape is the whole
   game.
+- **Failed loads must heal on reconnect — staleness alone isn't enough.** When
+  we replaced SWR with our own stores, we quietly lost one of its freebies:
+  `revalidateOnReconnect`. Our connection-break counter is actually a *richer*
+  signal (it fires on browser-online, socket reconnect, phone unfreeze, and
+  back/forward-cache restore) — but our reconnect check only asked "is this
+  loaded view stale?" and skipped views whose load had *failed*. So a page
+  opened offline showed its error card forever, even after the network came
+  back; nothing anywhere would retry it. The rule now baked into both list
+  loaders: on a connection-break signal, a READY view refetches only if stale,
+  but an ERRORED view refetches unconditionally — and a successful page always
+  flips a view to ready, even an *empty* page (the subtle half of the bug: an
+  empty result used to be treated as "nothing changed" and left the error
+  standing). House rule for every future store window: stamp freshness on load,
+  subscribe to the break counter, and treat "failed" as a state to recover
+  from, not just "stale". The lesson: when you replace a library, list the
+  invisible things it did for free — the visible features are never what you
+  forget.
 
 ## Counting things correctly
 

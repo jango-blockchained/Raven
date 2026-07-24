@@ -1,6 +1,7 @@
-import { Fragment, memo } from "react"
-import { MessageSquare } from "lucide-react"
+import { Fragment, memo, useRef } from "react"
+import { CheckCheck, MessageSquare } from "lucide-react"
 import { cn } from "@lib/utils"
+import { hapticTick } from "@utils/haptics"
 import { type NotificationObject } from "@stores/notifications/reducers"
 import { UserAvatar } from "@components/features/message/UserAvatar"
 import { ChannelIcon } from "@components/common/ChannelIcon/ChannelIcon"
@@ -44,6 +45,18 @@ const ChannelContext = ({
     return null
 }
 
+/** Swipe-right-to-mark-read (touch): the same gesture language and feel as
+ * swipe-to-reply on message rows — same slop, flick, edge guard and haptic.
+ * Only UNREAD rows arm the gesture; read rows have nothing to mark. */
+const SWIPE_READ_EDGE_GUARD_PX = 32
+const SWIPE_READ_COMMIT_PX = 56
+const SWIPE_READ_MAX_PX = 88
+const SWIPE_READ_SLOP_PX = 12
+const SWIPE_READ_FLICK_VELOCITY = 0.5 // px/ms rightward
+const SWIPE_READ_FLICK_MIN_PX = 20
+/** Suppress the click synthesized from the drag — it would OPEN the notification. */
+const SWIPE_READ_CLICK_GUARD_MS = 300
+
 const rowShellClasses = (isRead: boolean | number, isActive: boolean) => cn(
     "group flex w-full items-start gap-3 px-2 py-3 md:py-2 text-sm rounded transition-colors relative text-left select-none",
     "hover:bg-surface-gray-3 active:bg-surface-gray-3",
@@ -59,6 +72,7 @@ const NotificationRowLayout = ({
     isRead,
     isActive,
     onClick,
+    onMarkRead,
     avatar,
     name,
     relativeDate,
@@ -68,32 +82,167 @@ const NotificationRowLayout = ({
     isRead: boolean | number
     isActive: boolean
     onClick: () => void
+    /** Swipe-right target (touch). Only armed while the row is unread. */
+    onMarkRead?: () => void
     avatar: React.ReactNode
     name: string
     relativeDate: string
     channelContext?: React.ReactNode
     children: React.ReactNode
-}) => (
-    <button type="button" onClick={onClick} className="block w-full cursor-pointer px-2 py-0.5">
-        <div className={rowShellClasses(isRead, isActive)}>
-            {avatar}
-            <div className="flex-1 min-w-0">
-                <div className="flex items-baseline gap-2 flex-wrap">
-                    <span className={cn("text-sm", !isRead ? "font-semibold" : "font-medium")}>
-                        {name}
-                    </span>
-                    <span className="text-xs font-regular text-ink-gray-4 shrink-0">
-                        {relativeDate}
-                    </span>
-                    {channelContext}
+}) => {
+    const rowRef = useRef<HTMLDivElement>(null)
+    const glyphRef = useRef<HTMLDivElement>(null)
+    const swipeRef = useRef<{
+        pointerId: number
+        startX: number
+        startY: number
+        active: boolean
+        velocity: number
+        lastX: number
+        lastTime: number
+    } | null>(null)
+    const suppressClickUntilRef = useRef(0)
+
+    const canSwipeRead = !isRead && !!onMarkRead
+
+    const onPointerDown = (event: React.PointerEvent) => {
+        if (!canSwipeRead || event.pointerType !== "touch") return
+        // The left screen edge belongs to the iOS back-swipe gesture.
+        if (event.clientX <= SWIPE_READ_EDGE_GUARD_PX) return
+        swipeRef.current = {
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            startY: event.clientY,
+            active: false,
+            velocity: 0,
+            lastX: event.clientX,
+            lastTime: event.timeStamp,
+        }
+    }
+
+    const onPointerMove = (event: React.PointerEvent) => {
+        const swipe = swipeRef.current
+        if (!swipe || swipe.pointerId !== event.pointerId) return
+        const dx = event.clientX - swipe.startX
+        const dy = event.clientY - swipe.startY
+
+        if (!swipe.active) {
+            // Vertical-dominant or leftward travel: it's a scroll, stand down.
+            if (Math.abs(dy) > SWIPE_READ_SLOP_PX && Math.abs(dy) > Math.abs(dx)) {
+                swipeRef.current = null
+                return
+            }
+            if (dx < -SWIPE_READ_SLOP_PX) {
+                swipeRef.current = null
+                return
+            }
+            if (dx > SWIPE_READ_SLOP_PX && dx > Math.abs(dy)) {
+                swipe.active = true
+                ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+                if (rowRef.current) rowRef.current.style.transition = "none"
+                if (glyphRef.current) glyphRef.current.style.transition = "none"
+            }
+        }
+
+        if (swipe.active) {
+            const dt = event.timeStamp - swipe.lastTime
+            if (dt > 0) swipe.velocity = (event.clientX - swipe.lastX) / dt
+            swipe.lastX = event.clientX
+            swipe.lastTime = event.timeStamp
+
+            const offset = Math.min(Math.max(dx, 0), SWIPE_READ_MAX_PX)
+            if (rowRef.current) rowRef.current.style.transform = `translateX(${offset}px)`
+            if (glyphRef.current) glyphRef.current.style.opacity = String(Math.min(offset / SWIPE_READ_COMMIT_PX, 1))
+        }
+    }
+
+    const onPointerEnd = (event: React.PointerEvent) => {
+        const swipe = swipeRef.current
+        if (!swipe || swipe.pointerId !== event.pointerId) return
+        swipeRef.current = null
+        if (!swipe.active) return
+
+        // Snap the row back (animated), then drop the inline styles.
+        const row = rowRef.current
+        if (row) {
+            row.style.transition = "transform 150ms ease-out"
+            row.style.transform = ""
+            window.setTimeout(() => {
+                row.style.transition = ""
+            }, 200)
+        }
+        const glyph = glyphRef.current
+        if (glyph) {
+            glyph.style.transition = "opacity 150ms ease-out"
+            glyph.style.opacity = "0"
+        }
+
+        suppressClickUntilRef.current = performance.now() + SWIPE_READ_CLICK_GUARD_MS
+
+        // Commit on distance OR a rightward flick (same rule as swipe-to-reply).
+        const dx = event.clientX - swipe.startX
+        const commit =
+            event.type !== "pointercancel" &&
+            (dx >= SWIPE_READ_COMMIT_PX ||
+                (swipe.velocity > SWIPE_READ_FLICK_VELOCITY && dx >= SWIPE_READ_FLICK_MIN_PX))
+        if (commit) {
+            hapticTick()
+            onMarkRead?.()
+        }
+    }
+
+    const onClickCapture = (event: React.MouseEvent) => {
+        if (performance.now() > suppressClickUntilRef.current) return
+        suppressClickUntilRef.current = 0
+        event.preventDefault()
+        event.stopPropagation()
+    }
+
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            onClickCapture={onClickCapture}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerEnd}
+            onPointerCancel={onPointerEnd}
+            // pan-y: the browser keeps vertical scrolling, horizontal drags stay
+            // ours — without it the scroller claims the touch mid-swipe
+            // (pointercancel) and the row snaps back for no visible reason.
+            className={cn("relative block w-full cursor-pointer px-2 py-0.5", canSwipeRead && "[touch-action:pan-y]")}
+        >
+            {/* Mark-read glyph behind the row's left edge — fades in as the row
+                slides right, full strength at the commit distance. */}
+            {canSwipeRead && (
+                <div
+                    ref={glyphRef}
+                    aria-hidden
+                    className="pointer-events-none absolute left-4 top-1/2 z-0 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-surface-gray-3 text-ink-gray-7 opacity-0"
+                >
+                    <CheckCheck className="size-4" />
                 </div>
-                <div className="pt-1">
-                    {children}
+            )}
+            <div ref={rowRef} className={rowShellClasses(isRead, isActive)}>
+                {avatar}
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2 flex-wrap">
+                        <span className={cn("text-sm", !isRead ? "font-semibold" : "font-medium")}>
+                            {name}
+                        </span>
+                        <span className="text-xs font-regular text-ink-gray-4 shrink-0">
+                            {relativeDate}
+                        </span>
+                        {channelContext}
+                    </div>
+                    <div className="pt-1">
+                        {children}
+                    </div>
                 </div>
             </div>
-        </div>
-    </button>
-)
+        </button>
+    )
+}
 
 const UnreadDot = () => (
     <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-surface-blue-5" />
@@ -149,11 +298,14 @@ export const MentionItem = memo(({
     sender,
     isActive,
     onSelect,
+    onMarkRead,
 }: {
     notification: NotificationObject
     sender?: UserData
     isActive: boolean
     onSelect: (selection: SelectedNotification) => void
+    /** Swipe-right on an unread row marks it read without opening it. */
+    onMarkRead?: (messageID: string) => void
 }) => {
     const handleClick = () => {
         onSelect({
@@ -169,6 +321,7 @@ export const MentionItem = memo(({
             isRead={notification.is_read}
             isActive={isActive}
             onClick={handleClick}
+            onMarkRead={onMarkRead ? () => onMarkRead(notification.message_id) : undefined}
             avatar={
                 <div className="relative shrink-0">
                     {sender && <UserAvatar user={sender} size="md" />}
@@ -191,11 +344,14 @@ export const ReactionItem = memo(({
     usersById,
     isActive,
     onSelect,
+    onMarkRead,
 }: {
     notification: NotificationObject
     usersById: Map<string, UserData>
     isActive: boolean
     onSelect: (selection: SelectedNotification) => void
+    /** Swipe-right on an unread row marks it read without opening it. */
+    onMarkRead?: (messageID: string) => void
 }) => {
     const reactors = notification.reactors ?? []
     const total = reactors.length
@@ -224,6 +380,7 @@ export const ReactionItem = memo(({
             isRead={notification.is_read}
             isActive={isActive}
             onClick={handleClick}
+            onMarkRead={onMarkRead ? () => onMarkRead(notification.message_id) : undefined}
             avatar={
                 <div className="relative shrink-0 w-8 h-8">
                     {reactorsData[0] && (

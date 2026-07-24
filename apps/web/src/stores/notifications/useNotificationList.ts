@@ -93,6 +93,14 @@ export const useNotificationList = (type: NotificationTab, { unreadOnly }: { unr
         [client, globalMutate, viewKey, filters],
     )
 
+    // Manual refresh (pull-to-refresh): refetch the first page of this view and
+    // revalidate the unread-id set. reconcileFirstPage is already coalesced, so
+    // a pull during a running reconcile just queues one follow-up.
+    const refresh = useCallback(async () => {
+        await reconcileFirstPage(client, viewKey, filters)
+        await globalMutate(UNREAD_NOTIFICATION_IDS_KEY)
+    }, [client, viewKey, filters, globalMutate])
+
     const markAllRead = useCallback(() => {
         notificationListStore.markAllRead() // optimistic
         unreadNotificationsStore.clear()
@@ -107,6 +115,7 @@ export const useNotificationList = (type: NotificationTab, { unreadOnly }: { unr
         error: state.status === "error" ? state.error : null,
         hasMore: state.hasMore,
         loadMore,
+        refresh,
         markMessageRead,
         markAllRead,
     }

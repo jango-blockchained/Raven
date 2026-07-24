@@ -212,6 +212,13 @@ export default function ChatStream({ channelID, pinnedMessagesString, initialMes
     )
     useEffect(() => tracker.setOrder(dateOrder), [tracker, dateOrder])
 
+    // The conversation's very FIRST date separator drops its line: a full-width
+    // rule with nothing above it reads as clutter (right under a thread's root
+    // message, or at the top of a channel's history). Only when the real start
+    // is loaded — with older history still above, the topmost separator is
+    // just a window edge, not "the first".
+    const plainDateName = !hasOlderMessages ? dateOrder[0]?.name : undefined
+
     // The pill shows while scrolling and fades out shortly after the user stops.
     const scrollIdleTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
     const handleScroll = useCallback(() => {
@@ -264,7 +271,7 @@ export default function ChatStream({ channelID, pinnedMessagesString, initialMes
                                             would collapse that to just the changed rows. Do with profiling. */}
                                         {blocks.map((block) =>
                                             block.message_type === "date" ? (
-                                                <DateSeparator label={block.creation} name={block.name} key={block.name} />
+                                                <DateSeparator label={block.creation} name={block.name} key={block.name} showLine={block.name !== plainDateName} />
                                             ) : block.message_type === "unread" ? (
                                                 <UnreadSeparator key={block.name} />
                                             ) : block.message_type === "batch" ? (

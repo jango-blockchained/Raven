@@ -229,6 +229,89 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
     emoji in message text (which was already native), costs zero requests, and
     works offline. The lesson: if a design choice needs a CDN, ask what happens
     on networks that hate CDNs.
+32. **The drawer that haunted the back-swipe.** The workspace switcher is a
+    bottom sheet; tapping an unread channel in it navigates to that channel.
+    Then, swiping back, the sheet appeared *still open* for a moment — even
+    though the app had long since closed it. The culprit is the screenshot trick
+    from #1, biting instead of helping: the system's back-gesture animation
+    replays a screenshot of the previous page *taken at the moment you navigated
+    away* — and at that moment, the sheet was still on screen (its closing
+    animation had barely started). Nothing in the live app was wrong; the ghost
+    lived in the operating system's photo of the past. Our first fix followed
+    the diagnosis with frame-level precision: remove the sheet instantly, let
+    the browser paint one clean frame, then navigate. Correct on paper — and it
+    still ghosted on a real iPhone. The catch: those frame guarantees are about
+    *our* process, and iOS composites frames and records its screenshot in a
+    *different* process, on its own schedule. You cannot win a timing race
+    against a clock you can't see. The fix that held: navigate only when the
+    sheet's closing animation has finished — several hundred milliseconds of
+    sheet-free frames that no cross-process lag can outrun. The cost is honest
+    and visible (the tap waits out the close animation) instead of hidden and
+    racy — and then we made the wait *work for its living*: the tap starts
+    fetching the channel's messages immediately, so the download runs behind
+    the closing animation, and by the time navigation fires the channel usually
+    opens already rendered. The same half-second that used to end on a loading
+    skeleton now ends on finished messages — which reads as *faster* than the
+    instant navigation ever did. Three lessons: anything visible around the
+    instant of navigation can be frozen into the back-swipe; when you're racing
+    another process's clock, don't cut it fine — buy margin you can see; and
+    when a delay is forced on you, overlap it with work the user was about to
+    wait for anyway.
+33. **One character in the manifest decided when the browser bar appears.** An
+    installed Android PWA shows a browser toolbar (X, refresh, the URL) whenever
+    the current page falls outside the manifest's declared `scope` — that's how
+    Chrome marks "you've left the app". Our scope was `/raven/`, with a trailing
+    slash — and scope matching is a dumb string-prefix check on the path. The
+    app's own home URL is `/raven`, *without* the slash — which does not start
+    with `/raven/` — so sitting on the home page counted as having left the app,
+    and the toolbar flickered in and out as you navigated. The fix was deleting
+    one character: scope `/raven` matches both forms. The kicker: v2 never had
+    this bug because its config was *more* wrong — its start URL sat outside its
+    own declared scope, which per spec makes the browser throw the scope away
+    entirely and treat the whole site as the app. An invalid config that
+    accidentally looked correct, hiding the trap for the valid one.
+34. **The long-press that fired twice — but only on some Androids.** Holding a
+    reaction pill opens "who reacted". Holding a message opens the action
+    sheet. On certain Android phones, holding a pill opened *both* — stacked
+    on top of each other. The reason: a long-press on Android exists twice.
+    We detect it ourselves with a timer (because iOS gives web apps no
+    long-press event at all — see #8), but Android *also* fires its own native
+    long-press event (`contextmenu`), on its own schedule, typically ~50ms
+    after our timer — and the exact delay varies by manufacturer, which is why
+    only some phones showed it. Our pill swallowed the first signal but let
+    the second bubble up to the message row, which treats `contextmenu` as
+    its long-press trigger (that part is deliberate — it's how right-click
+    works on desktop). One hold, two independent signals, two drawers. The
+    fix: pills simply have no context menu at all — the native signal is
+    swallowed unconditionally. We first tried suppressing it only while our
+    own timer was mid-hold, preserving desktop right-click on pills — but that
+    guard quietly assumed the manufacturer's timing, the exact thing that
+    varied. Giving up a right-click nobody needs (the rest of the message is
+    the right-click target) bought a fix with no timing assumptions left. The
+    lesson: on the web, a "gesture" is often several platform events wearing a
+    trench coat, and each one needs an answer.
+35. **The app that loaded perfectly and showed nothing — skeletons forever.**
+    An offline-capable shell has a dark side: the app can *render* flawlessly
+    from cache while every actual request fails — expired login session, dead
+    network, either one. Some Android phones would open to an eternal skeleton
+    screen, and refreshing didn't help (the shell comes from cache; the
+    requests still fail). Two fixes, both smaller than the investigation.
+    First: the give-up was self-inflicted. Our data library (SWR) retries
+    failures forever with growing gaps — *by default*. A config line we'd
+    carried along capped it at 2 retries, so a flaky cold start gave up within
+    seconds and nothing ever tried again. Deleting that line restored the
+    self-healing we thought we had to build. Second: expired sessions needed
+    an exit. v2 solved this by asking the server "am I logged in?" on every
+    single boot — a blocking round-trip every open, and exactly what an
+    offline-first app can't afford. The trick that made it free: when a
+    session expires, Frappe's *failing response itself* rewrites the readable
+    `user_id` cookie to "Guest". So on any request error, we just read that
+    cookie — no extra request, no guessing — and if it says Guest, we send the
+    user to login (and back to where they were, after). Optimistic boot,
+    event-driven correction. The lesson twice over: before building recovery
+    machinery, check whether you disabled the built-in kind — and when the
+    server already tells you the answer on the way down, you don't need to
+    call back and ask.
 
 ## What's still on the list
 

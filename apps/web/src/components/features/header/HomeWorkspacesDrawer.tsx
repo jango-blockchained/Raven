@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useReducer } from "react"
+import { useContext, useEffect, useMemo, useReducer } from "react"
 import { useNavigate } from "react-router-dom"
+import { FrappeContext, type FrappeConfig } from "frappe-react-sdk"
+import { prefetchChannel, type FrappeCallClient } from "@stores/messages/loaders"
 import { atom, useAtomValue, useSetAtom } from "jotai"
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@components/ui/drawer"
 import { Badge } from "@components/ui/badge"
@@ -39,6 +41,9 @@ import _ from "@lib/translate"
  */
 export const workspacesDrawerAtom = atom(false)
 
+/** vaul's exit-animation duration (TRANSITIONS.DURATION = 0.5s). */
+const DRAWER_EXIT_MS = 500
+
 export const HomeWorkspacesDrawer = ({
     open,
     onOpenChange,
@@ -46,6 +51,29 @@ export const HomeWorkspacesDrawer = ({
     open: boolean
     onOpenChange: (open: boolean) => void
 }) => {
+    const navigate = useNavigate()
+
+    // Navigation waits for the drawer to FINISH closing. The OS back-swipe
+    // gesture animates with a SCREENSHOT of this page taken around the moment
+    // we navigate away — if the drawer is on screen then, the screenshot keeps
+    // it, and swiping back from the channel shows the switcher "still open"
+    // until the live page paints. We first tried the fast version — unmount the
+    // drawer instantly, paint one clean frame (double rAF), navigate — and it
+    // still ghosted on real iOS: the rAFs prove OUR process painted, but iOS
+    // presents frames and records its snapshot in a separate process on its own
+    // schedule, and a two-frame margin isn't enough. Waiting out the exit
+    // animation gives the compositor ~500ms of drawer-free frames, which no
+    // timing race can beat. Cost: the tap waits out the close animation.
+    //
+    // A plain timer, NOT vaul's onAnimationEnd: that callback only fires for
+    // closes vaul initiates itself (drag, scrim tap) — a controlled close like
+    // this one never triggers it. And internally it's the same thing anyway:
+    // vaul "detects" animation end with a 500ms setTimeout, not a real event.
+    const handleNavigate = (to: string) => {
+        onOpenChange(false)
+        window.setTimeout(() => navigate(to), DRAWER_EXIT_MS)
+    }
+
     return (
         <Drawer open={open} onOpenChange={onOpenChange}>
             <DrawerContent>
@@ -57,7 +85,7 @@ export const HomeWorkspacesDrawer = ({
                 </DrawerHeader>
                 {/* Content only mounts while open (vaul unmounts closed drawers),
                     so the store subscription below never runs in the background. */}
-                <DrawerBody onNavigate={() => onOpenChange(false)} />
+                <DrawerBody onNavigate={handleNavigate} />
             </DrawerContent>
         </Drawer>
     )
@@ -65,7 +93,7 @@ export const HomeWorkspacesDrawer = ({
 
 type UnreadRow = { channel: ChannelListItem; workspace: WorkspaceFields; count: number }
 
-const DrawerBody = ({ onNavigate }: { onNavigate: () => void }) => {
+const DrawerBody = ({ onNavigate }: { onNavigate: (to: string) => void }) => {
     const { workspaces } = useWorkspaces()
     const { channels } = useChannels()
     const { myProfile } = useCurrentRavenUser()
@@ -103,23 +131,28 @@ const DrawerBody = ({ onNavigate }: { onNavigate: () => void }) => {
         [unreadRows],
     )
 
-    const navigate = useNavigate()
     const setLastWorkspace = useSetAtom(lastWorkspaceAtom)
     const setLastChannel = useSetAtom(lastChannelAtom)
+    const { call } = useContext(FrappeContext) as FrappeConfig
+
+    // Both handlers hand the destination to the parent (onNavigate) instead of
+    // navigating here — the parent dismisses the drawer first, then navigates.
 
     const openWorkspace = (workspace: WorkspaceFields) => {
         // Persist immediately — on mobile no channel opens after a switch (the
         // list IS the page), so the Channel page's pair-write never fires.
         setLastWorkspace(workspace.name)
         setLastChannel("")
-        navigate(`/${encodeURIComponent(workspace.name)}`)
-        onNavigate()
+        onNavigate(`/${encodeURIComponent(workspace.name)}`)
     }
 
     const openChannel = (row: UnreadRow) => {
+        // Start fetching the channel's messages NOW — navigation waits out the
+        // drawer's 500ms close (see the parent), and this fetch runs during it,
+        // so the channel usually opens already loaded. No-op if already warm.
+        prefetchChannel(call as FrappeCallClient, row.channel.name)
         // The Channel page records last-visited itself; just go.
-        navigate(`/${encodeURIComponent(row.workspace.name)}/${encodeURIComponent(row.channel.name)}`)
-        onNavigate()
+        onNavigate(`/${encodeURIComponent(row.workspace.name)}/${encodeURIComponent(row.channel.name)}`)
     }
 
     // Rows are already in workspace order — fold them into per-workspace
@@ -176,7 +209,12 @@ const DrawerBody = ({ onNavigate }: { onNavigate: () => void }) => {
             {/* Zone 2 — unread channels, or the caught-up state. */}
             {unreadRows.length > 0 && (
                 <div className="border-t border-outline-gray-2 pt-4">
-                    <div className="max-h-[50vh] min-h-0 overflow-y-auto px-2 pb-2" data-vaul-no-drag>
+                    {/* Capped so the whole sheet stays near half the screen even
+                        with many unread channels — the workspace grid on top
+                        should stay within thumb reach, not ride up the screen.
+                        dvh, not vh: in a browser tab vh ignores the collapsing
+                        URL bar and would overshoot. */}
+                    <div className="max-h-[35dvh] min-h-0 overflow-y-auto px-2 pb-2" data-vaul-no-drag>
                         {sections.map(({ workspace, rows }) => (
                             <section key={workspace.name} className="mb-2">
                                 {showSectionHeaders && (

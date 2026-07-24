@@ -1,7 +1,7 @@
 import { useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useFrappePostCall, useFrappeDeleteDoc } from "frappe-react-sdk"
-import { useHotkeys } from "react-hotkeys-hook"
+import { useEscHotkey } from "@hooks/useEscHotkey"
 import { useAtom } from "jotai"
 import { toast } from "sonner"
 import { Button } from "@components/ui/button"
@@ -63,19 +63,21 @@ export default function ThreadDrawer({
     const parentIsDM = parentChannel?.is_direct_message === 1
     const threadInputRef = useRef<HTMLFormElement>(null)
 
+    // Parent channel route (DM or workspace channel). Absent until the parent channel is
+    // known (e.g. a cold deep-link still resolving).
+    const navigate = useNavigate()
+    const parentChannelBase =
+        parentChannelID && (parentIsDM || parentChannel?.workspace)
+            ? parentIsDM
+                ? `/dm-channel/${encodeURIComponent(parentChannelID)}`
+                : `/${encodeURIComponent(parentChannel?.workspace ?? "")}/${encodeURIComponent(parentChannelID)}`
+            : undefined
+
     // "Open channel": go to the parent channel with this thread still open and the
     // thread's ROOT message selected there (the thread id IS the root message id).
-    // Unavailable until the parent channel is known (e.g. a cold deep-link still resolving).
-    const navigate = useNavigate()
-    const onOpenChannel =
-        parentChannelID && (parentIsDM || parentChannel?.workspace)
-            ? () => {
-                const base = parentIsDM
-                    ? `/dm-channel/${encodeURIComponent(parentChannelID)}`
-                    : `/${encodeURIComponent(parentChannel?.workspace ?? "")}/${encodeURIComponent(parentChannelID)}`
-                navigate(`${base}/thread/${encodeURIComponent(threadID)}?message_id=${encodeURIComponent(threadID)}`)
-            }
-            : undefined
+    const onOpenChannel = parentChannelBase
+        ? () => navigate(`${parentChannelBase}/thread/${encodeURIComponent(threadID)}?message_id=${encodeURIComponent(threadID)}`)
+        : undefined
 
     // Gate the actions by your membership in the thread (already in the members store, seeded by
     // the pill / get_thread_details). Only members can leave; only thread admins can delete.
@@ -130,15 +132,15 @@ export default function ThreadDrawer({
     }
 
     // Esc closes the thread's poll drawer first, then the thread. enableOnContentEditable because
-    // the composer (ProseMirror) is a contentEditable, not a form tag. Disabled while the
-    // delete-confirm dialog is open — it owns Esc (Radix), so one press doesn't close both.
-    useHotkeys(
-        "esc",
+    // the composer (ProseMirror) is a contentEditable, not a form tag. useEscHotkey
+    // stands down while any modal (delete confirm, attachment preview, ...) is open,
+    // so one press never closes both the modal and the thread.
+    useEscHotkey(
         () => {
             if (threadPoll) setThreadPoll(null)
             else onClose()
         },
-        { enableOnFormTags: true, enableOnContentEditable: true, enabled: !confirmDelete },
+        { enableOnFormTags: true, enableOnContentEditable: true },
     )
 
     // A poll in this thread takes over the rail (its detail drawer overlays the thread).

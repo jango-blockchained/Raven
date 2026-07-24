@@ -1,13 +1,10 @@
-import { useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { useFrappeGetDoc } from "frappe-react-sdk"
-import { useSetAtom } from "jotai"
 import type { Message } from "@raven/types/common/Message"
 import { useChannelById } from "@stores/channels/useChannelList"
 import ChannelHeader from "@components/features/channel/ChannelHeader/ChannelHeader"
 import { DMChannelHeader } from "@components/features/dm-channel/DMChannelHeader"
 import { ChatContentView } from "@components/features/message/ChatContentView"
-import { messageTargetAtom, makeMessageTarget } from "@utils/channelAtoms"
 import { Empty, EmptyHeader, EmptyDescription, EmptyMedia } from "@components/ui/empty"
 import _ from "@lib/translate"
 import { Island } from "@components/layout/Island"
@@ -15,8 +12,9 @@ import type { UserData } from "@db"
 import ThreadDrawer from "@components/features/message/ThreadDrawer"
 import { MessageCircleIcon } from "lucide-react"
 
-/** Right-pane selection on the notifications page. Owned by `Notifications`
- * (useState there) and passed in — cleared automatically when the component unmounts on route change. */
+/** Selection payload a list row hands to its host's onSelect. Every host
+ * (notifications, search, saved messages) encodes it into its chat child route —
+ * path params + nav state, rendered by NotificationChatRoute in the right pane. */
 export type SelectedNotification = {
     channelID: string
     messageID: string
@@ -25,7 +23,7 @@ export type SelectedNotification = {
     isThread: boolean
 }
 
-export function NotificationsEmptyState() {
+export function NotificationsEmptyState({ message }: { message?: string }) {
     return (
         <div className="h-full p-0 md:p-1">
             <Island className="h-full">
@@ -35,7 +33,7 @@ export function NotificationsEmptyState() {
                     </EmptyMedia>
                     <EmptyHeader>
                         <EmptyDescription>
-                            {_("Select a notification to view the message.")}
+                            {message ?? _("Select a notification to view the message.")}
                         </EmptyDescription>
                     </EmptyHeader>
                 </Empty>
@@ -126,27 +124,3 @@ export function NotificationPane({
     )
 }
 
-export default function NotificationChat({ selected }: { selected: SelectedNotification | null }) {
-    const channelID = selected?.channelID ?? ""
-    const setMessageTarget = useSetAtom(messageTargetAtom(channelID))
-
-    // Tell the chat stream to scroll to the notification's message. makeMessageTarget
-    // creates a fresh request object each time, so clicking the same notification again
-    // still re-triggers the jump (a plain id would be ignored as an unchanged value).
-    useEffect(() => {
-        if (!selected) return
-        setMessageTarget(makeMessageTarget(selected.messageID))
-    }, [selected, setMessageTarget])
-
-    if (!selected) return <NotificationsEmptyState />
-
-    return (
-        <NotificationPane
-            channelID={selected.channelID}
-            isThread={selected.isThread}
-            isDirectMessage={selected.isDirectMessage}
-            peer={selected.peer}
-            initialMessageID={selected.messageID}
-        />
-    )
-}

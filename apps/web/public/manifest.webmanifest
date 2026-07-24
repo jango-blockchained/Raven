@@ -3,7 +3,7 @@
     "short_name": "Raven",
     "description": "Simple, work messaging app.",
     "start_url": "/raven/",
-    "scope": "/raven/",
+    "scope": "/raven",
     "id": "/raven",
     "display": "standalone",
     "background_color": "#171717",

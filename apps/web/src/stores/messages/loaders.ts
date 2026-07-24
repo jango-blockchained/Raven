@@ -196,6 +196,15 @@ export const MAX_QUIET_RECONCILE_WINDOW = 70
  */
 export const reconcileStaleWindow = async (client: FrappeCallClient, channelID: string) => {
     const state = channelMessagesStore.getState(channelID)
+    // Reconnect self-heal for a FAILED window: while the stream sits mounted on
+    // the error card, nothing else retries — this runs on every connection
+    // epoch bump (online, socket reconnect, unfreeze), so do a fresh full load.
+    // loadInitialMessages carries its own guards (navigation claim, in-flight
+    // dedupe), so a plain call here is safe.
+    if (state.status === "error") {
+        loadInitialMessages(client, channelID)
+        return
+    }
     // Only a loaded, at-the-bottom window can be quietly out of date:
     //  - a channel not loaded yet gets a full (stamping) fetch anyway
     //  - a window scrolled back into history is thrown away and refetched on
