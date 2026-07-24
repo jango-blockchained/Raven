@@ -1,5 +1,6 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Outlet, useMatch, useNavigate, useSearchParams } from 'react-router-dom'
+import { useDebounceValue } from 'usehooks-ts'
 import { useEscHotkey } from '@hooks/useEscHotkey'
 import { Search as SearchIcon, X } from 'lucide-react'
 
@@ -34,6 +35,17 @@ export default function Search() {
     // All search state lives in URL params so links like /search?q=foo&channel=general work.
     const [searchParams, setSearchParams] = useSearchParams()
     const searchValue = searchParams.get('q') ?? ''
+
+    // The ONE debounce for all result tabs (the search hooks don't debounce
+    // internally anymore). The URL is the source of truth and updates per
+    // keystroke by design (deep-linkable state), so this page re-renders per
+    // keystroke regardless — the debounce here is about not FETCHING per
+    // keystroke. Synced from the URL value via effect because useDebounceValue
+    // doesn't track its initial value.
+    const [debouncedQuery, setDebouncedQuery] = useDebounceValue(searchValue, 200)
+    useEffect(() => {
+        setDebouncedQuery(searchValue)
+    }, [searchValue, setDebouncedQuery])
 
     const setSearchValue = (value: string) => {
         setSearchParams(prev => {
@@ -93,7 +105,7 @@ export default function Search() {
     }, { enableOnFormTags: true }, [hasSelection, searchParams])
 
     const filters: SearchFilters = {
-        query: searchValue || '',
+        query: debouncedQuery || '',
         channel_id: channelFromURL,
         owner: userFromURL,
         file_type: fileTypeFromURL,

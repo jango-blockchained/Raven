@@ -111,7 +111,7 @@ const ChannelPins = ({ channelID }: { channelID: string }) => {
                                     </div>
                                     {/* Plain-text teaser (content is Tiptap HTML; media pins
                                         get an icon + label) — same helper as the sidebar */}
-                                    <div className="text-sm text-ink-gray-7 line-clamp-2">
+                                    <div className="text-p-sm text-ink-gray-7 line-clamp-2">
                                         {getMessageTeaser(message, undefined, 160)}
                                     </div>
                                 </button>
