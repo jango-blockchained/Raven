@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Outlet, useMatch, useNavigate, useSearchParams } from 'react-router-dom'
 import { useEscHotkey } from '@hooks/useEscHotkey'
 import { Search as SearchIcon, X } from 'lucide-react'
@@ -7,9 +7,15 @@ import SearchTabsBar, { SearchTab } from '@components/features/search/SearchTabs
 import { SearchFiltersBar } from '@components/features/search/SearchFiltersBar'
 import { SearchActiveBadges } from '@components/features/search/SearchActiveBadges'
 import SearchMessageResults from '@components/features/search/results/SearchMessageResults'
-import SearchFileResults from '@components/features/search/results/SearchFileResults'
-import SearchLinkResults from '@components/features/search/results/SearchLinkResults'
-import SearchPollResults from '@components/features/search/results/SearchPollResults'
+import { MessageListSkeleton } from '@components/features/dm-channel/DirectMessagePageSkeleton'
+
+// Messages is the landing tab, so its results stay in the page's own chunk —
+// the other tabs' renderers load on first visit to that tab. Their chunks are
+// tiny individually, but each pulls its own preview machinery (file previews,
+// poll cards), and most searches never leave the messages tab.
+const SearchFileResults = lazy(() => import('@components/features/search/results/SearchFileResults'))
+const SearchLinkResults = lazy(() => import('@components/features/search/results/SearchLinkResults'))
+const SearchPollResults = lazy(() => import('@components/features/search/results/SearchPollResults'))
 import { NotificationsEmptyState, type SelectedNotification } from '@pages/notifications/NotificationChat'
 import AppMobileFooter from '@components/features/header/AppMobileFooter'
 import { PageHeader } from '@components/layout/PageHeader'
@@ -245,9 +251,15 @@ export default function Search() {
                             {hasActiveSearch && (
                                 <>
                                     {activeTab === 'messages' && <SearchMessageResults searchValue={filters.query} filters={filters} onSelect={onSelect} selectedID={selectedMessageID} />}
-                                    {activeTab === 'files' && <SearchFileResults searchValue={filters.query} filters={filters} onSelect={onSelect} selectedID={selectedMessageID} />}
-                                    {activeTab === 'links' && <SearchLinkResults searchValue={filters.query} filters={filters} onSelect={onSelect} selectedID={selectedMessageID} />}
-                                    {activeTab === 'polls' && <SearchPollResults searchValue={filters.query} filters={filters} onSelect={onSelect} selectedID={selectedMessageID} />}
+                                    {/* Tab switches are plain state updates (not router
+                                        transitions), so a first visit to a lazy tab shows
+                                        this skeleton while its chunk loads — same rows the
+                                        results themselves show while fetching. */}
+                                    <Suspense fallback={<MessageListSkeleton />}>
+                                        {activeTab === 'files' && <SearchFileResults searchValue={filters.query} filters={filters} onSelect={onSelect} selectedID={selectedMessageID} />}
+                                        {activeTab === 'links' && <SearchLinkResults searchValue={filters.query} filters={filters} onSelect={onSelect} selectedID={selectedMessageID} />}
+                                        {activeTab === 'polls' && <SearchPollResults searchValue={filters.query} filters={filters} onSelect={onSelect} selectedID={selectedMessageID} />}
+                                    </Suspense>
                                 </>
                             )}
                         </div>
