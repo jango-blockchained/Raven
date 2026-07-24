@@ -362,9 +362,91 @@ class RavenMessage(Document):
 		# lock waits into transaction-fatal 1020 errors). Frappe's denormalized
 		# write patterns (this, track_channel_visit, reply counts) all assume
 		# classic REPEATABLE READ semantics.
+		# Row locks (for_update=True) do NOT avoid this: 1020 is about snapshot
+		# AGE, not lock acquisition — a SELECT ... FOR UPDATE on a row that
+		# changed after this transaction's first read raises the same error.
+		# Frappe core's only handling is classifying 1020 as a deadlock
+		# (is_deadlocked in database/mariadb) → HTTP 508, no retry.
 		query.run()
 
 		return message_details
+
+	def update_channel_last_message_on_edit(self):
+		"""
+		If this message is still the channel's LAST message, rewrite the stored
+		teaser (last_message_details) with the edited content — otherwise the DM
+		sidebar keeps showing the old text. The timestamp is deliberately left
+		untouched: an edit must not move the conversation up the list.
+
+		NOT publish_unread_count_event: its thread branch refreshes reply counts
+		and pings every participant's thread badge — side effects a plain edit
+		must not trigger. Only DMs get a live event here, because the DM list is
+		the only surface that renders the teaser TEXT; regular-channel events
+		deliberately never carry message content (they broadcast to everyone).
+		"""
+		# This read looks redundant with the UPDATE's where clause below, but it
+		# is what gates the PUBLISH: without it, editing an older message would
+		# still broadcast its details and clients would overwrite the teaser.
+		# (The update's affected-row count can't be used instead — MySQL counts
+		# CHANGED rows, not matched ones, so an identical rewrite reports 0.)
+		if frappe.db.get_value("Raven Channel", self.channel_id, "last_message_id") != self.name:
+			return
+
+		message_details = json.dumps(
+			{
+				"message_id": self.name,
+				"content": self.content,
+				"message_type": self.message_type,
+				"owner": self.owner,
+				"is_bot_message": self.is_bot_message,
+				"bot": self.bot,
+			}
+		)
+
+		# Same direct update as set_last_message_timestamp (no document-cache
+		# invalidation). The where clause re-checks last_message_id, so if a
+		# newer message lands between our read above and this write, we no-op.
+		raven_channel = frappe.qb.DocType("Raven Channel")
+		(
+			frappe.qb.update(raven_channel)
+			.where((raven_channel.name == self.channel_id) & (raven_channel.last_message_id == self.name))
+			.set(raven_channel.last_message_details, message_details)
+		).run()
+
+		channel_doc = frappe.get_cached_doc("Raven Channel", self.channel_id)
+		if not channel_doc.is_direct_message:
+			return
+
+		# The event carries NO last_message_timestamp on purpose: the client
+		# patches the teaser text only and leaves the DM's sort position alone.
+		payload = {
+			"channel_id": self.channel_id,
+			"play_sound": False,
+			"sent_by": self.owner,
+			"is_dm_channel": True,
+			"last_message_details": message_details,
+			"event_type": "message_edited",
+		}
+
+		if not channel_doc.is_self_message:
+			peer_user_id = get_peer_user_id_from_dm_users(channel_doc, relative_to=self.owner)
+			peer_type = (
+				frappe.get_cached_value("Raven User", peer_user_id, "type") if peer_user_id else None
+			)
+			if peer_type == "User":
+				frappe.publish_realtime(
+					"raven:unread_channel_count_updated",
+					payload,
+					user=peer_user_id,
+					after_commit=True,
+				)
+
+		frappe.publish_realtime(
+			"raven:unread_channel_count_updated",
+			payload,
+			user=self.owner,
+			after_commit=True,
+		)
 
 	def publish_unread_count_event(
 		self,
@@ -699,6 +781,16 @@ class RavenMessage(Document):
 
 		# TEMP: this is a temp fix for the Desk interface
 		self.publish_deprecated_event_for_desk()
+
+		# An edit can change the text shown in the channel's sidebar teaser.
+		# Create and delete already keep the teaser fresh — this covers edits.
+		# Gated on an actual content change (not the sticky is_edited flag), so
+		# reaction updates and metadata saves don't rewrite the teaser. AI
+		# streaming saves the doc on every token — skip those too.
+		if self.message_type != "System" and not self.flags.is_ai_streaming:
+			old_doc = self.get_doc_before_save()
+			if old_doc and old_doc.content != self.content:
+				self.update_channel_last_message_on_edit()
 
 		if self.is_edited or self.is_thread or self.flags.editing_metadata:
 			frappe.publish_realtime(
