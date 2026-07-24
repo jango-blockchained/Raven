@@ -20,6 +20,8 @@ import { PageHeader } from "@components/layout/PageHeader"
 import AppMobileFooter from "@components/features/header/AppMobileFooter"
 import { NotificationsEmptyState, type SelectedNotification } from "./NotificationChat"
 import { MentionItem, ReactionItem } from "./NotificationItem"
+import { PullToRefresh } from "@components/ui/pull-to-refresh"
+import ErrorBanner from "@components/ui/error-banner"
 import { cn } from "@lib/utils"
 
 type NotificationTab = "all" | "mentions" | "reactions"
@@ -55,8 +57,10 @@ export default function Notifications() {
     const {
         rows: currentData,
         isLoading,
+        error,
         hasMore,
         loadMore: loadMoreRows,
+        refresh,
         markMessageRead,
         markAllRead,
     } = useNotificationList(tab, { unreadOnly: showUnread })
@@ -64,6 +68,9 @@ export default function Notifications() {
     const unreadCount = useUnreadNotificationsCount()
 
     const usersById = useUsersById()
+
+    // Pull-to-refresh needs the real scrolling element (Virtuoso's scroller).
+    const [listScroller, setListScroller] = useState<HTMLElement | null>(null)
 
     const loadMore = useCallback(() => {
         if (hasMore) loadMoreRows()
@@ -155,13 +162,32 @@ export default function Notifications() {
 
                         {/* Empty state centers over the whole nav (absolute) so it lands at the
                                 same height as the right pane's empty state, not offset below the
-                                header + tabs. pointer-events-none keeps those clickable. */}
+                                header + tabs. pointer-events-none keeps those clickable. Error
+                                state takes precedence over "caught up" — a failed load must not
+                                masquerade as an empty inbox (the badge may still show unreads). */}
+                        {/* z-10: the PullToRefresh list wrapper below is position:relative
+                                (for its floating spinner) and later in source order, so it
+                                paints ABOVE this overlay and would swallow the error card's
+                                clicks — transparent elements still hit-test. */}
                         {currentData.length === 0 && !isLoading && (
-                            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                                <EmptyState showUnread={showUnread} />
+                            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+                                {error ? (
+                                    <ErrorBanner
+                                        error={error}
+                                        layout="centered"
+                                        overrideHeading={_("Couldn't load notifications")}
+                                        className="pointer-events-auto"
+                                    >
+                                        <Button variant="outline" size="sm" onClick={() => refresh()}>
+                                            {_("Retry")}
+                                        </Button>
+                                    </ErrorBanner>
+                                ) : (
+                                    <EmptyState showUnread={showUnread} />
+                                )}
                             </div>
                         )}
-                        <div className="flex min-h-0 flex-1">
+                        <PullToRefresh scroller={listScroller} onRefresh={refresh}>
                             {currentData.length === 0 && isLoading && <NotificationListSkeleton />}
                             {currentData.length > 0 && (
                                 <Virtuoso
@@ -173,6 +199,7 @@ export default function Notifications() {
                                     components={notificationsListComponents}
                                     defaultItemHeight={80}
                                     computeItemKey={(_index, item) => item.name}
+                                    scrollerRef={(el) => setListScroller(el instanceof HTMLElement ? el : null)}
                                     itemContent={(_index, item) =>
                                         item.notification_type === "mention" ? (
                                             <MentionItem
@@ -180,6 +207,7 @@ export default function Notifications() {
                                                 sender={usersById.get(item.owner)}
                                                 isActive={selectedMessageID === item.message_id}
                                                 onSelect={onSelect}
+                                                onMarkRead={markMessageRead}
                                             />
                                         ) : (
                                             <ReactionItem
@@ -187,12 +215,13 @@ export default function Notifications() {
                                                 usersById={usersById}
                                                 isActive={selectedMessageID === item.message_id}
                                                 onSelect={onSelect}
+                                                onMarkRead={markMessageRead}
                                             />
                                         )
                                     }
                                 />
                             )}
-                        </div>
+                        </PullToRefresh>
                         <UnreadFilterPill active={showUnread} onToggle={onShowUnreadChange} />
                     </nav>
                 </div>

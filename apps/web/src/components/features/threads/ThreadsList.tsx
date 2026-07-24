@@ -13,7 +13,10 @@ import { loadThreadDetails, useThreadReplyCount } from "@stores/threads/useThrea
 import type { ThreadRowData } from "@stores/threads/listSelectors"
 import { MessageListSkeleton } from "@components/features/dm-channel/DirectMessagePageSkeleton"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@components/ui/empty"
-import { Bot, CheckCheck, MessagesSquare, Search, TriangleAlert } from "lucide-react"
+import { Button } from "@components/ui/button"
+import { PullToRefresh } from "@components/ui/pull-to-refresh"
+import ErrorBanner from "@components/ui/error-banner"
+import { Bot, CheckCheck, MessagesSquare, Search } from "lucide-react"
 import type { ChannelListItem, DMChannelListItem } from "@raven/types/common/ChannelListItem"
 import _ from "@lib/translate"
 
@@ -149,7 +152,7 @@ export default function ThreadsList({
     onThreadClick,
     activeThreadID,
 }: ThreadsListProps) {
-    const { rows, isLoading, error, hasMore, loadMore } = useThreadList(threadType, {
+    const { rows, isLoading, error, hasMore, loadMore, refresh } = useThreadList(threadType, {
         channel: channelFilter,
         onlyShowUnread,
         search: searchQuery ?? "",
@@ -176,13 +179,19 @@ export default function ThreadsList({
     if (error) {
         return (
             <EmptyOverlay>
-                <Empty>
-                    <EmptyMedia><TriangleAlert /></EmptyMedia>
-                    <EmptyHeader>
-                        <EmptyTitle>{_("Couldn't load threads")}</EmptyTitle>
-                        <EmptyDescription>{error}</EmptyDescription>
-                    </EmptyHeader>
-                </Empty>
+                {/* pointer-events-auto: the overlay is pointer-events-none (keeps
+                    the toolbar clickable through it) — re-enable hits for the
+                    error block so Retry works. */}
+                <ErrorBanner
+                    error={error}
+                    layout="centered"
+                    overrideHeading={_("Couldn't load threads")}
+                    className="pointer-events-auto"
+                >
+                    <Button variant="outline" size="sm" onClick={() => refresh()}>
+                        {_("Retry")}
+                    </Button>
+                </ErrorBanner>
             </EmptyOverlay>
         )
     }
@@ -228,6 +237,7 @@ export default function ThreadsList({
         // only when it's actually near-visible — Virtuoso mounts more rows than are on screen,
         // so gating on mount would over-fetch (see ThreadRow).
         <ScrollViewportContext.Provider value={scroller}>
+            <PullToRefresh scroller={scroller} onRefresh={refresh} className="h-full">
             <Virtuoso
                 data={rows}
                 style={{ height: "100%" }}
@@ -249,6 +259,7 @@ export default function ThreadsList({
                     />
                 ) : null}
             />
+            </PullToRefresh>
         </ScrollViewportContext.Provider>
     )
 }

@@ -1,5 +1,5 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useSyncExternalStore } from "react"
-import { FrappeConfig, FrappeContext } from "frappe-react-sdk"
+import { FrappeConfig, FrappeContext, useSWRConfig } from "frappe-react-sdk"
 import { subscribeConnectionEpoch } from "@stores/connectionFreshness"
 import { unreadThreadsStore } from "@stores/threads/unreadStore"
 import { ThreadTab, searchViewKey, threadListStore } from "./listStore"
@@ -109,6 +109,19 @@ export const useThreadList = (tab: ThreadTab, { channel, onlyShowUnread, search 
         loadMoreThreads(client, tab, viewKey, filters)
     }, [client, tab, viewKey, filters])
 
+    // Manual refresh (pull-to-refresh / error-state Retry): refetch the first
+    // page of this view and revalidate the unread-thread set. Search views
+    // re-run their snapshot instead (that's their whole lifecycle).
+    const { mutate: globalMutate } = useSWRConfig()
+    const refresh = useCallback(async () => {
+        if (isSearch) {
+            await reloadThreads(client, tab, viewKey, filters)
+        } else {
+            await reconcileFirstPage(client, tab, viewKey, filters)
+        }
+        await globalMutate("unread_threads")
+    }, [client, tab, viewKey, isSearch, filters, globalMutate])
+
     // Session-sticky unread view (same pattern as useNotificationList): a thread the user is
     // LOOKING at must not vanish the moment it's read — clicking it clears its unread
     // (onThreadClick → unreadThreadsStore.remove), which would otherwise yank the row out of
@@ -143,5 +156,6 @@ export const useThreadList = (tab: ThreadTab, { channel, onlyShowUnread, search 
         error: state.status === "error" ? state.error : null,
         hasMore: state.hasMore,
         loadMore,
+        refresh,
     }
 }
