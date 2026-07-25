@@ -274,6 +274,13 @@ function ListViewInner<TData>({
     // Id of the column being dragged, for the active resize-guide styling.
     const [resizingColId, setResizingColId] = React.useState<string | null>(null)
 
+    // Teardown for the drag in progress. A drag can end without pointerup —
+    // pointercancel (touch claimed elsewhere), or this component unmounting
+    // mid-drag — and without this the window listeners and the body's
+    // select-none / col-resize cursor stuck around forever.
+    const activeResizeCleanupRef = React.useRef<(() => void) | null>(null)
+    React.useEffect(() => () => activeResizeCleanupRef.current?.(), [])
+
     const debouncedSizingCommit = useDebounceCallback(
         (sizing: ColumnSizingState) => {
             onColumnSizingCommit?.(sizing)
@@ -423,9 +430,13 @@ function ListViewInner<TData>({
                 setResizingColId(null)
                 window.removeEventListener("pointermove", onMove)
                 window.removeEventListener("pointerup", onUp)
+                window.removeEventListener("pointercancel", onUp)
+                activeResizeCleanupRef.current = null
             }
+            activeResizeCleanupRef.current = onUp
             window.addEventListener("pointermove", onMove)
             window.addEventListener("pointerup", onUp)
+            window.addEventListener("pointercancel", onUp)
         },
         [direction, table, onColumnSizingChangeInternal],
     )
