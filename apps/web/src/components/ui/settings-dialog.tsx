@@ -1,4 +1,5 @@
 import * as React from "react"
+import { SettingsDialogContext } from "./settings-dialog-context"
 import { Tabs as TabsPrimitive, Dialog as DialogPrimitive } from "radix-ui"
 import { cn } from "@lib/utils"
 import { DialogContent } from "./dialog"
@@ -34,17 +35,6 @@ import { Label } from "./label"
  * </Dialog>
  */
 
-type SettingsDialogContextValue = {
-    onClose?: VoidFunction
-}
-
-const SettingsDialogContext = React.createContext<SettingsDialogContextValue>({})
-
-/**
- * Exposes `onClose` to descendant panels so they can dismiss the dialog after
- * a successful save without prop-drilling.
- */
-export const useSettingsDialog = () => React.useContext(SettingsDialogContext)
 
 type SettingsDialogProps = Omit<
     React.ComponentProps<typeof TabsPrimitive.Root>,

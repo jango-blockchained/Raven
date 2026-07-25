@@ -21,7 +21,7 @@ import { CreateChannelDialog } from '@components/features/channel/CreateChannel/
 import _ from "@lib/translate"
 import { useIsMobile } from '@hooks/use-mobile'
 import { useSetAtom } from 'jotai'
-import { settingsDialogOpenTab } from '@components/features/settings/SettingsDialog'
+import { settingsDialogOpenTab } from '@components/features/settings/settingsDialogAtom'
 import { Hash } from '@components/common/ChannelIcon/ChannelIcon'
 
 // Lazy for the same reason the settings dialog lazies its panels: this is the

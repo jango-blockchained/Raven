@@ -25,8 +25,8 @@ import {
     SettingsPanelDescription,
     SettingsPanelHeader,
     SettingsPanelTitle,
-    useSettingsDialog,
 } from "@components/ui/settings-dialog"
+import { useSettingsDialog } from "@components/ui/settings-dialog-context"
 import { CreateChannelDialog } from "@components/features/channel/CreateChannel/CreateChannelButton"
 
 export const Channels = () => {

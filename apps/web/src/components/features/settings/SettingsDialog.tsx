@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react';
+import { settingsDialogOpenTab } from "./settingsDialogAtom"
 import { Hash } from '@components/common/ChannelIcon/ChannelIcon';
 import { Dialog } from '@components/ui/dialog';
 import { SettingsDialog, SettingsPanel, SettingsPanelContent, SettingsPanelDescription, SettingsPanelHeader, SettingsPanels, SettingsPanelTitle, SettingsTabGroup, SettingsTabItem, SettingsTabs } from '@components/ui/settings-dialog';
@@ -275,7 +276,7 @@ const SETTINGS_TABS: {
     }
 ]
 
-export const settingsDialogOpenTab = atom<"" | (typeof SETTINGS_TABS)[number]["id"]>("")
+export type SettingsTabId = (typeof SETTINGS_TABS)[number]["id"]
 
 const RavenSettingsDialog = () => {
 
