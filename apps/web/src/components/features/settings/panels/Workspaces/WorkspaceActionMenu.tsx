@@ -97,6 +97,11 @@ const RenameWorkspaceForm = ({
         call({ doctype: "Raven Workspace", docname: workspaceID, name, merge: 0 }).then((res) => {
             toast.success(_("Workspace renamed"))
             globalMutate("workspaces_list")
+            // Renaming cascades the new name into every channel's `workspace`
+            // link server-side — without refetching the channel list, the
+            // renamed workspace's sidebar shows no channels (they still carry
+            // the old name client-side) until some later revalidation.
+            globalMutate("channel_list")
             if (lastWorkspace === workspaceID) {
                 setLastWorkspace(res.message)
             }
