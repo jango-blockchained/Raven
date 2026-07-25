@@ -3,6 +3,10 @@ import Channel from "@pages/workspace/Channel"
 import Notifications from "@pages/notifications/Notifications"
 import NotificationChatRoute from "@pages/notifications/NotificationChatRoute"
 import { MessagePermalinkSkeleton } from "@pages/message/MessagePermalinkSkeleton"
+import { ProfilePageSkeleton } from "@pages/profile/ProfilePageSkeleton"
+import { ShareTargetSkeleton } from "@pages/share/ShareTargetSkeleton"
+import { ListPageSkeleton } from "@components/layout/ListPageSkeleton"
+import _ from "@lib/translate"
 import ErrorPage from "@pages/ErrorPage"
 import Threads from "@pages/threads/Threads"
 import DirectMessages, { DirectMessagesIndex } from "@pages/dm-channel/DirectMessages"
@@ -29,9 +33,10 @@ import WorkspaceLayout from "@pages/workspace/WorkspaceLayout"
 // rendering the route until its module resolves — a blank screen on the COLD
 // entries these pages mostly get (shared links, the OS share sheet) — while
 // Suspense paints the app shell + fallback immediately.
-// TODO: review the Suspense fallbacks/skeletons for these routes as a set —
-// most are `null` today; each page should get a silhouette of its own layout
-// (like MessagePermalinkSkeleton) so chunk-load never flashes blank.
+// Every lazy route gets a silhouette of its own layout as its Suspense
+// fallback — chunk-load must never flash blank. On mobile the tab bar lives
+// INSIDE each page's chunk, so the fallbacks mount the real (eager) footer:
+// the frame stays put and the tabs stay tappable during the load.
 const MessagePermalink = lazy(() => import("@pages/message/MessagePermalink"))
 const ShareTarget = lazy(() => import("@pages/share/ShareTarget"))
 const SavedMessages = lazy(() => import("@pages/saved-messages/SavedMessages"))
@@ -108,15 +113,25 @@ const router = createBrowserRouter(
       <Route path="threads" element={<Threads />}>
         <Route path=":threadID" element={<ThreadDrawerRoute />} />
       </Route>
-      <Route path="search" element={<Suspense fallback={null}><Search /></Suspense>}>
+      {/* The `key` on every lazy route's Suspense is LOAD-BEARING. Adjacent
+          lazy routes render the same shape at the same Outlet position, so
+          without keys React reconciles them into ONE reused Suspense instance
+          — and a reused boundary suspending inside a router transition keeps
+          showing its old content (the previous PAGE) instead of the fallback.
+          Keys force a fresh boundary per route; a new boundary shows its
+          skeleton immediately, even mid-transition. */}
+      <Route path="search" element={<Suspense key="search" fallback={<ListPageSkeleton title={_("Search")} />}><Search /></Suspense>}>
         <Route path=":channelID/:messageID" element={<NotificationChatRoute />} />
       </Route>
-      <Route path="saved-messages" element={<Suspense fallback={null}><SavedMessages /></Suspense>}>
+      <Route path="saved-messages" element={<Suspense key="saved-messages" fallback={<ListPageSkeleton title={_("Saved Messages")} />}><SavedMessages /></Suspense>}>
         <Route path=":channelID/:messageID" element={<NotificationChatRoute />} />
       </Route>
-      <Route path="profile" element={<Suspense fallback={null}><MobileProfile /></Suspense>} />
+      {/* Fallback = the page's silhouette WITH the real tab bar: the footer
+          lives inside this lazy chunk, so a null fallback blanked the whole
+          screen (footer included) for the duration of the load. */}
+      <Route path="profile" element={<Suspense key="profile" fallback={<ProfilePageSkeleton />}><MobileProfile /></Suspense>} />
       {/* OS share sheet lands here (manifest share_target) — conversation picker */}
-      <Route path="share-target" element={<Suspense fallback={null}><ShareTarget /></Suspense>} />
+      <Route path="share-target" element={<Suspense key="share-target" fallback={<ShareTargetSkeleton />}><ShareTarget /></Suspense>} />
       {/* Permalink resolver — "Copy message link" always produces this route; it
           redirects to the message's real home (channel, DM, or thread). The
           fallback is the SAME skeleton the page renders while resolving, so
@@ -124,7 +139,7 @@ const router = createBrowserRouter(
       <Route
         path="message/:messageID"
         element={
-          <Suspense fallback={<MessagePermalinkSkeleton />}>
+          <Suspense key="message-permalink" fallback={<MessagePermalinkSkeleton />}>
             <MessagePermalink />
           </Suspense>
         }
@@ -140,21 +155,25 @@ const router = createBrowserRouter(
 
 function App() {
 
-  useEffect(() => {
-    // Check if user is logged in by checking the Cookie "user_id"
-    // In Frappe, unauthenticated users are "Guest"
-    const userId = document.cookie?.split('; ').find(row => row.startsWith('user_id='))?.split('=')[1]?.trim()
-    const isLoggedIn = userId !== 'Guest'
+  // Login check, SYNCHRONOUS and before the router renders. It used to live in
+  // a post-paint effect, so a logged-out visitor rendered the whole app for a
+  // few frames — ProtectedRoute's "no access" alert flashed — before the
+  // redirect kicked in. Checked during render, we paint nothing instead while
+  // the browser navigates to login. (Frappe marks anonymous visitors with
+  // user_id=Guest; dev builds skip the redirect — there's no local login page.)
+  const userId = Cookies.get('user_id')
+  const isLoggedIn = !!userId && userId !== 'Guest'
+  const shouldRedirectToLogin = !isLoggedIn && !import.meta.env.DEV
 
-    if (!isLoggedIn) {
-      if (import.meta.env.DEV) {
-        return
-      }
-      // Redirect to Frappe login page with the correct redirect to the current route
+  useEffect(() => {
+    if (shouldRedirectToLogin) {
       window.location.href = `/login?redirect-to=${window.location.pathname}`
-      return
     }
-  }, [])
+  }, [shouldRedirectToLogin])
+
+  if (shouldRedirectToLogin) {
+    return null
+  }
 
   return (
     <LucideProvider

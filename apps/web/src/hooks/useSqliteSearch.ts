@@ -1,4 +1,3 @@
-import { useDebounce } from "@raven/lib/hooks/useDebounce"
 import { useFrappeGetCall } from "frappe-react-sdk"
 import { useMemo } from "react"
 import { expandFileTypeGroups } from "@components/features/search/FileTypeFilter"
@@ -72,7 +71,9 @@ export const useSqliteSearch = (
 ) => {
     const trimmed = (query ?? '').trim()
     const longEnoughSearchQuery = trimmed.length >= 4 ? query : ''
-    const debouncedQuery = useDebounce(longEnoughSearchQuery, 200)
+    // `query` is used AS GIVEN — no debounce here. Callers own debouncing
+    // (see useLinkSearch for the reasoning).
+    const searchText = longEnoughSearchQuery ?? ''
 
     const apiFilters = useMemo(() => {
         if (filters) {
@@ -81,8 +82,8 @@ export const useSqliteSearch = (
     }, [JSON.stringify(filters)])
 
     const swrKey = useMemo(() =>
-        `raven.api.search.sqlite_search?query=${debouncedQuery}&filters=${JSON.stringify(apiFilters)}&limit=${limit}`,
-        [debouncedQuery, apiFilters, limit]
+        `raven.api.search.sqlite_search?query=${searchText}&filters=${JSON.stringify(apiFilters)}&limit=${limit}`,
+        [searchText, apiFilters, limit]
     )
 
     const { data, error, isLoading, mutate } = useFrappeGetCall<{
@@ -90,7 +91,7 @@ export const useSqliteSearch = (
     }>(
         'raven.api.search.sqlite_search',
         {
-            query: debouncedQuery,
+            query: searchText,
             filters: apiFilters,
             limit
         },

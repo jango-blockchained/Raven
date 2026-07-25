@@ -1,4 +1,3 @@
-import { useDebounce } from "@raven/lib/hooks/useDebounce"
 import { useFrappeGetCall } from "frappe-react-sdk"
 import { useMemo } from "react"
 import { SearchFilters } from "@components/features/search/types"
@@ -56,10 +55,14 @@ const buildParams = (query: string | undefined, filters: SearchFilters | undefin
 }
 
 export const useLinkSearch = (query?: string, filters?: SearchFilters, limit: number = 50) => {
-    const debouncedQuery = useDebounce(query ?? '', 200)
+    // `query` is used AS GIVEN — no debounce here. Callers own debouncing (at
+    // the input via useDebounceValue, or once at the page level): a pre-debounced
+    // caller must not pay a second lag, and only input-site debouncing can
+    // prevent re-renders — a hook-internal value debounce never could.
+    const searchText = query ?? ''
 
-    const apiParams = useMemo(() => buildParams(debouncedQuery, filters, limit),
-        [debouncedQuery, JSON.stringify(filters), limit])
+    const apiParams = useMemo(() => buildParams(searchText, filters, limit),
+        [searchText, JSON.stringify(filters), limit])
 
     const swrKey = useMemo(
         () => `raven.api.search.search_links?${JSON.stringify(apiParams)}`,

@@ -121,7 +121,6 @@
    color/radius tokens frappe-ui doesn't define (kept until components migrate
    to the canonical names). */
 @theme inline {
-  /** TODO: Update sidebar and header heights here **/
   --app-header-height: 36px;
   --primary-sidebar-width: 60px;
   --sidebar-width: 256px;

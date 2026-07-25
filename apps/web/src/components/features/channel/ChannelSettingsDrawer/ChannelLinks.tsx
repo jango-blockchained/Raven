@@ -1,5 +1,5 @@
 import { Search, ExternalLink, Link, FileBox } from 'lucide-react'
-import { useState } from 'react'
+import { useDebounceValue } from 'usehooks-ts'
 import { useFrappeEventListener } from 'frappe-react-sdk'
 import _ from '@lib/translate'
 import { Skeleton } from '@components/ui/skeleton'
@@ -12,7 +12,10 @@ import { Input } from '@components/ui/input'
 
 const ChannelLinks = ({ channelID }: { channelID: string }) => {
     const { members } = useChannelMembers(channelID)
-    const [searchQuery, setSearchQuery] = useState('')
+    // Debounced at the INPUT (uncontrolled below): keystrokes render nothing;
+    // the tab re-renders once per settled query. The search hooks no longer
+    // debounce internally — this is the one debounce.
+    const [searchQuery, setSearchQuery] = useDebounceValue('', 200)
 
     const { results, isLoading, error, mutate } = useLinkSearch(searchQuery, {
         channel_id: channelID,
@@ -32,7 +35,6 @@ const ChannelLinks = ({ channelID }: { channelID: string }) => {
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-ink-gray-4" />
                     <Input
                         placeholder={_("Search links...")}
-                        value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="pl-9 h-8 text-sm"
                     />

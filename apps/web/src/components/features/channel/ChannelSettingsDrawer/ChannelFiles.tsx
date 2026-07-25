@@ -1,6 +1,7 @@
 import { UserAvatar } from '@components/features/message/UserAvatar'
 import { ArrowDownToLine, LayoutGridIcon, ListIcon, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { useDebounceValue } from 'usehooks-ts'
 import { useSetAtom } from 'jotai'
 import FileTypeIcon from '@components/common/FileIcons/FileTypeIcon'
 import { useSqliteSearch, type SearchResult } from '@hooks/useSqliteSearch'
@@ -29,7 +30,10 @@ const toAttachment = (file: SearchResult): Attachment => ({
 })
 
 const ChannelFiles = ({ channelID }: { channelID: string }) => {
-    const [searchQuery, setSearchQuery] = useState('')
+    // Debounced at the INPUT (uncontrolled below): keystrokes render nothing;
+    // the tab re-renders once per settled query. The search hooks no longer
+    // debounce internally — this is the one debounce.
+    const [searchQuery, setSearchQuery] = useDebounceValue('', 200)
     const [view, setView] = useState<FilesView>('list')
     const { results, isLoading, error } = useSqliteSearch(searchQuery, { channel_id: channelID, message_type: ["File", "Image"] }, 100, (r) => r.title)
     const { members } = useChannelMembers(channelID)
@@ -55,7 +59,6 @@ const ChannelFiles = ({ channelID }: { channelID: string }) => {
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-ink-gray-4" />
                     <Input
                         placeholder={_("Search files...")}
-                        value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="pl-9 h-8 text-sm"
                     />

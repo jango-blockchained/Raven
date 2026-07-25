@@ -198,10 +198,30 @@ const NotificationRowLayout = ({
         event.stopPropagation()
     }
 
+    // The row is a DIV with button semantics, not a real <button>: the body
+    // renders rich message content that can contain interactive elements (a
+    // code block's copy button, links), and a button inside a button is
+    // invalid HTML. Clicks on those inner controls must also not open the
+    // notification — they did their own job.
+    const onRowClick = (event: React.MouseEvent) => {
+        if ((event.target as HTMLElement).closest("button, a")) return
+        onClick()
+    }
+
+    const onRowKeyDown = (event: React.KeyboardEvent) => {
+        if (event.target !== event.currentTarget) return
+        if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault()
+            onClick()
+        }
+    }
+
     return (
-        <button
-            type="button"
-            onClick={onClick}
+        <div
+            role="button"
+            tabIndex={0}
+            onClick={onRowClick}
+            onKeyDown={onRowKeyDown}
             onClickCapture={onClickCapture}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
@@ -240,7 +260,7 @@ const NotificationRowLayout = ({
                     </div>
                 </div>
             </div>
-        </button>
+        </div>
     )
 }
 

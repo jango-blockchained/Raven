@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Outlet, useMatch, useNavigate, useSearchParams } from 'react-router-dom'
+import { useDebounceValue } from 'usehooks-ts'
 import { useEscHotkey } from '@hooks/useEscHotkey'
 import { Search as SearchIcon, X } from 'lucide-react'
 
@@ -7,9 +8,15 @@ import SearchTabsBar, { SearchTab } from '@components/features/search/SearchTabs
 import { SearchFiltersBar } from '@components/features/search/SearchFiltersBar'
 import { SearchActiveBadges } from '@components/features/search/SearchActiveBadges'
 import SearchMessageResults from '@components/features/search/results/SearchMessageResults'
-import SearchFileResults from '@components/features/search/results/SearchFileResults'
-import SearchLinkResults from '@components/features/search/results/SearchLinkResults'
-import SearchPollResults from '@components/features/search/results/SearchPollResults'
+import { MessageListSkeleton } from '@components/features/dm-channel/DirectMessagePageSkeleton'
+
+// Messages is the landing tab, so its results stay in the page's own chunk —
+// the other tabs' renderers load on first visit to that tab. Their chunks are
+// tiny individually, but each pulls its own preview machinery (file previews,
+// poll cards), and most searches never leave the messages tab.
+const SearchFileResults = lazy(() => import('@components/features/search/results/SearchFileResults'))
+const SearchLinkResults = lazy(() => import('@components/features/search/results/SearchLinkResults'))
+const SearchPollResults = lazy(() => import('@components/features/search/results/SearchPollResults'))
 import { NotificationsEmptyState, type SelectedNotification } from '@pages/notifications/NotificationChat'
 import AppMobileFooter from '@components/features/header/AppMobileFooter'
 import { PageHeader } from '@components/layout/PageHeader'
@@ -28,6 +35,17 @@ export default function Search() {
     // All search state lives in URL params so links like /search?q=foo&channel=general work.
     const [searchParams, setSearchParams] = useSearchParams()
     const searchValue = searchParams.get('q') ?? ''
+
+    // The ONE debounce for all result tabs (the search hooks don't debounce
+    // internally anymore). The URL is the source of truth and updates per
+    // keystroke by design (deep-linkable state), so this page re-renders per
+    // keystroke regardless — the debounce here is about not FETCHING per
+    // keystroke. Synced from the URL value via effect because useDebounceValue
+    // doesn't track its initial value.
+    const [debouncedQuery, setDebouncedQuery] = useDebounceValue(searchValue, 200)
+    useEffect(() => {
+        setDebouncedQuery(searchValue)
+    }, [searchValue, setDebouncedQuery])
 
     const setSearchValue = (value: string) => {
         setSearchParams(prev => {
@@ -87,7 +105,7 @@ export default function Search() {
     }, { enableOnFormTags: true }, [hasSelection, searchParams])
 
     const filters: SearchFilters = {
-        query: searchValue || '',
+        query: debouncedQuery || '',
         channel_id: channelFromURL,
         owner: userFromURL,
         file_type: fileTypeFromURL,
@@ -245,9 +263,15 @@ export default function Search() {
                             {hasActiveSearch && (
                                 <>
                                     {activeTab === 'messages' && <SearchMessageResults searchValue={filters.query} filters={filters} onSelect={onSelect} selectedID={selectedMessageID} />}
-                                    {activeTab === 'files' && <SearchFileResults searchValue={filters.query} filters={filters} onSelect={onSelect} selectedID={selectedMessageID} />}
-                                    {activeTab === 'links' && <SearchLinkResults searchValue={filters.query} filters={filters} onSelect={onSelect} selectedID={selectedMessageID} />}
-                                    {activeTab === 'polls' && <SearchPollResults searchValue={filters.query} filters={filters} onSelect={onSelect} selectedID={selectedMessageID} />}
+                                    {/* Tab switches are plain state updates (not router
+                                        transitions), so a first visit to a lazy tab shows
+                                        this skeleton while its chunk loads — same rows the
+                                        results themselves show while fetching. */}
+                                    <Suspense fallback={<MessageListSkeleton />}>
+                                        {activeTab === 'files' && <SearchFileResults searchValue={filters.query} filters={filters} onSelect={onSelect} selectedID={selectedMessageID} />}
+                                        {activeTab === 'links' && <SearchLinkResults searchValue={filters.query} filters={filters} onSelect={onSelect} selectedID={selectedMessageID} />}
+                                        {activeTab === 'polls' && <SearchPollResults searchValue={filters.query} filters={filters} onSelect={onSelect} selectedID={selectedMessageID} />}
+                                    </Suspense>
                                 </>
                             )}
                         </div>
