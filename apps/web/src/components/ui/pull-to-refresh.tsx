@@ -84,8 +84,11 @@ export const PullToRefresh = ({
 
         const onTouchStart = (event: TouchEvent) => {
             if (refreshingRef.current || event.touches.length !== 1) return
+            // No scroller mounted (empty list — Virtuoso only mounts with rows)
+            // means nothing can be scrolled, which is trivially "at the top":
+            // empty and error states stay pullable.
             const el = scrollerRef.current
-            if (!el || el.scrollTop > 0) return
+            if (el && el.scrollTop > 0) return
             startY = event.touches[0].clientY
             startX = event.touches[0].clientX
             pulling = false
@@ -94,7 +97,7 @@ export const PullToRefresh = ({
         const onTouchMove = (event: TouchEvent) => {
             if (startY === null || refreshingRef.current) return
             const el = scrollerRef.current
-            if (!el || el.scrollTop > 0) {
+            if (el && el.scrollTop > 0) {
                 reset(true)
                 return
             }

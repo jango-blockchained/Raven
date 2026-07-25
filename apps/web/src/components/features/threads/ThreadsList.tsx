@@ -176,8 +176,14 @@ export default function ThreadsList({
         [hasMore, isLoading],
     )
 
+    // EVERY state renders inside PullToRefresh — the wrapper used to exist only
+    // around the ready list, so empty/error/loading states couldn't be pulled
+    // (and an empty tab is exactly when a user reaches for the gesture). With
+    // no Virtuoso mounted the wrapper has no scroller, which PullToRefresh
+    // treats as "at the top".
+    let body: ReactNode
     if (error) {
-        return (
+        body = (
             <EmptyOverlay>
                 {/* pointer-events-auto: the overlay is pointer-events-none (keeps
                     the toolbar clickable through it) — re-enable hits for the
@@ -194,24 +200,20 @@ export default function ThreadsList({
                 </ErrorBanner>
             </EmptyOverlay>
         )
-    }
-    if (isLoading && rows.length === 0) return <MessageListSkeleton />
-
-    if (rows.length === 0) {
-        if (searchQuery?.trim()) {
-            return (
-                <EmptyOverlay>
-                    <Empty>
-                        <EmptyMedia><Search /></EmptyMedia>
-                        <EmptyHeader>
-                            <EmptyTitle>{_("No matching threads")}</EmptyTitle>
-                            <EmptyDescription>{_("Try a different search term.")}</EmptyDescription>
-                        </EmptyHeader>
-                    </Empty>
-                </EmptyOverlay>
-            )
-        }
-        return (
+    } else if (isLoading && rows.length === 0) {
+        body = <MessageListSkeleton />
+    } else if (rows.length === 0) {
+        body = searchQuery?.trim() ? (
+            <EmptyOverlay>
+                <Empty>
+                    <EmptyMedia><Search /></EmptyMedia>
+                    <EmptyHeader>
+                        <EmptyTitle>{_("No matching threads")}</EmptyTitle>
+                        <EmptyDescription>{_("Try a different search term.")}</EmptyDescription>
+                    </EmptyHeader>
+                </Empty>
+            </EmptyOverlay>
+        ) : (
             <EmptyOverlay>
                 <Empty>
                     <EmptyMedia>
@@ -230,14 +232,8 @@ export default function ThreadsList({
                 </Empty>
             </EmptyOverlay>
         )
-    }
-
-    return (
-        // Root in-view detection at Virtuoso's scroll container so a row fetches its details
-        // only when it's actually near-visible — Virtuoso mounts more rows than are on screen,
-        // so gating on mount would over-fetch (see ThreadRow).
-        <ScrollViewportContext.Provider value={scroller}>
-            <PullToRefresh scroller={scroller} onRefresh={refresh} className="h-full">
+    } else {
+        body = (
             <Virtuoso
                 data={rows}
                 style={{ height: "100%" }}
@@ -259,6 +255,16 @@ export default function ThreadsList({
                     />
                 ) : null}
             />
+        )
+    }
+
+    return (
+        // Root in-view detection at Virtuoso's scroll container so a row fetches its details
+        // only when it's actually near-visible — Virtuoso mounts more rows than are on screen,
+        // so gating on mount would over-fetch (see ThreadRow).
+        <ScrollViewportContext.Provider value={scroller}>
+            <PullToRefresh scroller={scroller} onRefresh={refresh} className="h-full">
+                {body}
             </PullToRefresh>
         </ScrollViewportContext.Provider>
     )
