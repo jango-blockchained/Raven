@@ -312,6 +312,39 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
     machinery, check whether you disabled the built-in kind — and when the
     server already tells you the answer on the way down, you don't need to
     call back and ask.
+36. **Never autofocus an input on mobile.** On desktop, autofocusing the
+    obvious field (a search box, a dialog's first input) is a courtesy — the
+    keyboard is already on the desk. On a phone the same line of code is a
+    takeover: the on-screen keyboard slams up over half the viewport before
+    the user has even read what the screen says, shoving the layout around in
+    the process. And on iOS it's worse than rude — it's broken: iOS only
+    raises the keyboard for a focus that happens *inside a user's tap* (see
+    the keyboard choreography item above), so an autofocus on mount silently
+    half-fails, leaving a blinking cursor in a field with no keyboard — a
+    state that looks like a bug because it is one. So the rule is
+    platform-split: autofocus is desktop-only; on mobile, a field focuses when
+    the user taps it, and the keyboard's arrival is always something the user
+    asked for. (The exception that proves the rule: the composer focuses after
+    actions that ARE a request to type — tapping reply, tapping edit — and
+    those are wired synchronously through the tap so iOS cooperates.)
+37. **The camera button that only photographed on iPhones.** The composer's
+    Camera tile is a hidden file input with the `capture` attribute — the
+    web's way of saying "open the camera, not the photo picker". It worked on
+    iOS and silently didn't on Android: users got the photo library instead.
+    The catch is in how the two platforms read the SAME attributes. Our input
+    accepted both images and videos (`accept="image/*,video/*"`), and iOS is
+    happy with that — its camera UI has photo and video modes built in, so
+    one input covers both. Android, though, must translate `capture` into ONE
+    specific camera intent — photograph or record, it has to pick — and when
+    the accept list names both, Chrome resolves the ambiguity by silently
+    dropping `capture` altogether. No error, no warning: the camera button
+    just quietly becomes a gallery button, on one platform only. The fix is a
+    platform split: iOS keeps its single Camera tile; Android gets two —
+    Camera and Video — each with a single-type accept, so each resolves to a
+    clean camera intent. The lesson: `capture` is a REQUEST, not a command,
+    and each platform honors it under different conditions — when a native
+    integration silently degrades, diff the exact attribute combination
+    against each platform's rules before suspecting your own code.
 
 ## What's still on the list
 
