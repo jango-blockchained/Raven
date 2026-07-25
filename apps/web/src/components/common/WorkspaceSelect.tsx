@@ -40,9 +40,9 @@ export const WorkspaceSelect = ({
                         <div className="flex items-center gap-2 min-w-0">
                             {/* rounded (not rounded-full) matches the workspace switcher's logos;
                                 fallback shares the radius so no-logo workspaces aren't square. */}
-                            <Avatar className="h-6 w-6 shrink-0 rounded border border-outline-gray-2">
+                            <Avatar className="h-5 w-5 shrink-0 rounded-sm border border-outline-gray-2">
                                 <AvatarImage src={workspace.logo} alt={workspace.workspace_name} />
-                                <AvatarFallback className="rounded text-xs bg-surface-gray-2 text-ink-gray-7">
+                                <AvatarFallback className="rounded-sm text-xs bg-surface-gray-2 text-ink-gray-7">
                                     {workspace.workspace_name?.charAt(0)?.toUpperCase()}
                                 </AvatarFallback>
                             </Avatar>

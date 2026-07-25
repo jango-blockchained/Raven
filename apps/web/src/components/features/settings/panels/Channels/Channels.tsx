@@ -34,8 +34,15 @@ export const Channels = () => {
 
     const { channels } = useChannels()
     const { workspaces } = useWorkspaces()
+    // Only workspaces the user is a MEMBER of — same rule as the Customize
+    // Sidebar picker: browsing/managing channels here is scoped to your own
+    // workspaces, not public ones you haven't joined.
+    const memberWorkspaces = useMemo(
+        () => workspaces.filter((workspace) => workspace.workspace_member_name),
+        [workspaces],
+    )
     const [sorting, setSorting] = useState<SortingState>([])
-    const [filters, setFilters] = useState<{ myChannels: string, channelType: string, workspace: string, searchQuery: string }>({ myChannels: 'All Channels', channelType: 'All Types', workspace: workspaces?.[0]?.name ?? '', searchQuery: '' })
+    const [filters, setFilters] = useState<{ myChannels: string, channelType: string, workspace: string, searchQuery: string }>({ myChannels: 'All Channels', channelType: 'All Types', workspace: memberWorkspaces[0]?.name ?? '', searchQuery: '' })
 
     const navigate = useNavigate()
     const { onClose } = useSettingsDialog()
@@ -127,14 +134,14 @@ export const Channels = () => {
 
     return (
         <>
-            <SettingsPanelHeader actions={<CreateChannelButton />}>
+            <SettingsPanelHeader actions={<CreateChannelButton selectedWorkspace={filters.workspace} />}>
                 <SettingsPanelTitle>{_("Channels")}</SettingsPanelTitle>
                 <SettingsPanelDescription>
                     {_("Browse and manage every channel in this workspace.")}
                 </SettingsPanelDescription>
             </SettingsPanelHeader>
             <SettingsPanelContent className="min-h-0 gap-4 pt-0.5">
-                <ChannelFilters filters={filters} setFilters={setFilters} workspaces={workspaces} />
+                <ChannelFilters filters={filters} setFilters={setFilters} workspaces={memberWorkspaces} />
                 <ListView
                     className="flex-1 min-h-0"
                     scrollAreaClassName="flex-1"
@@ -269,7 +276,7 @@ const ChannelNotificationsButton = ({ channel }: { channel: ChannelListItem }) =
     )
 }
 
-const CreateChannelButton = () => {
+const CreateChannelButton = ({ selectedWorkspace }: { selectedWorkspace: string }) => {
     const [isOpen, setIsOpen] = useState(false)
     return (
         <>
@@ -277,7 +284,10 @@ const CreateChannelButton = () => {
                 <Plus />
                 {_("Create Channel")}
             </Button>
-            <CreateChannelDialog open={isOpen} onOpenChange={setIsOpen} />
+            {/* The panel's workspace filter scopes the new channel — without it
+                the form falls back to the ROUTE's workspace, which is absent on
+                routes like /threads and wrong when filtering another workspace. */}
+            <CreateChannelDialog open={isOpen} onOpenChange={setIsOpen} selectedWorkspace={selectedWorkspace} />
         </>
     )
 }
