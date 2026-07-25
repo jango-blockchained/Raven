@@ -1,13 +1,13 @@
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@components/ui/select"
 import _ from "@lib/translate"
 import { WorkspaceFields } from "@hooks/useWorkspaces"
-import { Avatar, AvatarFallback, AvatarImage } from "@components/ui/avatar"
+import { WorkspaceSelect } from "@components/common/WorkspaceSelect"
 import { Search } from "lucide-react"
 import { Input } from "@components/ui/input"
 
@@ -20,6 +20,7 @@ export const ChannelFilters = ({ filters, setFilters, workspaces }: { filters: a
                     aria-hidden="true"
                 />
                 <Input
+                    inputSize="sm"
                     placeholder={_("Search for channels")}
                     value={filters.searchQuery ?? ""}
                     onChange={(e) =>
@@ -44,10 +45,10 @@ const MyChannelsFilter = ({ filters, setFilters }: { filters: any, setFilters: (
             value={filters.myChannels}
             onValueChange={(value) => setFilters({ ...filters, myChannels: value })}
         >
-            <SelectTrigger className="w-52">
+            <SelectTrigger inputSize="sm" className="w-40 shrink-0">
                 <SelectValue placeholder={_('Select a group')} />
             </SelectTrigger>
-            <SelectContent className="min-w-52  max-w-72">
+            <SelectContent align="start" className="min-w-56 max-w-72">
                 <SelectItem value="All Channels">All Channels</SelectItem>
                 <SelectItem value="Joined Channels">Joined Channels</SelectItem>
                 <SelectItem value="Other Channels">Other Channels</SelectItem>
@@ -63,10 +64,10 @@ const ChannelTypeFilter = ({ filters, setFilters }: { filters: any, setFilters: 
             value={filters.channelType}
             onValueChange={(value) => setFilters({ ...filters, channelType: value })}
         >
-            <SelectTrigger className="w-52">
+            <SelectTrigger inputSize="sm" className="w-40 shrink-0">
                 <SelectValue placeholder={_('Select a channel type')} />
             </SelectTrigger>
-            <SelectContent className="min-w-52 max-w-72">
+            <SelectContent align="start" className="min-w-56 max-w-72">
                 <SelectItem value="All Types">All Types</SelectItem>
                 <SelectItem value="Public">Public</SelectItem>
                 <SelectItem value="Private">Private</SelectItem>
@@ -77,30 +78,11 @@ const ChannelTypeFilter = ({ filters, setFilters }: { filters: any, setFilters: 
 }
 
 const WorkspaceFilter = ({ filters, setFilters, workspaces }: { filters: any, setFilters: (filters: any) => void, workspaces: WorkspaceFields[] }) => {
-
     return (
-        <Select
+        <WorkspaceSelect
             value={filters.workspace}
             onValueChange={(value) => setFilters({ ...filters, workspace: value })}
-        >
-            <SelectTrigger className="w-52 px-1">
-                <SelectValue placeholder={_('Select a workspace')} />
-            </SelectTrigger>
-            <SelectContent className="min-w-52 max-w-72">
-                {workspaces?.map((workspace) => (
-                    <SelectItem key={workspace.name} value={workspace.name} className="h-8 px-0.5">
-                        <div className="flex items-center gap-2">
-                            <Avatar className="h-7 w-7 rounded-sm border border-outline-gray-2/80 dark:border-outline-gray-2/60">
-                                <AvatarImage src={workspace.logo} alt={workspace.workspace_name} />
-                                <AvatarFallback className="rounded-none">
-                                    {workspace.workspace_name?.charAt(0)?.toUpperCase()}
-                                </AvatarFallback>
-                            </Avatar>
-                            {workspace.workspace_name}
-                        </div>
-                    </SelectItem>
-                ))}
-            </SelectContent>
-        </Select>
+            workspaces={workspaces}
+        />
     )
 }

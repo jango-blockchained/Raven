@@ -1,9 +1,9 @@
 import { Button } from "@components/ui/button"
 import { SidebarPreview } from "./SidebarPreview"
-import { useGroupedChannels } from "@raven/lib/hooks/useGroupedChannels"
+import { useGroupedChannels, type ChannelSidebarData } from "@raven/lib/hooks/useGroupedChannels"
 import { useChannels } from "@stores/channels/useChannelList"
 import useCurrentRavenUser from "@raven/lib/hooks/useCurrentRavenUser"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/tabs"
 import { ChannelTable } from "./ChannelTable"
 import { RavenUser } from "@raven/types/Raven/RavenUser"
@@ -13,11 +13,14 @@ import { toast } from "sonner"
 import _ from "@lib/translate"
 import { GroupDnd } from "./GroupDnd"
 import { useParams } from "react-router"
+import { useWorkspaces } from "@hooks/useWorkspaces"
+import { WorkspaceSelect } from "@components/common/WorkspaceSelect"
 import { H3 } from "@components/ui/typography"
 import { SettingsPanelContent, SettingsPanelDescription, SettingsPanelHeader, SettingsPanelTitle } from "@components/ui/settings-dialog"
 import { errorResponseToast } from "@components/ui/error-banner"
+import { DialogClose } from "@components/ui/dialog"
 
-export const CustomizeSidebarDialog = ({ onClose }: { onClose?: () => void }) => {
+export const CustomizeSidebarDialog = () => {
 
     const { channels } = useChannels()
     const { myProfile, mutate } = useCurrentRavenUser()
@@ -35,7 +38,35 @@ export const CustomizeSidebarDialog = ({ onClose }: { onClose?: () => void }) =>
         control: methods.control
     })
     const { workspaceID } = useParams()
-    const channelSidebarData = useGroupedChannels(channels, ravenUser as RavenUser, workspaceID)
+    const { workspaces } = useWorkspaces()
+    // Only workspaces the user is a MEMBER of: customizing organizes YOUR
+    // sidebar, and a public workspace you haven't joined has no sidebar of
+    // yours to organize.
+    const memberWorkspaces = useMemo(
+        () => workspaces.filter((workspace) => workspace.workspace_member_name),
+        [workspaces],
+    )
+    // Routes like /saved-messages, /search or /threads carry no :workspaceID, so
+    // fall back to the first member workspace and let the user switch. Without
+    // this the grouping filters to workspace `undefined` and the dialog is empty.
+    // The URL's workspace only wins when the user is a member of it (they may be
+    // browsing a public workspace they haven't joined).
+    const [pickedWorkspace, setPickedWorkspace] = useState<string | undefined>(undefined)
+    const urlWorkspace = memberWorkspaces.some((workspace) => workspace.name === workspaceID) ? workspaceID : undefined
+    const activeWorkspace = pickedWorkspace ?? urlWorkspace ?? memberWorkspaces[0]?.name ?? ''
+    // The TABLE shows every channel, including ones the user's own sidebar
+    // preferences hide (not joined / no recent activity) — you can't organize
+    // a channel you can't see; hidden rows are greyed with an explanation.
+    const channelSidebarData = useGroupedChannels(channels, ravenUser as RavenUser, activeWorkspace, { includeHidden: true })
+    // The PREVIEW must keep hiding them — it shows the sidebar as it will
+    // actually look after saving.
+    const previewData = useMemo((): ChannelSidebarData => ({
+        groupedChannels: channelSidebarData.groupedChannels
+            .map(([group, groupChannels]): ChannelSidebarData["groupedChannels"][number] =>
+                [group, groupChannels.filter((ch) => !ch._hiddenReason)])
+            .filter(([, groupChannels]) => groupChannels.length > 0),
+        ungroupedChannels: channelSidebarData.ungroupedChannels.filter((ch) => !ch._hiddenReason),
+    }), [channelSidebarData])
 
     const { handleSubmit } = methods
 
@@ -44,7 +75,6 @@ export const CustomizeSidebarDialog = ({ onClose }: { onClose?: () => void }) =>
             updateDoc("Raven User", myProfile.name, data).then(() => {
                 toast.success(_("Sidebar updated"))
                 mutate()
-                onClose?.()
             }).catch((error) => {
                 errorResponseToast(_("Failed to update sidebar"), error)
             })
@@ -59,29 +89,46 @@ export const CustomizeSidebarDialog = ({ onClose }: { onClose?: () => void }) =>
     return (
         <FormProvider {...methods}>
             <div className="flex flex-col h-full">
-                <SettingsPanelHeader>
+                <SettingsPanelHeader
+                    actions={
+                        <Button
+                            type="button"
+                            size="md"
+                            onClick={handleSubmit(onSubmit)}
+                        >
+                            {_("Save")}
+                        </Button>}>
                     <SettingsPanelTitle>{_("Customize Sidebar")}</SettingsPanelTitle>
                     <SettingsPanelDescription>
                         {_("Customize your sidebar channels and groups")}
                     </SettingsPanelDescription>
                 </SettingsPanelHeader>
                 <SettingsPanelContent>
-                    <div className="flex w-full py-2">
+                    {/* flex-1 min-h-0: fill the space between header and footer and DON'T grow
+                        with content, so the table and preview columns get a bounded height and
+                        scroll internally (otherwise the tall preview makes the whole panel scroll). */}
+                    <div className="flex flex-1 min-h-0 w-full py-2">
                         {/* Left Column - Customization */}
                         <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden bg-surface-base pb-0">
                             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                                <div>
+                                <div className="flex items-center gap-2">
                                     <TabsList variant="subtle" size="sm" style={{ width: "fit-content" }}>
                                         {TABS.map(tab => (
                                             <TabsTrigger key={tab.key} value={tab.key}>{tab.label}</TabsTrigger>
                                         ))}
                                     </TabsList>
+                                    <WorkspaceSelect
+                                        value={activeWorkspace}
+                                        onValueChange={setPickedWorkspace}
+                                        className="w-64"
+                                        workspaces={memberWorkspaces}
+                                    />
                                 </div>
                                 <div className="flex-1 flex flex-col min-h-0">
-                                    <TabsContent value="channels" className="flex-1 min-h-0">
+                                    <TabsContent value="channels" className="group-data-[orientation=horizontal]/tabs:py-0 flex-1 min-h-0 flex flex-col">
                                         <ChannelTable data={channelSidebarData} />
                                     </TabsContent>
-                                    <TabsContent value="groups" className="flex-1 min-h-0">
+                                    <TabsContent value="groups" className="group-data-[orientation=horizontal]/tabs:py-0 flex-1 min-h-0 flex flex-col">
                                         <div className="h-full overflow-y-auto pr-2">
                                             <GroupDnd />
                                         </div>
@@ -90,28 +137,14 @@ export const CustomizeSidebarDialog = ({ onClose }: { onClose?: () => void }) =>
                             </Tabs>
                         </div>
                         {/* Right Column - Preview (hidden on mobile) */}
-                        <div className="hidden md:flex flex-none w-64 flex-col min-h-0 bg-surface-sidebar/40 border-l overflow-hidden">
+                        <div className="hidden md:flex flex-none w-64 flex-col min-h-0 bg-surface-sidebar/40 border border-outline-gray-2 rounded overflow-hidden">
                             <div className="px-4 py-3 border-b shrink-0">
                                 <H3 className="text-sm font-semibold">{_("Preview")}</H3>
                             </div>
-                            <SidebarPreview data={channelSidebarData} />
+                            <SidebarPreview data={previewData} />
                         </div>
                     </div>
-                    <div className="border-t p-4 flex items-center justify-end gap-3 shrink-0">
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={onClose}
-                        >
-                            {_("Cancel")}
-                        </Button>
-                        <Button
-                            type="button"
-                            onClick={handleSubmit(onSubmit)}
-                        >
-                            {_("Save Changes")}
-                        </Button>
-                    </div>
+
                 </SettingsPanelContent>
             </div>
         </FormProvider>

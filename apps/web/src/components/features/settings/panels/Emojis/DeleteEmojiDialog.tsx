@@ -13,6 +13,7 @@ import {
 import { Button } from "@components/ui/button"
 import { Trash2, Loader2 } from 'lucide-react'
 import { useFrappeDeleteDoc } from 'frappe-react-sdk'
+import _ from "@lib/translate"
 
 interface DeleteEmojiDialogProps {
     /** The document name (ID) of the emoji to delete */
@@ -44,25 +45,24 @@ export function DeleteEmojiDialog({ emojiId, emojiName, onDelete }: DeleteEmojiD
                     className="opacity-0 group-hover:opacity-100 transition-opacity text-ink-gray-4 hover:text-ink-red-3"
                 >
                     <Trash2 className="h-4 w-4" />
-                    <span className="sr-only">Delete emoji</span>
+                    <span className="sr-only">{_("Delete emoji")}</span>
                 </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Delete :{emojiName}:?</AlertDialogTitle>
+                    <AlertDialogTitle>{_("Delete :{0}:?", [emojiName])}</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete the emoji
-                        and it will no longer be available in reactions or messages.
+                        {_("This action cannot be undone. This will permanently delete the emoji and it will no longer be available in reactions or messages.")}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel disabled={loading}>{_("Cancel")}</AlertDialogCancel>
                     <AlertDialogAction
                         onClick={handleDelete}
                         disabled={loading}
                     >
                         {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {loading ? 'Deleting...' : 'Delete'}
+                        {loading ? _("Deleting...") : _("Delete")}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>

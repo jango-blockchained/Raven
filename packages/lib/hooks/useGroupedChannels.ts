@@ -2,34 +2,62 @@ import { useMemo } from 'react'
 import { ChannelListItem } from '@raven/types/common/ChannelListItem'
 import { RavenUser } from '@raven/types/Raven/RavenUser'
 import dayjs from "dayjs"
+
+/** Why a channel is hidden from the sidebar by the user's own preferences. */
+export type ChannelHiddenReason = "not_joined" | "no_recent_activity"
+
+/** A channel with, optionally, the preference that hides it from the sidebar
+ *  (only set when the hook runs with `includeHidden` — see below). */
+export type SidebarChannelItem = ChannelListItem & { _hiddenReason?: ChannelHiddenReason }
+
 export interface ChannelSidebarData {
-    groupedChannels: [string, ChannelListItem[]][]
-    ungroupedChannels: ChannelListItem[]
+    groupedChannels: [string, SidebarChannelItem[]][]
+    ungroupedChannels: SidebarChannelItem[]
 }
 
 export const useGroupedChannels = (
     channels: ChannelListItem[],
     myProfile?: RavenUser,
     workspaceID?: string,
+    options?: {
+        /**
+         * Keep channels the user's sidebar preferences would hide (not joined /
+         * no recent activity), annotated with `_hiddenReason` instead of being
+         * dropped. The Customize Sidebar dialog uses this: you can't organize a
+         * channel you can't see. Archived channels stay excluded either way.
+         * The SIDEBAR itself must never pass this.
+         */
+        includeHidden?: boolean
+    },
 ): ChannelSidebarData => {
+    const includeHidden = options?.includeHidden ?? false
     return useMemo(() => {
 
         const showMyChannelsOnly = myProfile?.filter_joined_channels === 1
         const showRecentActivityOnly = myProfile?.filter_recent_activity === 1
 
         const thirty_days_ago = dayjs().subtract(30, 'days').format('YYYY-MM-DD')
-        const workspaceChannels = channels.filter((ch) => {
-            if (ch.workspace !== workspaceID) return false
-            if (ch.is_archived) return false
-            if (showMyChannelsOnly && !ch.member_id) return false
-            if (showRecentActivityOnly && dayjs(ch.last_message_timestamp).isBefore(thirty_days_ago)) return false
-            return true
-        })
+        const workspaceChannels: SidebarChannelItem[] = []
+        for (const ch of channels) {
+            if (ch.workspace !== workspaceID) continue
+            if (ch.is_archived) continue
+            let hiddenReason: ChannelHiddenReason | undefined
+            if (showMyChannelsOnly && !ch.member_id) {
+                hiddenReason = "not_joined"
+            } else if (showRecentActivityOnly && dayjs(ch.last_message_timestamp).isBefore(thirty_days_ago)) {
+                hiddenReason = "no_recent_activity"
+            }
+            if (hiddenReason) {
+                if (includeHidden) workspaceChannels.push({ ...ch, _hiddenReason: hiddenReason })
+                continue
+            }
+            workspaceChannels.push(ch)
+        }
         if (!myProfile || !workspaceChannels.length) {
             return { groupedChannels: [], ungroupedChannels: [] }
         }
 
-        const groups = new Map<string, ChannelListItem[]>()
+        const groups = new Map<string, SidebarChannelItem[]>()
         const remainingChannels = new Set(workspaceChannels)
 
         const pinnedChannelIds = new Set(myProfile.pinned_channels?.map(pin => pin.channel_id) || [])
@@ -84,5 +112,5 @@ export const useGroupedChannels = (
         })
 
         return { groupedChannels, ungroupedChannels }
-    }, [channels, workspaceID, myProfile?.channel_groups, myProfile?.pinned_channels, myProfile?.grouped_channels, myProfile?.sort_channels_by, myProfile?.filter_recent_activity, myProfile?.filter_joined_channels])
+    }, [channels, workspaceID, includeHidden, myProfile?.channel_groups, myProfile?.pinned_channels, myProfile?.grouped_channels, myProfile?.sort_channels_by, myProfile?.filter_recent_activity, myProfile?.filter_joined_channels])
 }

@@ -20,8 +20,9 @@ import { Virtuoso } from 'react-virtuoso'
 interface AddMembersStepProps {
     selectedUsers: UserData[]
     onSelectUsers: (users: UserData[]) => void
-    /** The workspace the channel lives in — only ITS members can be added. */
-    workspace: string
+    /** The workspace the channel lives in — only ITS members can be added.
+     *  Omit to pick from ALL enabled users (workspace-member management). */
+    workspace?: string
     /** Users to hide from the list entirely — e.g. the channel's EXISTING members
      *  when adding to an already-created channel. */
     excludeUserIds?: string[]
@@ -53,8 +54,11 @@ export const AddMembersStep = ({ selectedUsers, onSelectUsers, workspace, exclud
         workspace ? `workspace_members_${workspace}` : null,
     )
     const workspaceUserIds = useMemo(
-        () => (workspaceMembers ? new Set(workspaceMembers.message.map((member) => member.user)) : null),
-        [workspaceMembers],
+        () => {
+            if (!workspace) return "all" as const // no workspace scoping — every enabled user is eligible
+            return workspaceMembers ? new Set(workspaceMembers.message.map((member) => member.user)) : null
+        },
+        [workspace, workspaceMembers],
     )
 
     // Selection does NOT filter the query (rows stay in place, showing checked
@@ -65,7 +69,7 @@ export const AddMembersStep = ({ selectedUsers, onSelectUsers, workspace, exclud
         return db.users
             .where('enabled')
             .equals(1)
-            .and((user) => workspaceUserIds.has(user.name))
+            .and((user) => workspaceUserIds === "all" || workspaceUserIds.has(user.name))
             .and((user) => user.name !== myProfile?.name)
             .and((user) => !excludedIds.has(user.name))
             .and((user) => user.name.toLowerCase().includes(filterText.toLowerCase()) || user.full_name.toLowerCase().includes(filterText.toLowerCase()))

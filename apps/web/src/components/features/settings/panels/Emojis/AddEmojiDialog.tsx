@@ -10,15 +10,28 @@ import { Form } from "@components/ui/form"
 import { DataField } from "@components/ui/form-elements"
 import { Button } from "@components/ui/button"
 import ErrorBanner from "@components/ui/error-banner"
+import { FileDropzone } from "@components/ui/file-dropzone"
 import { useForm } from "react-hook-form"
-import { FrappeConfig, FrappeContext, useFrappeCreateDoc } from "frappe-react-sdk"
+import { FrappeConfig, FrappeContext, useFrappeCreateDoc, useFrappeFileUpload } from "frappe-react-sdk"
 import { Loader2 } from "lucide-react"
-import { useContext } from "react"
+import { useContext, useState } from "react"
+import _ from "@lib/translate"
 
 interface AddEmojiFormData {
     emoji_name: string
     keywords: string
 }
+
+/** Emoji names allow only lowercase letters, numbers and underscores. */
+const toEmojiName = (fileName: string) =>
+    fileName
+        .split(".")
+        .slice(0, -1)
+        .join(".")
+        .toLowerCase()
+        .replace(/[^a-z0-9_]+/g, "_")
+        .replace(/^_+|_+$/g, "")
+        .slice(0, 20)
 
 interface AddCustomEmojiDialogProps {
     open: boolean
@@ -41,34 +54,54 @@ const AddCustomEmojiDialog = ({ open, onClose }: AddCustomEmojiDialogProps) => {
 
     const { call } = useContext(FrappeContext) as FrappeConfig
     const { createDoc, loading, error, reset: resetError } = useFrappeCreateDoc()
+    const { upload, loading: uploading, error: uploadError, reset: resetUpload } = useFrappeFileUpload()
+
+    const [files, setFiles] = useState<File[]>([])
 
     const onSubmit = async (data: AddEmojiFormData) => {
+        const image = files[0]
+        if (!image) return
         try {
             const exists = await checkIfEmojiNameExists(data.emoji_name)
             if (exists) {
-                form.setError('emoji_name', { message: `Emoji ${data.emoji_name} already exists.` })
+                form.setError('emoji_name', { message: _("Emoji {0} already exists.", [data.emoji_name]) })
                 return
             }
 
-            // create the emoji
+            // Upload the image first, then create the emoji pointing at its URL.
+            const fileRes = await upload(image, {
+                doctype: "Raven Custom Emoji",
+                docname: data.emoji_name,
+                fieldname: "image",
+                isPrivate: false,
+            })
             await createDoc("Raven Custom Emoji", {
                 emoji_name: data.emoji_name,
                 keywords: data.keywords,
-                // TODO: Add image field when file upload is implemented
-                image: "/assets/raven/raven-logo.png", // Placeholder
+                image: fileRes.file_url,
             })
             form.reset()
+            setFiles([])
             // close the dialog and refresh the emoji list
             onClose(true)
         } catch {
-            // Error is handled by useFrappeCreateDoc
+            // Errors are surfaced by useFrappeCreateDoc / useFrappeFileUpload
+        }
+    }
+
+    // Seed the emoji name from the dropped file's name (first drop only).
+    const onDropImage = (accepted: File[]) => {
+        if (accepted[0] && !form.getValues("emoji_name")) {
+            form.setValue("emoji_name", toEmojiName(accepted[0].name), { shouldValidate: true })
         }
     }
 
     const handleOpenChange = (isOpen: boolean) => {
         if (!isOpen) {
             form.reset()
+            setFiles([])
             resetError()
+            resetUpload()
             onClose(false)
         }
     }
@@ -87,9 +120,9 @@ const AddCustomEmojiDialog = ({ open, onClose }: AddCustomEmojiDialogProps) => {
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>Add Emoji</DialogTitle>
+                    <DialogTitle>{_("Add Emoji")}</DialogTitle>
                     <DialogDescription>
-                        Add a custom emoji to use in your chats and reactions.
+                        {_("Add a custom emoji to use in your chats and reactions.")}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -99,56 +132,62 @@ const AddCustomEmojiDialog = ({ open, onClose }: AddCustomEmojiDialogProps) => {
                         className="flex flex-col gap-4"
                     >
                         {error && <ErrorBanner error={error} />}
+                        {uploadError && <ErrorBanner error={uploadError} />}
 
-                        {/* TODO: Add file upload component here */}
-                        <div className="rounded-md border border-dashed p-4 text-center text-sm text-ink-gray-4">
-                            File upload coming soon.
-                            <br />
-                            128px × 128px PNG, SVG or GIF recommended.
-                        </div>
+                        <FileDropzone
+                            files={files}
+                            setFiles={setFiles}
+                            multiple={false}
+                            accept={{ "image/*": [".jpeg", ".jpg", ".png", ".svg", ".gif", ".webp"] }}
+                            onDrop={onDropImage}
+                        />
+                        <p className="text-p-sm text-ink-gray-5 -mt-2">
+                            {_("128px × 128px PNG, SVG or GIF recommended.")}
+                        </p>
 
                         <DataField
                             name="emoji_name"
-                            label="Emoji Name"
+                            label={_("Emoji Name")}
                             isRequired
                             rules={{
-                                required: "Name is required",
+                                required: _("Name is required"),
                                 maxLength: {
                                     value: 20,
-                                    message: "Name must be less than 20 characters",
+                                    message: _("Name must be less than 20 characters"),
                                 },
                                 pattern: {
                                     value: /^[a-z0-9_]+$/,
-                                    message: "Only lowercase letters, numbers, and underscores allowed",
+                                    message: _("Only lowercase letters, numbers, and underscores allowed"),
                                 },
                             }}
                             inputProps={{
-                                placeholder: "e.g. party_parrot",
+                                placeholder: _("e.g. party_parrot"),
                                 autoComplete: "off",
                             }}
                         />
 
                         <DataField
                             name="keywords"
-                            label="Keywords"
-                            formDescription="You will be able to search for this emoji by these keywords.(Optional)"
+                            label={_("Keywords")}
+                            formDescription={_("You will be able to search for this emoji by these keywords.(Optional)")}
                             inputProps={{
-                                placeholder: "e.g. party, celebrate, dance",
+                                placeholder: _("e.g. party, celebrate, dance"),
                                 autoComplete: "off",
                             }}
                         />
 
                         <DialogFooter className="pt-4">
                             <Button
+                                type="button"
                                 variant="outline"
                                 onClick={() => handleOpenChange(false)}
-                                disabled={loading}
+                                disabled={loading || uploading}
                             >
-                                Cancel
+                                {_("Cancel")}
                             </Button>
-                            <Button type="submit" disabled={loading}>
-                                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                {loading ? "Saving..." : "Save"}
+                            <Button type="submit" disabled={loading || uploading || files.length === 0}>
+                                {(loading || uploading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                {loading || uploading ? _("Saving...") : _("Save")}
                             </Button>
                         </DialogFooter>
                     </form>

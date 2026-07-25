@@ -3,14 +3,16 @@ import { ListView } from "@components/ui/list-view"
 import type { ListViewColumnMeta } from "@components/ui/list-view"
 import { ColumnDef } from "@tanstack/react-table"
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@components/ui/select"
-import { ChannelSidebarData } from "@raven/lib/hooks/useGroupedChannels"
+import { ChannelSidebarData, type ChannelHiddenReason } from "@raven/lib/hooks/useGroupedChannels"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@components/ui/tooltip"
+import { cn } from "@lib/utils"
 import { RavenGroupedChannels } from "@raven/types/Raven/RavenGroupedChannels"
 import { RavenPinnedChannels } from "@raven/types/Raven/RavenPinnedChannels"
 import { RavenUser } from "@raven/types/Raven/RavenUser"
 import { useMemo } from "react"
 import { useFieldArray, useFormContext } from "react-hook-form"
 import _ from "@lib/translate"
-import { Star } from "lucide-react"
+import { EyeOff, Star, XIcon } from "lucide-react"
 
 interface ChannelTable {
   name: string,
@@ -18,6 +20,15 @@ interface ChannelTable {
   channel_description: string,
   type: "Private" | "Public" | "Open",
   channel_group: string
+  /** Set when the user's own sidebar preferences hide this channel — the row
+   *  still shows (you can't organize what you can't see) but greyed, with an
+   *  explanation on the eye-off icon. */
+  hiddenReason?: ChannelHiddenReason
+}
+
+const HIDDEN_REASON_TEXT: Record<ChannelHiddenReason, () => string> = {
+  not_joined: () => _("Hidden from your sidebar - your preferences only show channels you have joined."),
+  no_recent_activity: () => _("Hidden from your sidebar - no activity in the last 30 days."),
 }
 
 export const ChannelTable = ({ data }: { data: ChannelSidebarData }) => {
@@ -34,7 +45,8 @@ export const ChannelTable = ({ data }: { data: ChannelSidebarData }) => {
           channel_name: channel.channel_name,
           channel_description: channel.channel_description || '',
           type: channel.type,
-          channel_group: groupName
+          channel_group: groupName,
+          hiddenReason: channel._hiddenReason
         })
       })
     })
@@ -46,7 +58,8 @@ export const ChannelTable = ({ data }: { data: ChannelSidebarData }) => {
         channel_name: channel.channel_name,
         channel_description: channel.channel_description || '',
         type: channel.type,
-        channel_group: ''
+        channel_group: '',
+        hiddenReason: channel._hiddenReason
       })
     })
 
@@ -58,16 +71,29 @@ export const ChannelTable = ({ data }: { data: ChannelSidebarData }) => {
       id: 'channel_name',
       header: _('Name'),
       accessorKey: 'channel_name',
-      size: 240,
+      meta: {
+        gridWidth: 'minmax(160px,1fr)',
+        getTooltipText: (row) => (row as ChannelTable).channel_name,
+      } satisfies ListViewColumnMeta,
       cell: ({ row }) => {
         const r = row.original
         return (
-          <div className='flex items-center gap-2'>
+          <div className='flex items-center gap-2 min-w-0'>
             <ChannelIcon
               type={r.type || "Public"}
-              className="w-4 h-4 shrink-0"
+              className={cn("w-4 h-4 shrink-0", r.hiddenReason && "text-ink-gray-4")}
             />
-            <span className='text-sm font-medium line-clamp-1 text-ellipsis'>{r.channel_name}</span>
+            <span className={cn('font-medium truncate', r.hiddenReason && 'text-ink-gray-4 font-normal')}>{r.channel_name}</span>
+            {r.hiddenReason && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <EyeOff className="size-3.5 shrink-0 text-ink-gray-4" aria-label={_("Hidden from sidebar")} />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-64">
+                  {HIDDEN_REASON_TEXT[r.hiddenReason]()}
+                </TooltipContent>
+              </Tooltip>
+            )}
           </div>
         )
       },
@@ -87,8 +113,9 @@ export const ChannelTable = ({ data }: { data: ChannelSidebarData }) => {
       id: 'channel_group',
       header: _('Group'),
       accessorKey: 'channel_group',
-      size: 210,
       meta: {
+        // Holds the group Select (w-52 ≈ 208px) — keep a fixed track, don't flex.
+        gridWidth: '220px',
         truncate: false,
       } satisfies ListViewColumnMeta,
       cell: ({ row }) => <ChannelGroupDropdown channel={row.original} />,
@@ -97,12 +124,12 @@ export const ChannelTable = ({ data }: { data: ChannelSidebarData }) => {
 
   return (
     <ListView
-      className="flex-1 min-h-0"
+      className="flex-1 min-h-0 pr-2"
       data={tableData}
       columns={columns}
       getRowId={(row) => row.name}
       scrollAreaClassName="flex-1"
-      maxHeight={600}
+      maxHeight="100%"
       emptyState={<span className="text-ink-gray-4">No channels found.</span>}
     />
   )
@@ -181,20 +208,22 @@ const ChannelGroupDropdown = ({ channel }: { channel: ChannelTable }) => {
     </SelectTrigger>
     <SelectContent>
       <SelectItem value="Favorites">
-        <div className="flex items-center gap-1">
-          <Star className="h-3 w-3 text-ink-gray-8/80 fill-amber-300 stroke-amber-300 mr-1" />
+        <div className="flex items-center gap-2">
+          <Star className="fill-yellow-400 stroke-yellow-400" />
           {_("Favorites")}
         </div>
       </SelectItem>
-      {groups.length > 0 && <SelectSeparator className="mx-1" />}
+      {groups.length > 0 && <SelectSeparator />}
       {groups.map((field) => (
         <SelectItem key={field.name} value={field.group_name} className="overflow-hidden *:last:truncate *:last:block!">
           {field.group_name}
         </SelectItem>
       ))}
       {channel.channel_group && <div>
-        <SelectSeparator className="mx-1" />
-        <SelectItem value="Ungroup Channel" className="text-ink-red-4">{_("Ungroup Channel")}</SelectItem>
+        <SelectSeparator />
+        <SelectItem value="Ungroup Channel">
+          {_("No group")}
+        </SelectItem>
       </div>}
     </SelectContent>
   </Select>)
