@@ -21,7 +21,7 @@ import { cn } from '@lib/utils'
 const WorkspaceLayout = () => {
     const isMobile = useIsMobile()
     const { workspaceID } = useParams<{ workspaceID: string }>()
-    const { workspaces, isLoading } = useWorkspaces()
+    const { workspaces, isLoading, error } = useWorkspaces()
     // The layout mounts above the `:id` route, so useParams can't see the
     // channel (params only include matches up to this depth) — match the
     // path instead; end: false keeps matching with a thread drawer open
@@ -30,8 +30,13 @@ const WorkspaceLayout = () => {
 
     // The workspace no longer exists (deleted here or by another admin, or the
     // user was removed) — bounce to the index, which lands on a valid workspace.
-    // Wait for the list so we don't redirect during the initial load.
-    if (!isLoading && workspaceID && !workspaces.some((w) => w.name === workspaceID)) {
+    // Wait for the list so we don't redirect during the initial load — and only
+    // trust an ABSENCE the fetch actually proved: a failed fetch also leaves an
+    // empty list, and redirecting on that bounced users to a blank index on a
+    // transient network error. Render the layout instead and let the list heal
+    // (reconnect revalidation).
+    const listTrustworthy = !isLoading && !(error && workspaces.length === 0)
+    if (listTrustworthy && workspaceID && !workspaces.some((w) => w.name === workspaceID)) {
         return <Navigate to="/" replace />
     }
 
