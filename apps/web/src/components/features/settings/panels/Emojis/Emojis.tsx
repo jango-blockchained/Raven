@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { ListView, type ListViewColumnMeta, type SortingState } from '@components/ui/list-view'
 import type { ColumnDef } from '@tanstack/react-table'
 import { TablePagination } from '@components/ui/table-pagination'
@@ -65,6 +65,15 @@ export const Emojis = () => {
         { pageIndex, pageSize, totalCount: 0 }
     )
     const { count, mutate: mutateCount } = useFetchCustomEmojisCount()
+
+    // Deleting the last row of the last page leaves pageIndex past the end —
+    // the list then showed "No emojis found" with a phantom "Page 3 of 2".
+    // Clamp back onto the last real page whenever the count shrinks.
+    useEffect(() => {
+        if (count === undefined) return
+        const lastPage = Math.max(0, Math.ceil(count / pageSize) - 1)
+        if (pageIndex > lastPage) setPageIndex(lastPage)
+    }, [count, pageSize, pageIndex])
 
     const onAddEmoji = (refresh: boolean = false) => {
         if (refresh) {
