@@ -218,7 +218,7 @@ function SettingsPanelHeader({
             <div className="flex flex-col gap-1 w-full">
                 {children}
             </div>
-            <div className="flex item-center space-x-2 w-fit justify-end">
+            <div className="flex items-center space-x-2 w-fit justify-end">
                 {actions}
             </div>
         </div>

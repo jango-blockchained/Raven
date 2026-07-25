@@ -18,8 +18,9 @@ import { WorkspaceSelect } from "@components/common/WorkspaceSelect"
 import { H3 } from "@components/ui/typography"
 import { SettingsPanelContent, SettingsPanelDescription, SettingsPanelHeader, SettingsPanelTitle } from "@components/ui/settings-dialog"
 import { errorResponseToast } from "@components/ui/error-banner"
+import { DialogClose } from "@components/ui/dialog"
 
-export const CustomizeSidebarDialog = ({ onClose }: { onClose?: () => void }) => {
+export const CustomizeSidebarDialog = () => {
 
     const { channels } = useChannels()
     const { myProfile, mutate } = useCurrentRavenUser()
@@ -52,7 +53,6 @@ export const CustomizeSidebarDialog = ({ onClose }: { onClose?: () => void }) =>
             updateDoc("Raven User", myProfile.name, data).then(() => {
                 toast.success(_("Sidebar updated"))
                 mutate()
-                onClose?.()
             }).catch((error) => {
                 errorResponseToast(_("Failed to update sidebar"), error)
             })
@@ -67,7 +67,15 @@ export const CustomizeSidebarDialog = ({ onClose }: { onClose?: () => void }) =>
     return (
         <FormProvider {...methods}>
             <div className="flex flex-col h-full">
-                <SettingsPanelHeader>
+                <SettingsPanelHeader
+                    actions={
+                        <Button
+                            type="button"
+                            size="md"
+                            onClick={handleSubmit(onSubmit)}
+                        >
+                            {_("Save")}
+                        </Button>}>
                     <SettingsPanelTitle>{_("Customize Sidebar")}</SettingsPanelTitle>
                     <SettingsPanelDescription>
                         {_("Customize your sidebar channels and groups")}
@@ -90,6 +98,7 @@ export const CustomizeSidebarDialog = ({ onClose }: { onClose?: () => void }) =>
                                     <WorkspaceSelect
                                         value={activeWorkspace}
                                         onValueChange={setPickedWorkspace}
+                                        className="w-64"
                                         workspaces={workspaces}
                                     />
                                 </div>
@@ -106,28 +115,14 @@ export const CustomizeSidebarDialog = ({ onClose }: { onClose?: () => void }) =>
                             </Tabs>
                         </div>
                         {/* Right Column - Preview (hidden on mobile) */}
-                        <div className="hidden md:flex flex-none w-64 flex-col min-h-0 bg-surface-sidebar/40 border-l overflow-hidden">
+                        <div className="hidden md:flex flex-none w-64 flex-col min-h-0 bg-surface-sidebar/40 border border-outline-gray-2 rounded overflow-hidden">
                             <div className="px-4 py-3 border-b shrink-0">
                                 <H3 className="text-sm font-semibold">{_("Preview")}</H3>
                             </div>
                             <SidebarPreview data={channelSidebarData} />
                         </div>
                     </div>
-                    <div className="border-t p-4 flex items-center justify-end gap-3 shrink-0">
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={onClose}
-                        >
-                            {_("Cancel")}
-                        </Button>
-                        <Button
-                            type="button"
-                            onClick={handleSubmit(onSubmit)}
-                        >
-                            {_("Save Changes")}
-                        </Button>
-                    </div>
+
                 </SettingsPanelContent>
             </div>
         </FormProvider>

@@ -16,7 +16,7 @@ import {
     verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Edit, GripVertical, Plus, Trash2, X } from "lucide-react";
+import { Edit, FolderIcon, GripVertical, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@lib/utils";
 import { Button } from "@components/ui/button";
 import { useFieldArray, useFormContext } from "react-hook-form";
@@ -26,6 +26,7 @@ import { RavenChannelGroups } from "@raven/types/RavenChannelManagement/RavenCha
 import { useBoolean } from "usehooks-ts";
 import _ from "@lib/translate"
 import { H2, H3, H4 } from "@components/ui/typography";
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@components/ui/empty";
 
 export const GroupDnd = () => {
 
@@ -96,15 +97,15 @@ export const GroupDnd = () => {
 
     return (
         <div className="mx-auto">
-            <div className="flex items-center justify-between mb-2 px-1">
+            <div className="flex items-center justify-between my-2 px-1">
                 <p className="text-ink-gray-8 text-sm font-semibold">{_("Order Groups")}</p>
                 <Button
                     type="button"
-                    variant="outline"
+                    variant="subtle"
+                    size="xs"
                     onClick={toggleCreate}
-                    className="h-8 text-xs"
                 >
-                    <Plus className="h-4 w-4" />
+                    <Plus />
                     {_("Add Group")}
                 </Button>
             </div>
@@ -135,9 +136,15 @@ export const GroupDnd = () => {
                             ))}
                         </div>
                     </SortableContext>
-                </DndContext> : (!createGroup && <p className="text-sm text-ink-gray-4 text-center p-3 pt-3.5">
-                    {_("You don't have any groups yet. Add a group to start sorting.")}
-                </p>)}
+                </DndContext> : (!createGroup && <Empty>
+                    <EmptyMedia>
+                        <FolderIcon />
+                    </EmptyMedia>
+                    <EmptyHeader>
+                        <EmptyTitle>{_("No groups created")}</EmptyTitle>
+                        <EmptyDescription>{_("Add groups to categorize your channels.")}</EmptyDescription>
+                    </EmptyHeader>
+                </Empty>)}
                 {createGroup &&
                     <div className={groups.length > 0 ? "mt-1" : ""}>
                         <EditGroup initialName="" onSubmit={handleGroup} onCancel={toggleCreate} />
@@ -227,15 +234,16 @@ const SortableItem = ({ id, index, content, onEdit, onDelete }: SortableItemProp
 const EditGroup = ({ initialName = '', onCancel, onSubmit }: { initialName?: string, onCancel: () => void, onSubmit: (name: string) => void }) => {
     const [name, setName] = useState(initialName)
     return (
-        <div className="border rounded-lg pr-1.5 pl-1 py-1 bg-surface-gray-2/50 flex items-center justify-between w-full gap-1.5">
+        <div className="border rounded-md pr-1.5 pl-1 py-1 bg-surface-gray-2/50 flex items-center justify-between w-full gap-1.5">
             <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder={_("Group name")}
                 autoFocus
+                inputSize="sm"
                 maxLength={50}
             />
-            <Button onClick={() => onSubmit(name.trim())} size="sm" disabled={!name.trim()}>
+            <Button onClick={() => onSubmit(name.trim())} size="sm" disabled={!name.trim()} variant="subtle">
                 {initialName ? _("Save") : _("Create")}
             </Button>
             <Button

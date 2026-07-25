@@ -27,6 +27,7 @@ import {
     SettingsPanelTitle,
     useSettingsDialog,
 } from "@components/ui/settings-dialog"
+import { CreateChannelDialog } from "@components/features/channel/CreateChannel/CreateChannelButton"
 
 export const Channels = () => {
 
@@ -131,7 +132,7 @@ export const Channels = () => {
                     {_("Browse and manage every channel in this workspace.")}
                 </SettingsPanelDescription>
             </SettingsPanelHeader>
-            <SettingsPanelContent className="min-h-0 gap-4">
+            <SettingsPanelContent className="min-h-0 gap-4 pt-0.5">
                 <ChannelFilters filters={filters} setFilters={setFilters} workspaces={workspaces} />
                 <ListView
                     className="flex-1 min-h-0"
@@ -179,8 +180,7 @@ const ChannelJoinButton = ({ channel }: { channel: ChannelListItem }) => {
     if (channel.is_archived) {
         return (
             <Badge
-                variant="outline"
-                className="text-sm px-1 rounded-md w-20 h-8 bg-surface-red-1 text-ink-red-3 cursor-default border-transparent"
+                variant="subtle"
             >
                 {_("Archived")}
             </Badge>
@@ -188,17 +188,20 @@ const ChannelJoinButton = ({ channel }: { channel: ChannelListItem }) => {
     }
 
     return (
-        <Button variant="outline" size="sm" className="group/join hover:cursor-pointer w-20" onClick={() => toggleJoin(channel.member_id ? 'leave' : 'join')}>
-            {isLoading ? (<span className="grid">
-                <Loader2 className="h-4 w-4 animate-spin text-ink-gray-8" aria-hidden />
-            </span>) : channel.member_id ? (<span className="grid">
-                <span className='text-sm font-medium opacity-100 group-hover/join:opacity-0 transition-opacity duration-150 col-start-1 row-start-1'>
+        <Button
+            variant="outline"
+            size="sm"
+            className="group/join"
+            loading={isLoading}
+            onClick={() => toggleJoin(channel.member_id ? 'leave' : 'join')}>
+            {channel.member_id ? (<span className="grid">
+                <span className='opacity-100 group-hover/join:opacity-0 transition-opacity duration-150 col-start-1 row-start-1'>
                     {_('Joined')}
                 </span>
-                <span className='text-sm font-medium opacity-0 group-hover/join:opacity-100 transition-opacity duration-150 col-start-1 row-start-1'>
+                <span className='opacity-0 group-hover/join:opacity-100 transition-opacity duration-150 col-start-1 row-start-1'>
                     {_('Leave')}
                 </span>
-            </span>) : (<span className='text-sm font-medium'>
+            </span>) : (<span>
                 {_('Join')}
             </span>)}
         </Button>
@@ -259,17 +262,13 @@ const ChannelNotificationsButton = ({ channel }: { channel: ChannelListItem }) =
 const CreateChannelButton = ({ selectedWorkspace }: { selectedWorkspace: string }) => {
     const [isOpen, setIsOpen] = useState(false)
     return (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
-                <Button type="button" size="sm">
-                    <Plus />
-                    {_("Create Channel")}
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[680px] max-h-[90vh] p-0 gap-0 flex flex-col overflow-hidden">
-                <CreateChannelForm onClose={() => setIsOpen(false)} selectedWorkspace={selectedWorkspace} />
-            </DialogContent>
-        </Dialog>
+        <>
+            <Button type="button" size="sm" onClick={() => setIsOpen(true)}>
+                <Plus />
+                {_("Create Channel")}
+            </Button>
+            <CreateChannelDialog open={isOpen} onOpenChange={setIsOpen} />
+        </>
     )
 }
 

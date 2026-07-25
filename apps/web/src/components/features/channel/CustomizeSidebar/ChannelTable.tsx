@@ -10,7 +10,7 @@ import { RavenUser } from "@raven/types/Raven/RavenUser"
 import { useMemo } from "react"
 import { useFieldArray, useFormContext } from "react-hook-form"
 import _ from "@lib/translate"
-import { Star } from "lucide-react"
+import { Star, XIcon } from "lucide-react"
 
 interface ChannelTable {
   name: string,
@@ -185,20 +185,22 @@ const ChannelGroupDropdown = ({ channel }: { channel: ChannelTable }) => {
     </SelectTrigger>
     <SelectContent>
       <SelectItem value="Favorites">
-        <div className="flex items-center gap-1">
-          <Star className="h-3 w-3 text-ink-gray-8/80 fill-amber-300 stroke-amber-300 mr-1" />
+        <div className="flex items-center gap-2">
+          <Star className="fill-yellow-400 stroke-yellow-400" />
           {_("Favorites")}
         </div>
       </SelectItem>
-      {groups.length > 0 && <SelectSeparator className="mx-1" />}
+      {groups.length > 0 && <SelectSeparator />}
       {groups.map((field) => (
         <SelectItem key={field.name} value={field.group_name} className="overflow-hidden *:last:truncate *:last:block!">
           {field.group_name}
         </SelectItem>
       ))}
       {channel.channel_group && <div>
-        <SelectSeparator className="mx-1" />
-        <SelectItem value="Ungroup Channel" className="text-ink-red-4">{_("Ungroup Channel")}</SelectItem>
+        <SelectSeparator />
+        <SelectItem value="Ungroup Channel">
+          {_("No group")}
+        </SelectItem>
       </div>}
     </SelectContent>
   </Select>)

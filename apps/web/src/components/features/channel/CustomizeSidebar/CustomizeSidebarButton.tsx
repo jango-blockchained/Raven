@@ -42,7 +42,7 @@ export const CustomizeSidebarButton = () => {
 
     const content = (
         <Suspense fallback={<div className="flex h-full items-center justify-center"><Spinner /></div>}>
-            <CustomizeSidebarDialog onClose={() => setIsOpen(false)} />
+            <CustomizeSidebarDialog />
         </Suspense>
     )
 

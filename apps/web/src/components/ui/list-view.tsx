@@ -65,16 +65,22 @@ function resolveTooltipLabel<TData>(
     row: Row<TData>,
     meta: ListViewColumnMeta | undefined,
     columnDef: ColumnDef<TData, unknown>,
+    columnId: string,
 ): string | undefined {
     if (meta?.truncateTooltip === false) return undefined
     const fromMeta = meta?.getTooltipText?.(row.original as unknown)
     if (fromMeta != null && String(fromMeta).length > 0) {
         return String(fromMeta)
     }
-    const key = "accessorKey" in columnDef ? columnDef.accessorKey : undefined
-    if (key !== undefined && key !== null && key !== "") {
+    // Only accessor-backed columns get an automatic tooltip — but the lookup
+    // must use the column ID, not the accessorKey: TanStack registers columns
+    // by id, and a column declaring BOTH (id: "membership", accessorKey:
+    // "workspace_member_name") made getValue(accessorKey) miss — logging a
+    // "[Table] Column ... does not exist" dev error per rendered cell.
+    const hasAccessor = "accessorKey" in columnDef || "accessorFn" in columnDef
+    if (hasAccessor) {
         try {
-            const v = row.getValue(String(key))
+            const v = row.getValue(columnId)
             if (v != null && v !== "") return String(v)
         } catch {
             /* column may not expose a value */
@@ -98,7 +104,7 @@ function ListViewCellBody<TData>({
     const [overflowing, setOverflowing] = React.useState(false)
     const direction = useDirection()
 
-    const tooltipLabel = resolveTooltipLabel(row, meta, cell.column.columnDef)
+    const tooltipLabel = resolveTooltipLabel(row, meta, cell.column.columnDef, cell.column.id)
     const tooltipAlign = meta?.align === "right" && direction === "ltr" ? "end" : "start"
 
     const measure = React.useCallback(() => {
@@ -514,7 +520,7 @@ function ListViewInner<TData>({
                                 <div
                                     key={header.id}
                                     className={cn(
-                                        "text-ink-gray-5 group relative flex min-w-0 items-center px-0 text-sm-medium",
+                                        "text-ink-gray-5 group relative flex min-w-0 items-center px-0 text-sm",
                                         alignClass(meta),
                                     )}
                                     role="columnheader"
@@ -543,10 +549,10 @@ function ListViewInner<TData>({
                                             <span
                                                 aria-hidden
                                                 className={cn(
-                                                    "pointer-events-none absolute ltr:-right-2 rtl:-left-2 z-1 w-0.5 bg-outline-gray-4",
+                                                    "pointer-events-none absolute ltr:-right-2 rtl:-left-2 z-1 w-0.5 bg-outline-gray-2",
                                                     "opacity-0 transition-[opacity,background-color] ease-in-out duration-150",
-                                                    "group-hover:opacity-100 group-hover:bg-outline-gray-4",
-                                                    resizingColId === header.column.id && "bg-outline-gray-6 opacity-100",
+                                                    "group-hover:opacity-100 group-hover:bg-outline-gray-2",
+                                                    resizingColId === header.column.id && "bg-outline-gray-3 opacity-100",
                                                 )}
                                                 style={{ height: "100%" }}
                                             />

@@ -8,6 +8,7 @@ import {
 import _ from "@lib/translate"
 import { WorkspaceFields } from "@hooks/useWorkspaces"
 import { Avatar, AvatarFallback, AvatarImage } from "@components/ui/avatar"
+import { cn } from "@lib/utils"
 
 /**
  * Workspace picker: a Select whose options render the workspace logo + name.
@@ -18,16 +19,18 @@ export const WorkspaceSelect = ({
     value,
     onValueChange,
     workspaces,
+    className,
 }: {
     value: string
     onValueChange: (value: string) => void
-    workspaces: WorkspaceFields[]
+    workspaces: WorkspaceFields[],
+    className?: string
 }) => {
     return (
         <Select value={value} onValueChange={onValueChange}>
             <SelectTrigger
                 inputSize="sm"
-                className="w-40 shrink-0 px-0.5 **:data-[slot=select-value]:truncate **:data-[slot=select-value]:block"
+                className={cn("w-40 shrink-0 px-0.5 **:data-[slot=select-value]:truncate **:data-[slot=select-value]:block", className)}
             >
                 <SelectValue placeholder={_('Select a workspace')} />
             </SelectTrigger>
