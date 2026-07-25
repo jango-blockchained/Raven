@@ -28,6 +28,7 @@ import {
 } from "@components/ui/settings-dialog"
 import { useSettingsDialog } from "@components/ui/settings-dialog-context"
 import { CreateChannelDialog } from "@components/features/channel/CreateChannel/CreateChannelButton"
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@components/ui/empty"
 
 export const Channels = () => {
 
@@ -126,7 +127,7 @@ export const Channels = () => {
 
     return (
         <>
-            <SettingsPanelHeader actions={<CreateChannelButton selectedWorkspace={filters?.workspace ?? ""} />}>
+            <SettingsPanelHeader actions={<CreateChannelButton />}>
                 <SettingsPanelTitle>{_("Channels")}</SettingsPanelTitle>
                 <SettingsPanelDescription>
                     {_("Browse and manage every channel in this workspace.")}
@@ -145,10 +146,19 @@ export const Channels = () => {
                     sorting={sorting}
                     onSortingChange={setSorting}
                     emptyState={
-                        <div className="flex flex-col items-center justify-center gap-1 py-6">
-                            <p className="text-ink-gray-4">{_("No channels found")}</p>
-                            <p className="text-ink-gray-4 text-sm">{_("You may want to try adjusting your filters.")}</p>
-                        </div>
+                        <Empty>
+                            <EmptyMedia>
+                                <ChannelIcon type="Public" />
+                            </EmptyMedia>
+                            <EmptyHeader>
+                                <EmptyTitle>
+                                    {_("No channels found")}
+                                </EmptyTitle>
+                                <EmptyDescription>
+                                    {_("You may want to try adjusting your filters.")}
+                                </EmptyDescription>
+                            </EmptyHeader>
+                        </Empty>
                     }
                 />
             </SettingsPanelContent>
@@ -259,7 +269,7 @@ const ChannelNotificationsButton = ({ channel }: { channel: ChannelListItem }) =
     )
 }
 
-const CreateChannelButton = ({ selectedWorkspace }: { selectedWorkspace: string }) => {
+const CreateChannelButton = () => {
     const [isOpen, setIsOpen] = useState(false)
     return (
         <>

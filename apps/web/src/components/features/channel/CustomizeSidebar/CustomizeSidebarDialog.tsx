@@ -1,9 +1,9 @@
 import { Button } from "@components/ui/button"
 import { SidebarPreview } from "./SidebarPreview"
-import { useGroupedChannels } from "@raven/lib/hooks/useGroupedChannels"
+import { useGroupedChannels, type ChannelSidebarData } from "@raven/lib/hooks/useGroupedChannels"
 import { useChannels } from "@stores/channels/useChannelList"
 import useCurrentRavenUser from "@raven/lib/hooks/useCurrentRavenUser"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/tabs"
 import { ChannelTable } from "./ChannelTable"
 import { RavenUser } from "@raven/types/Raven/RavenUser"
@@ -39,12 +39,34 @@ export const CustomizeSidebarDialog = () => {
     })
     const { workspaceID } = useParams()
     const { workspaces } = useWorkspaces()
+    // Only workspaces the user is a MEMBER of: customizing organizes YOUR
+    // sidebar, and a public workspace you haven't joined has no sidebar of
+    // yours to organize.
+    const memberWorkspaces = useMemo(
+        () => workspaces.filter((workspace) => workspace.workspace_member_name),
+        [workspaces],
+    )
     // Routes like /saved-messages, /search or /threads carry no :workspaceID, so
-    // fall back to the first available workspace and let the user switch. Without
+    // fall back to the first member workspace and let the user switch. Without
     // this the grouping filters to workspace `undefined` and the dialog is empty.
+    // The URL's workspace only wins when the user is a member of it (they may be
+    // browsing a public workspace they haven't joined).
     const [pickedWorkspace, setPickedWorkspace] = useState<string | undefined>(undefined)
-    const activeWorkspace = pickedWorkspace ?? workspaceID ?? workspaces?.[0]?.name ?? ''
-    const channelSidebarData = useGroupedChannels(channels, ravenUser as RavenUser, activeWorkspace)
+    const urlWorkspace = memberWorkspaces.some((workspace) => workspace.name === workspaceID) ? workspaceID : undefined
+    const activeWorkspace = pickedWorkspace ?? urlWorkspace ?? memberWorkspaces[0]?.name ?? ''
+    // The TABLE shows every channel, including ones the user's own sidebar
+    // preferences hide (not joined / no recent activity) — you can't organize
+    // a channel you can't see; hidden rows are greyed with an explanation.
+    const channelSidebarData = useGroupedChannels(channels, ravenUser as RavenUser, activeWorkspace, { includeHidden: true })
+    // The PREVIEW must keep hiding them — it shows the sidebar as it will
+    // actually look after saving.
+    const previewData = useMemo((): ChannelSidebarData => ({
+        groupedChannels: channelSidebarData.groupedChannels
+            .map(([group, groupChannels]): ChannelSidebarData["groupedChannels"][number] =>
+                [group, groupChannels.filter((ch) => !ch._hiddenReason)])
+            .filter(([, groupChannels]) => groupChannels.length > 0),
+        ungroupedChannels: channelSidebarData.ungroupedChannels.filter((ch) => !ch._hiddenReason),
+    }), [channelSidebarData])
 
     const { handleSubmit } = methods
 
@@ -99,7 +121,7 @@ export const CustomizeSidebarDialog = () => {
                                         value={activeWorkspace}
                                         onValueChange={setPickedWorkspace}
                                         className="w-64"
-                                        workspaces={workspaces}
+                                        workspaces={memberWorkspaces}
                                     />
                                 </div>
                                 <div className="flex-1 flex flex-col min-h-0">
@@ -119,7 +141,7 @@ export const CustomizeSidebarDialog = () => {
                             <div className="px-4 py-3 border-b shrink-0">
                                 <H3 className="text-sm font-semibold">{_("Preview")}</H3>
                             </div>
-                            <SidebarPreview data={channelSidebarData} />
+                            <SidebarPreview data={previewData} />
                         </div>
                     </div>
 

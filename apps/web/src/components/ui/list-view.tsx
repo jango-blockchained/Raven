@@ -468,7 +468,7 @@ function ListViewInner<TData>({
         return (
             <div
                 className={cn(
-                    "bg-surface-gray-2 text-ink-gray-5 flex min-h-32 items-center justify-center rounded-md px-4 text-sm",
+                    "flex min-h-32 items-center justify-center rounded-md px-4 text-sm",
                     className,
                 )}
             >
