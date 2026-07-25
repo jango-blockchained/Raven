@@ -171,7 +171,7 @@ export default function Search() {
                 onChange={(e) => setSearchValue(e.target.value)}
                 placeholder={_('Search messages, files, links, polls')}
                 className="pl-9 pr-9 h-9 md:h-8 text-xl md:text-base"
-                autoFocus
+                autoFocus={!isMobile}
             />
             {searchValue && (
                 <button

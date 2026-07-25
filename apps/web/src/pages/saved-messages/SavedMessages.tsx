@@ -70,7 +70,7 @@ const SavedMessages = () => {
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={_('Search saved messages')}
                 className="pl-9 pr-9 h-9 md:h-8 text-xl md:text-base"
-                autoFocus
+                autoFocus={!isMobile}
             />
             {search && (
                 <button
