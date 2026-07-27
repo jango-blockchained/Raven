@@ -15,10 +15,8 @@ import { GroupDnd } from "./GroupDnd"
 import { useParams } from "react-router"
 import { useWorkspaces } from "@hooks/useWorkspaces"
 import { WorkspaceSelect } from "@components/common/WorkspaceSelect"
-import { H3 } from "@components/ui/typography"
 import { SettingsPanelContent, SettingsPanelDescription, SettingsPanelHeader, SettingsPanelTitle } from "@components/ui/settings-dialog"
 import { errorResponseToast } from "@components/ui/error-banner"
-import { DialogClose } from "@components/ui/dialog"
 
 export const CustomizeSidebarDialog = () => {
 
@@ -88,65 +86,62 @@ export const CustomizeSidebarDialog = () => {
 
     return (
         <FormProvider {...methods}>
-            <div className="flex flex-col h-full">
-                <SettingsPanelHeader
-                    actions={
-                        <Button
-                            type="button"
-                            size="md"
-                            onClick={handleSubmit(onSubmit)}
-                        >
-                            {_("Save")}
-                        </Button>}>
-                    <SettingsPanelTitle>{_("Customize Sidebar")}</SettingsPanelTitle>
-                    <SettingsPanelDescription>
-                        {_("Customize your sidebar channels and groups")}
-                    </SettingsPanelDescription>
-                </SettingsPanelHeader>
-                <SettingsPanelContent>
-                    {/* flex-1 min-h-0: fill the space between header and footer and DON'T grow
-                        with content, so the table and preview columns get a bounded height and
-                        scroll internally (otherwise the tall preview makes the whole panel scroll). */}
-                    <div className="flex flex-1 min-h-0 w-full py-2">
-                        {/* Left Column - Customization */}
-                        <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden bg-surface-base pb-0">
-                            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                                <div className="flex items-center gap-2">
-                                    <TabsList variant="subtle" size="sm" style={{ width: "fit-content" }}>
-                                        {TABS.map(tab => (
-                                            <TabsTrigger key={tab.key} value={tab.key}>{tab.label}</TabsTrigger>
-                                        ))}
-                                    </TabsList>
-                                    <WorkspaceSelect
-                                        value={activeWorkspace}
-                                        onValueChange={setPickedWorkspace}
-                                        className="w-64"
-                                        workspaces={memberWorkspaces}
-                                    />
-                                </div>
-                                <div className="flex-1 flex flex-col min-h-0">
-                                    <TabsContent value="channels" className="group-data-[orientation=horizontal]/tabs:py-0 flex-1 min-h-0 flex flex-col">
-                                        <ChannelTable data={channelSidebarData} />
-                                    </TabsContent>
-                                    <TabsContent value="groups" className="group-data-[orientation=horizontal]/tabs:py-0 flex-1 min-h-0 flex flex-col">
-                                        <div className="h-full overflow-y-auto pr-2">
-                                            <GroupDnd />
-                                        </div>
-                                    </TabsContent>
-                                </div>
-                            </Tabs>
-                        </div>
-                        {/* Right Column - Preview (hidden on mobile) */}
-                        <div className="hidden md:flex flex-none w-64 flex-col min-h-0 bg-surface-sidebar/40 border border-outline-gray-2 rounded overflow-hidden">
-                            <div className="px-4 py-3 border-b shrink-0">
-                                <H3 className="text-sm font-semibold">{_("Preview")}</H3>
+            <SettingsPanelHeader
+                actions={
+                    <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleSubmit(onSubmit)}
+                    >
+                        {_("Save")}
+                    </Button>}>
+                <SettingsPanelTitle>{_("Customize Sidebar")}</SettingsPanelTitle>
+                <SettingsPanelDescription>
+                    {_("Customize your sidebar channels and groups")}
+                </SettingsPanelDescription>
+            </SettingsPanelHeader>
+            <SettingsPanelContent className="min-h-0 gap-4 pt-0.5">
+                {/* flex-1 min-h-0: fill the space between header and footer and DON'T grow
+                    with content, so the table and preview columns get a bounded height and
+                    scroll internally (otherwise the tall preview makes the whole panel scroll). */}
+                <div className="flex flex-1 min-h-0 w-full gap-4">
+                    {/* Left Column - Customization */}
+                    <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden bg-surface-base">
+                        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                            <div className="flex flex-col md:flex-row md:items-center gap-2">
+                                <TabsList variant="subtle" size="sm" className="w-fit">
+                                    {TABS.map(tab => (
+                                        <TabsTrigger key={tab.key} value={tab.key}>{tab.label}</TabsTrigger>
+                                    ))}
+                                </TabsList>
+                                <WorkspaceSelect
+                                    value={activeWorkspace}
+                                    onValueChange={setPickedWorkspace}
+                                    className="w-full md:w-64"
+                                    workspaces={memberWorkspaces}
+                                />
                             </div>
-                            <SidebarPreview data={previewData} />
-                        </div>
+                            <div className="flex-1 flex flex-col min-h-0">
+                                <TabsContent value="channels" className="group-data-[orientation=horizontal]/tabs:py-0 flex-1 min-h-0 flex flex-col">
+                                    <ChannelTable data={channelSidebarData} />
+                                </TabsContent>
+                                <TabsContent value="groups" className="group-data-[orientation=horizontal]/tabs:py-0 flex-1 min-h-0 flex flex-col">
+                                    <div className="h-full overflow-y-auto pr-2">
+                                        <GroupDnd />
+                                    </div>
+                                </TabsContent>
+                            </div>
+                        </Tabs>
                     </div>
-
-                </SettingsPanelContent>
-            </div>
+                    {/* Right Column - Preview (desktop only, so no mobile type/touch scaling) */}
+                    <div className="hidden md:flex flex-none w-64 flex-col min-h-0 bg-surface-sidebar border border-outline-gray-2 rounded overflow-hidden">
+                        <div className="px-4 py-3 border-b shrink-0">
+                            <p className="text-sm-medium text-ink-gray-7">{_("Preview")}</p>
+                        </div>
+                        <SidebarPreview data={previewData} />
+                    </div>
+                </div>
+            </SettingsPanelContent>
         </FormProvider>
     )
 }

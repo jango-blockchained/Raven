@@ -1,4 +1,6 @@
 import { useMemo, useSyncExternalStore } from "react"
+import { UsersIcon } from "lucide-react"
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@components/ui/empty"
 import {
     SettingsPanelContent,
     SettingsPanelDescription,
@@ -41,7 +43,18 @@ export const Users = () => {
                     data={humanUsers}
                     columns={userColumns}
                     getRowId={(row) => row.name}
-                    emptyState={<span className="text-ink-gray-4">{_("No users found.")}</span>}
+                    rowHeight={44}
+                    emptyState={
+                        <Empty>
+                            <EmptyMedia>
+                                <UsersIcon />
+                            </EmptyMedia>
+                            <EmptyHeader>
+                                <EmptyTitle>{_("No users found")}</EmptyTitle>
+                                <EmptyDescription>{_("Users added to Raven will show up here.")}</EmptyDescription>
+                            </EmptyHeader>
+                        </Empty>
+                    }
                 />
             </SettingsPanelContent>
         </>

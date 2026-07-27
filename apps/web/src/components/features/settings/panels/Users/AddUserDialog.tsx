@@ -169,11 +169,11 @@ const UserForm = ({ onClose }: { onClose: VoidFunction }) => {
                 </p>
                 <DialogFooter>
                     <DialogClose asChild>
-                        <Button type="button" variant="outline" disabled={loading}>
+                        <Button size="md" type="button" variant="outline" disabled={loading}>
                             {_("Cancel")}
                         </Button>
                     </DialogClose>
-                    <Button type="submit" disabled={ravenUserExists || loading || fetching}>
+                    <Button size="md" type="submit" disabled={ravenUserExists || loading || fetching}>
                         {loading && <Spinner />}
                         {userExists ? _("Add") : _("Send Invite")}
                     </Button>

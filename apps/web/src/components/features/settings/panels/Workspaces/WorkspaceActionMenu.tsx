@@ -121,9 +121,9 @@ const RenameWorkspaceForm = ({
             </div>
             <DialogFooter>
                 <DialogClose asChild>
-                    <Button type="button" variant="outline" disabled={loading}>{_("Close")}</Button>
+                    <Button size="md" type="button" variant="outline" disabled={loading}>{_("Close")}</Button>
                 </DialogClose>
-                <Button type="button" disabled={loading || !name} onClick={handleSubmit}>
+                <Button size="md" type="button" disabled={loading || !name} onClick={handleSubmit}>
                     {loading && <Spinner />}
                     {loading ? _("Renaming...") : _("Rename")}
                 </Button>

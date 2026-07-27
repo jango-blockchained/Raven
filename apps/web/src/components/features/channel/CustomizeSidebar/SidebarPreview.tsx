@@ -88,6 +88,8 @@ export const SidebarPreview = ({ data }: SidebarPreviewProps) => {
 const PreviewRow = ({ channel }: { channel: ChannelSidebarData['ungroupedChannels'][number] }) => (
     <div className="flex h-7 min-w-0 items-center gap-2 overflow-hidden rounded-md px-2 text-sm text-ink-gray-7">
         <ChannelIcon type={channel.type || "Public"} className="h-4 w-4 shrink-0" />
-        <span className="truncate">{channel.channel_name}</span>
+        {/* leading-snug to match ChannelSidebar's ChannelItem — the preview has to
+            clip descenders exactly the way the real sidebar does, or it isn't one. */}
+        <span className="truncate leading-snug">{channel.channel_name}</span>
     </div>
 )

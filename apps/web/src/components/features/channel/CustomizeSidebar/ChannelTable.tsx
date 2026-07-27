@@ -12,7 +12,8 @@ import { RavenUser } from "@raven/types/Raven/RavenUser"
 import { useMemo } from "react"
 import { useFieldArray, useFormContext } from "react-hook-form"
 import _ from "@lib/translate"
-import { EyeOff, Star, XIcon } from "lucide-react"
+import { EyeOff, Star } from "lucide-react"
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@components/ui/empty"
 
 interface ChannelTable {
   name: string,
@@ -130,7 +131,19 @@ export const ChannelTable = ({ data }: { data: ChannelSidebarData }) => {
       getRowId={(row) => row.name}
       scrollAreaClassName="flex-1"
       maxHeight="100%"
-      emptyState={<span className="text-ink-gray-4">No channels found.</span>}
+      // Rows carry a group Select — same reason the Channels panel bumps its rows.
+      rowHeight={44}
+      emptyState={
+        <Empty>
+          <EmptyMedia>
+            <ChannelIcon type="Public" />
+          </EmptyMedia>
+          <EmptyHeader>
+            <EmptyTitle>{_("No channels found")}</EmptyTitle>
+            <EmptyDescription>{_("Channels in this workspace will show up here.")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      }
     />
   )
 }

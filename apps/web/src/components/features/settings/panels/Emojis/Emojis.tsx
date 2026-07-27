@@ -13,10 +13,9 @@ import {
 import { Button } from '@components/ui/button'
 import ErrorBanner from '@components/ui/error-banner'
 import { Spinner } from '@components/ui/spinner'
-import { Link } from 'react-router-dom'
 import { RavenCustomEmoji } from '@raven/types/RavenMessaging/RavenCustomEmoji'
 import { getDateObject } from '@lib/date'
-import { EmptyState, EmptyStateDescription, EmptyStateIcon, EmptyStateTitle } from '@components/features/settings/EmptyDataTableState'
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@components/ui/empty'
 import { SmilePlus } from 'lucide-react'
 import _ from '@lib/translate'
 import AddCustomEmojiDialog from './AddEmojiDialog'
@@ -24,24 +23,26 @@ import DeleteEmojiDialog from './DeleteEmojiDialog'
 
 const CustomEmojiEmptyState = ({ setOpen }: { setOpen: (open: boolean) => void }) => {
     return (
-        <EmptyState>
-            <div className='flex flex-col items-center justify-center'>
-                <EmptyStateIcon>
-                    <SmilePlus />
-                </EmptyStateIcon>
-                <EmptyStateTitle>{_("Emojis")}</EmptyStateTitle>
-            </div>
-
-            <EmptyStateDescription>
-                {_("Personalize your chats with custom emojis.")}
-                <br />
-                {_("Upload your own or download from")}{" "}
-                <Link to='https://emoji.gg' target='_blank' className='text-ink-blue-link underline'>Emoji.gg</Link>.
-            </EmptyStateDescription>
-            <Button size='sm' onClick={() => setOpen(true)}>
-                {_("Upload")}
-            </Button>
-        </EmptyState>
+        <Empty>
+            <EmptyMedia>
+                <SmilePlus />
+            </EmptyMedia>
+            <EmptyHeader>
+                <EmptyTitle>{_("Emojis")}</EmptyTitle>
+                <EmptyDescription>
+                    {_("Personalize your chats with custom emojis.")}
+                    <br />
+                    {_("Upload your own or download from")}{" "}
+                    <a href='https://emoji.gg' target='_blank' rel='noreferrer' className='text-ink-blue-link underline'>Emoji.gg</a>.
+                </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+                {/* Outline: the panel header already owns the primary Upload button. */}
+                <Button size='sm' variant='outline' onClick={() => setOpen(true)}>
+                    {_("Upload")}
+                </Button>
+            </EmptyContent>
+        </Empty>
     )
 }
 
@@ -171,9 +172,9 @@ export const Emojis = () => {
                     {_("Add custom emojis to use for your reactions. PNG, SVG and GIFs supported.")}
                     <br />
                     {_("Need help finding one? Download from")}{" "}
-                    <Link to="https://emoji.gg" target="_blank" className="text-ink-blue-link underline">
+                    <a href="https://emoji.gg" target="_blank" rel="noreferrer" className="text-ink-blue-link underline">
                         Emoji.gg
-                    </Link>
+                    </a>
                     .
                 </SettingsPanelDescription>
             </SettingsPanelHeader>
@@ -201,7 +202,18 @@ export const Emojis = () => {
                                     setSorting(updater)
                                     setPageIndex(0)
                                 }}
-                                emptyState={<span className="text-ink-gray-4">{_("No emojis found.")}</span>}
+                                rowHeight={44}
+                                emptyState={
+                                    <Empty>
+                                        <EmptyMedia>
+                                            <SmilePlus />
+                                        </EmptyMedia>
+                                        <EmptyHeader>
+                                            <EmptyTitle>{_("No emojis found")}</EmptyTitle>
+                                            <EmptyDescription>{_("Try a different search term.")}</EmptyDescription>
+                                        </EmptyHeader>
+                                    </Empty>
+                                }
                             />
                         )}
                         <TablePagination
