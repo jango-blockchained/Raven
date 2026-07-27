@@ -64,6 +64,21 @@ class RavenUser(Document):
 		if self.type == "User" and not self.user:
 			frappe.throw(_("User is mandatory"))
 
+		self.validate_channel_group_names()
+
+	def validate_channel_group_names(self):
+		"""
+		Group names must be unique per user — grouped_channels references a group
+		by name, so duplicates within one user would corrupt channel assignment.
+		Enforced here because the DB cannot express "unique per parent".
+		"""
+		seen = set()
+		for group in self.channel_groups or []:
+			name = (group.group_name or "").strip().casefold()
+			if name in seen:
+				frappe.throw(_("Group name {0} is already used.").format(frappe.bold(group.group_name)))
+			seen.add(name)
+
 	def before_insert(self):
 		if self.type != "Bot":
 			self.update_photo_from_user()

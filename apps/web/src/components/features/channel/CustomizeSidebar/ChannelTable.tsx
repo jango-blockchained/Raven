@@ -2,18 +2,14 @@ import { ChannelIcon } from "@components/common/ChannelIcon/ChannelIcon"
 import { ListView } from "@components/ui/list-view"
 import type { ListViewColumnMeta } from "@components/ui/list-view"
 import { ColumnDef } from "@tanstack/react-table"
-import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@components/ui/select"
 import { ChannelSidebarData, type ChannelHiddenReason } from "@raven/lib/hooks/useGroupedChannels"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@components/ui/tooltip"
 import { cn } from "@lib/utils"
-import { RavenGroupedChannels } from "@raven/types/Raven/RavenGroupedChannels"
-import { RavenPinnedChannels } from "@raven/types/Raven/RavenPinnedChannels"
-import { RavenUser } from "@raven/types/Raven/RavenUser"
 import { useMemo } from "react"
-import { useFieldArray, useFormContext } from "react-hook-form"
 import _ from "@lib/translate"
-import { EyeOff, Star } from "lucide-react"
+import { EyeOff } from "lucide-react"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@components/ui/empty"
+import { ChannelGroupSelect } from "./ChannelGroupSelect"
 
 interface ChannelTable {
   name: string,
@@ -119,7 +115,9 @@ export const ChannelTable = ({ data }: { data: ChannelSidebarData }) => {
         gridWidth: '220px',
         truncate: false,
       } satisfies ListViewColumnMeta,
-      cell: ({ row }) => <ChannelGroupDropdown channel={row.original} />,
+      cell: ({ row }) => (
+        <ChannelGroupSelect channelId={row.original.name} channelGroup={row.original.channel_group} />
+      ),
     },
   ], [])
 
@@ -146,98 +144,4 @@ export const ChannelTable = ({ data }: { data: ChannelSidebarData }) => {
       }
     />
   )
-}
-
-const ChannelGroupDropdown = ({ channel }: { channel: ChannelTable }) => {
-
-  const { control, getValues } = useFormContext<RavenUser>()
-
-  const { update: updateGroupedChannels, append: appendGroupedChannels, remove: removeGroupedChannels } = useFieldArray<RavenUser, 'grouped_channels'>({
-    control,
-    name: 'grouped_channels'
-  })
-  const { fields: groups } = useFieldArray<RavenUser, 'channel_groups'>({
-    control,
-    name: 'channel_groups'
-  })
-  const { append: appendPinnedChannels, remove: removePinnedChannels } = useFieldArray<RavenUser, 'pinned_channels'>({
-    control,
-    name: 'pinned_channels'
-  })
-
-  const handleGroupChange = (value: string) => {
-    const currentPinnedChannels = getValues('pinned_channels') || []
-    const currentGroupedChannels = getValues('grouped_channels') || []
-
-    const pinnedIndex = currentPinnedChannels.findIndex(
-      field => field.channel_id === channel.name
-    )
-
-    const groupedIndex = currentGroupedChannels.findIndex(
-      field => field.channel_id === channel.name
-    )
-
-    if (value === "Favorites") {
-      if (pinnedIndex < 0) {
-        appendPinnedChannels({
-          channel_id: channel.name,
-        } as RavenPinnedChannels)
-      }
-      if (groupedIndex >= 0) {
-        removeGroupedChannels(groupedIndex)
-      }
-    } else if (value === "Ungroup Channel") {
-      if (pinnedIndex >= 0) {
-        removePinnedChannels(pinnedIndex)
-      }
-      if (groupedIndex >= 0) {
-        removeGroupedChannels(groupedIndex)
-      }
-    } else {
-      if (pinnedIndex >= 0) {
-        removePinnedChannels(pinnedIndex)
-      }
-
-      if (groupedIndex >= 0) {
-        updateGroupedChannels(groupedIndex, {
-          ...currentGroupedChannels[groupedIndex],
-          channel_group: value
-        })
-      } else {
-        appendGroupedChannels({
-          channel_id: channel.name,
-          channel_group: value,
-        } as RavenGroupedChannels)
-      }
-    }
-  }
-
-  return (<Select
-    value={channel.channel_group}
-    onValueChange={handleGroupChange}
-  >
-    <SelectTrigger inputSize="sm" className="w-52 **:data-[slot=select-value]:truncate **:data-[slot=select-value]:block">
-      <SelectValue placeholder={_('Select a group')} />
-    </SelectTrigger>
-    <SelectContent>
-      <SelectItem value="Favorites">
-        <div className="flex items-center gap-2">
-          <Star className="fill-yellow-400 stroke-yellow-400" />
-          {_("Favorites")}
-        </div>
-      </SelectItem>
-      {groups.length > 0 && <SelectSeparator />}
-      {groups.map((field) => (
-        <SelectItem key={field.name} value={field.group_name} className="overflow-hidden *:last:truncate *:last:block!">
-          {field.group_name}
-        </SelectItem>
-      ))}
-      {channel.channel_group && <div>
-        <SelectSeparator />
-        <SelectItem value="Ungroup Channel">
-          {_("No group")}
-        </SelectItem>
-      </div>}
-    </SelectContent>
-  </Select>)
 }
