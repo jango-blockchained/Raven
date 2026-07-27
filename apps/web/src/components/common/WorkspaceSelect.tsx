@@ -30,7 +30,7 @@ export const WorkspaceSelect = ({
         <Select value={value} onValueChange={onValueChange}>
             <SelectTrigger
                 inputSize="sm"
-                className={cn("w-40 shrink-0 px-0.5 **:data-[slot=select-value]:truncate **:data-[slot=select-value]:block", className)}
+                className={cn("w-40 shrink-0 px-0.5 pr-1 **:data-[slot=select-value]:truncate **:data-[slot=select-value]:block", className)}
             >
                 <SelectValue placeholder={_('Select a workspace')} />
             </SelectTrigger>
