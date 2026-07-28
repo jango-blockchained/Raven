@@ -7,7 +7,8 @@ import type { ColumnDef } from "@tanstack/react-table"
 import ErrorBanner from "@components/ui/error-banner"
 import { Spinner } from "@components/ui/spinner"
 import { useWorkspaces, WorkspaceFields } from "@hooks/useWorkspaces"
-import { Globe, Lock } from "lucide-react"
+import { Building2Icon, Globe, Lock } from "lucide-react"
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@components/ui/empty"
 import {
     SettingsPanelContent,
     SettingsPanelDescription,
@@ -86,7 +87,17 @@ export default function WorkspaceListView({ onOpenWorkspace }: { onOpenWorkspace
                         data={workspaces ?? []}
                         columns={workspaceColumns}
                         getRowId={(row) => row.name}
-                        emptyState={<span className="text-ink-gray-4">{_("No workspaces found.")}</span>}
+                        emptyState={
+                            <Empty>
+                                <EmptyMedia>
+                                    <Building2Icon />
+                                </EmptyMedia>
+                                <EmptyHeader>
+                                    <EmptyTitle>{_("No workspaces found")}</EmptyTitle>
+                                    <EmptyDescription>{_("Workspaces you can access will show up here.")}</EmptyDescription>
+                                </EmptyHeader>
+                            </Empty>
+                        }
                     />
                 )}
             </SettingsPanelContent>

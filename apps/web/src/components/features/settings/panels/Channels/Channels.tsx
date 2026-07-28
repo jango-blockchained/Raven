@@ -1,19 +1,18 @@
 import { ChannelIcon } from "@components/common/ChannelIcon/ChannelIcon"
 import { ListView, type ListViewColumnMeta, type SortingState } from "@components/ui/list-view"
 import type { ColumnDef } from "@tanstack/react-table"
-import { CreateChannelForm } from "@components/features/channel/CreateChannel/CreateChannelForm"
 import { Button } from "@components/ui/button"
-import { Dialog, DialogTrigger, DialogContent } from "@components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@components/ui/dropdown-menu"
 import { useChannels } from "@stores/channels/useChannelList"
 import _ from "@lib/translate"
 import { ChannelListItem } from "@raven/types/common/ChannelListItem"
-import { BellOff, BellRing, Loader2, Plus, Check } from "lucide-react"
+import { BellOff, BellRing, Plus, Check, LogIn, LogOut } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router"
 import { ChannelFilters } from "./ChannelFilters"
 import { useWorkspaces } from "@hooks/useWorkspaces"
 import { Badge } from "@components/ui/badge"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@components/ui/tooltip"
 import { useJoinChannel } from "@hooks/useJoinChannel"
 import { useLeaveChannel } from "@hooks/useLeaveChannel"
 import { errorResponseToast } from "@components/ui/error-banner"
@@ -118,7 +117,9 @@ export const Channels = () => {
             size: 112,
             enableSorting: false,
             enableResizing: false,
-            meta: { truncate: false, truncateTooltip: false, align: 'center' } satisfies ListViewColumnMeta,
+            // Right-aligned, not centred: the action icon must sit at the same x in every
+            // row. Centring shifted it whenever the "Joined" badge widened the cell.
+            meta: { truncate: false, truncateTooltip: false, align: 'right' } satisfies ListViewColumnMeta,
             cell: ({ row }) => (row.original.type !== 'Open' ? <ChannelJoinButton channel={row.original} /> : null),
         },
         {
@@ -204,24 +205,51 @@ const ChannelJoinButton = ({ channel }: { channel: ChannelListItem }) => {
         )
     }
 
+    // Membership state and the action on it are two different things, so they get two
+    // different controls: a Badge that only reports, and an icon button that only acts.
+    // (This replaced a single button whose label crossfaded Joined -> Leave on hover,
+    // which hid the action from anyone not hovering and made the row's meaning depend
+    // on cursor position.)
+    if (channel.member_id) {
+        return (
+            <div className="flex items-center justify-end gap-1.5">
+                <Badge variant="subtle">{_("Joined")}</Badge>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            theme="red"
+                            size="sm"
+                            isIconButton
+                            loading={isLoading}
+                            aria-label={_("Leave channel")}
+                            onClick={() => toggleJoin("leave")}
+                        >
+                            <LogOut />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{_("Leave channel")}</TooltipContent>
+                </Tooltip>
+            </div>
+        )
+    }
+
     return (
-        <Button
-            variant="outline"
-            size="sm"
-            className="group/join"
-            loading={isLoading}
-            onClick={() => toggleJoin(channel.member_id ? 'leave' : 'join')}>
-            {channel.member_id ? (<span className="grid">
-                <span className='opacity-100 group-hover/join:opacity-0 transition-opacity duration-150 col-start-1 row-start-1'>
-                    {_('Joined')}
-                </span>
-                <span className='opacity-0 group-hover/join:opacity-100 transition-opacity duration-150 col-start-1 row-start-1'>
-                    {_('Leave')}
-                </span>
-            </span>) : (<span>
-                {_('Join')}
-            </span>)}
-        </Button>
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    isIconButton
+                    loading={isLoading}
+                    aria-label={_("Join channel")}
+                    onClick={() => toggleJoin("join")}
+                >
+                    <LogIn />
+                </Button>
+            </TooltipTrigger>
+            <TooltipContent>{_("Join channel")}</TooltipContent>
+        </Tooltip>
     )
 }
 

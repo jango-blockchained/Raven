@@ -177,7 +177,7 @@ const AddCustomEmojiDialog = ({ open, onClose }: AddCustomEmojiDialogProps) => {
                         />
 
                         <DialogFooter className="pt-4">
-                            <Button
+                            <Button size="md"
                                 type="button"
                                 variant="outline"
                                 onClick={() => handleOpenChange(false)}
@@ -185,7 +185,7 @@ const AddCustomEmojiDialog = ({ open, onClose }: AddCustomEmojiDialogProps) => {
                             >
                                 {_("Cancel")}
                             </Button>
-                            <Button type="submit" disabled={loading || uploading || files.length === 0}>
+                            <Button size="md" type="submit" disabled={loading || uploading || files.length === 0}>
                                 {(loading || uploading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 {loading || uploading ? _("Saving...") : _("Save")}
                             </Button>

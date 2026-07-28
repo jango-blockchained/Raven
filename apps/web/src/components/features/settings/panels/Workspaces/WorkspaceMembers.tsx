@@ -1,7 +1,8 @@
 import { useMemo, useState, useSyncExternalStore } from "react"
 import { useFrappeDeleteDoc, useFrappeGetCall, useFrappePostCall, useFrappeUpdateDoc, useSWRConfig } from "frappe-react-sdk"
 import { toast } from "sonner"
-import { CrownIcon, EllipsisVertical, PlusIcon, UserMinusIcon } from "lucide-react"
+import { CrownIcon, EllipsisVertical, PlusIcon, UserMinusIcon, UsersIcon } from "lucide-react"
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@components/ui/empty"
 import { Button } from "@components/ui/button"
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter,
@@ -125,7 +126,18 @@ const WorkspaceMembers = ({ workspaceID }: { workspaceID: string }) => {
                     data={data?.message ?? []}
                     columns={columns}
                     getRowId={(row) => row.name}
-                    emptyState={<span className="text-ink-gray-4">{_("No members found.")}</span>}
+                    rowHeight={44}
+                    emptyState={
+                        <Empty>
+                            <EmptyMedia>
+                                <UsersIcon />
+                            </EmptyMedia>
+                            <EmptyHeader>
+                                <EmptyTitle>{_("No members found")}</EmptyTitle>
+                                <EmptyDescription>{_("Members of this workspace will show up here.")}</EmptyDescription>
+                            </EmptyHeader>
+                        </Empty>
+                    }
                 />
             )}
         </div>
@@ -230,9 +242,9 @@ const AddWorkspaceMembersDialog = ({
                 </div>
                 <DialogFooter>
                     <DialogClose asChild>
-                        <Button type="button" variant="outline" disabled={loading}>{_("Cancel")}</Button>
+                        <Button size="md" type="button" variant="outline" disabled={loading}>{_("Cancel")}</Button>
                     </DialogClose>
-                    <Button type="button" onClick={onSubmit} disabled={selectedUsers.length === 0 || loading}>
+                    <Button size="md" type="button" onClick={onSubmit} disabled={selectedUsers.length === 0 || loading}>
                         {loading && <Spinner />}
                         {_("Add {0} members", [String(selectedUsers.length)])}
                     </Button>

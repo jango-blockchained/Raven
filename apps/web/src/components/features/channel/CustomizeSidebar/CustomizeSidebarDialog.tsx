@@ -4,27 +4,23 @@ import { useGroupedChannels, type ChannelSidebarData } from "@raven/lib/hooks/us
 import { useChannels } from "@stores/channels/useChannelList"
 import useCurrentRavenUser from "@raven/lib/hooks/useCurrentRavenUser"
 import { useMemo, useState } from "react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/tabs"
 import { ChannelTable } from "./ChannelTable"
 import { RavenUser } from "@raven/types/Raven/RavenUser"
 import { FormProvider, useForm, useWatch } from "react-hook-form"
 import { useFrappeUpdateDoc } from "frappe-react-sdk"
 import { toast } from "sonner"
 import _ from "@lib/translate"
-import { GroupDnd } from "./GroupDnd"
 import { useParams } from "react-router"
 import { useWorkspaces } from "@hooks/useWorkspaces"
 import { WorkspaceSelect } from "@components/common/WorkspaceSelect"
-import { H3 } from "@components/ui/typography"
 import { SettingsPanelContent, SettingsPanelDescription, SettingsPanelHeader, SettingsPanelTitle } from "@components/ui/settings-dialog"
 import { errorResponseToast } from "@components/ui/error-banner"
-import { DialogClose } from "@components/ui/dialog"
+import { ChannelGroupsProvider } from "./useChannelGroups"
 
 export const CustomizeSidebarDialog = () => {
 
     const { channels } = useChannels()
     const { myProfile, mutate } = useCurrentRavenUser()
-    const [activeTab, setActiveTab] = useState('channels')
 
     const { updateDoc } = useFrappeUpdateDoc()
 
@@ -68,11 +64,16 @@ export const CustomizeSidebarDialog = () => {
         ungroupedChannels: channelSidebarData.ungroupedChannels.filter((ch) => !ch._hiddenReason),
     }), [channelSidebarData])
 
-    const { handleSubmit } = methods
+    const { handleSubmit, reset, formState: { isDirty } } = methods
 
     const onSubmit = (data: RavenUser) => {
         if (myProfile) {
             updateDoc("Raven User", myProfile.name, data).then(() => {
+                // Rebase the form's baseline onto what we just saved. useForm captured
+                // defaultValues once at mount, so without this isDirty stays true forever
+                // after the first Save — leaving "Discard changes" on screen claiming
+                // unsaved work, and reverting to the PRE-EDIT state if clicked.
+                reset(data)
                 toast.success(_("Sidebar updated"))
                 mutate()
             }).catch((error) => {
@@ -81,72 +82,65 @@ export const CustomizeSidebarDialog = () => {
         }
     }
 
-    const TABS: { key: 'channels' | 'groups'; label: string }[] = [
-        { key: 'channels', label: _("Channels") },
-        { key: 'groups', label: _("Groups") },
-    ]
-
     return (
         <FormProvider {...methods}>
-            <div className="flex flex-col h-full">
+            <ChannelGroupsProvider>
                 <SettingsPanelHeader
                     actions={
-                        <Button
-                            type="button"
-                            size="md"
-                            onClick={handleSubmit(onSubmit)}
-                        >
-                            {_("Save")}
-                        </Button>}>
+                        <>
+                            {/* Edits are form state until Save, and nothing else signals that
+                            unsaved work exists — this is that signal, and the way out of it.
+                            Outline, not solid: Save is the panel's one primary button. */}
+                            {isDirty && (
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => reset()}
+                                >
+                                    {_("Discard changes")}
+                                </Button>
+                            )}
+                            <Button
+                                type="button"
+                                size="sm"
+                                onClick={handleSubmit(onSubmit)}
+                            >
+                                {_("Save")}
+                            </Button>
+                        </>}>
                     <SettingsPanelTitle>{_("Customize Sidebar")}</SettingsPanelTitle>
                     <SettingsPanelDescription>
                         {_("Customize your sidebar channels and groups")}
                     </SettingsPanelDescription>
                 </SettingsPanelHeader>
-                <SettingsPanelContent>
+                <SettingsPanelContent className="min-h-0 gap-4 pt-0.5">
                     {/* flex-1 min-h-0: fill the space between header and footer and DON'T grow
-                        with content, so the table and preview columns get a bounded height and
-                        scroll internally (otherwise the tall preview makes the whole panel scroll). */}
-                    <div className="flex flex-1 min-h-0 w-full py-2">
+                    with content, so the table and preview columns get a bounded height and
+                    scroll internally (otherwise the tall preview makes the whole panel scroll). */}
+                    <div className="flex flex-1 min-h-0 w-full gap-4">
                         {/* Left Column - Customization */}
-                        <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden bg-surface-base pb-0">
-                            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                                <div className="flex items-center gap-2">
-                                    <TabsList variant="subtle" size="sm" style={{ width: "fit-content" }}>
-                                        {TABS.map(tab => (
-                                            <TabsTrigger key={tab.key} value={tab.key}>{tab.label}</TabsTrigger>
-                                        ))}
-                                    </TabsList>
-                                    <WorkspaceSelect
-                                        value={activeWorkspace}
-                                        onValueChange={setPickedWorkspace}
-                                        className="w-64"
-                                        workspaces={memberWorkspaces}
-                                    />
-                                </div>
-                                <div className="flex-1 flex flex-col min-h-0">
-                                    <TabsContent value="channels" className="group-data-[orientation=horizontal]/tabs:py-0 flex-1 min-h-0 flex flex-col">
-                                        <ChannelTable data={channelSidebarData} />
-                                    </TabsContent>
-                                    <TabsContent value="groups" className="group-data-[orientation=horizontal]/tabs:py-0 flex-1 min-h-0 flex flex-col">
-                                        <div className="h-full overflow-y-auto pr-2">
-                                            <GroupDnd />
-                                        </div>
-                                    </TabsContent>
-                                </div>
-                            </Tabs>
-                        </div>
-                        {/* Right Column - Preview (hidden on mobile) */}
-                        <div className="hidden md:flex flex-none w-64 flex-col min-h-0 bg-surface-sidebar/40 border border-outline-gray-2 rounded overflow-hidden">
-                            <div className="px-4 py-3 border-b shrink-0">
-                                <H3 className="text-sm font-semibold">{_("Preview")}</H3>
+                        <div className="flex flex-1 flex-col min-w-0 min-h-0 overflow-hidden bg-surface-base">
+                            <div className="flex flex-col md:flex-row md:items-center gap-2 pb-2">
+                                <WorkspaceSelect
+                                    value={activeWorkspace}
+                                    onValueChange={setPickedWorkspace}
+                                    className="w-full md:w-56"
+                                    workspaces={memberWorkspaces}
+                                />
                             </div>
-                            <SidebarPreview data={previewData} />
+                            <ChannelTable data={channelSidebarData} />
+                        </div>
+                        {/* Right Column - Preview (desktop only, so no mobile type/touch scaling) */}
+                        <div className="hidden md:flex flex-none w-64 flex-col min-h-0 bg-surface-sidebar border border-outline-gray-2 rounded overflow-hidden">
+                            <div className="px-4 py-3 border-b shrink-0">
+                                <p className="text-sm-medium text-ink-gray-7">{_("Preview")}</p>
+                            </div>
+                            <SidebarPreview data={previewData} globalSort={ravenUser?.sort_channels_by} />
                         </div>
                     </div>
-
                 </SettingsPanelContent>
-            </div>
+            </ChannelGroupsProvider>
         </FormProvider>
     )
 }

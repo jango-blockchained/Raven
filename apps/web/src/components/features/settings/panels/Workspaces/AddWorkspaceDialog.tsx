@@ -154,9 +154,9 @@ const AddWorkspaceForm = ({ onClose }: { onClose: (workspaceID?: string) => void
                 </div>
                 <DialogFooter>
                     <DialogClose asChild>
-                        <Button type="button" variant="outline" disabled={loading}>{_("Cancel")}</Button>
+                        <Button size="md" type="button" variant="outline" disabled={loading}>{_("Cancel")}</Button>
                     </DialogClose>
-                    <Button type="submit" disabled={loading}>
+                    <Button size="md" type="submit" disabled={loading}>
                         {loading && <Spinner />}
                         {loading ? _("Saving") : _("Save")}
                     </Button>

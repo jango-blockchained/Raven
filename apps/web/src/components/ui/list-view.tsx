@@ -129,12 +129,14 @@ function ListViewCellBody<TData>({
         return <div className="min-w-0 flex-1 overflow-visible">{children}</div>
     }
 
+    // leading-snug: `truncate` sets overflow:hidden, so this div's box is its line
+    // box — and the UI type scale's 1.15 is too tight to contain Inter's descenders
+    // (Safari shaves them). Rows are fixed-height and center their cells, so the
+    // taller line box re-centers rather than reflowing anything.
     const inner = (
         <div
             ref={ref}
-            className={cn(
-                "min-h-0 min-w-0 flex-1 truncate",
-            )}
+            className="min-h-0 min-w-0 flex-1 truncate leading-snug"
         >
             {children}
         </div>
@@ -532,7 +534,7 @@ function ListViewInner<TData>({
                                             onClick={header.column.getToggleSortingHandler()}
                                             className="flex min-w-0 items-center gap-1 rounded transition-colors hover:text-ink-gray-7 focus-visible:focus-ring"
                                         >
-                                            <span className="truncate">{label}</span>
+                                            <span className="truncate leading-snug">{label}</span>
                                             {sorted === "asc" ? (
                                                 <ArrowUpIcon className="size-3.5 shrink-0" />
                                             ) : sorted === "desc" ? (
@@ -542,7 +544,7 @@ function ListViewInner<TData>({
                                             )}
                                         </button>
                                     ) : (
-                                        <div className="min-w-0 flex-1 truncate">{label}</div>
+                                        <div className="min-w-0 flex-1 truncate leading-snug">{label}</div>
                                     )}
                                     {enableColumnResizing && header.column.getCanResize() ? (
                                         <>
