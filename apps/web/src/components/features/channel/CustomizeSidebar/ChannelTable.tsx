@@ -60,7 +60,11 @@ export const ChannelTable = ({ data }: { data: ChannelSidebarData }) => {
       })
     })
 
-    return result
+    // Alphabetical, NOT the grouped-then-ungrouped order the rows arrive in:
+    // that order made assigning a group physically move the row (up into its
+    // group's block) under the user's cursor. The table is a worklist you scan
+    // by name — grouping is the PREVIEW's job to visualize.
+    return result.sort((a, b) => a.channel_name.localeCompare(b.channel_name))
   }, [data])
 
   const columns: ColumnDef<ChannelTable>[] = useMemo(() => [

@@ -25,7 +25,11 @@ export const SidebarPreview = ({ data, globalSort }: SidebarPreviewProps) => {
 
     const { reorder } = useChannelGroups()
     const sensors = useSensors(
-        useSensor(PointerSensor),
+        // The whole group header is the drag activator (no grip handle), and it is
+        // also the collapse toggle. The distance threshold is what separates the
+        // two: a still click toggles, movement past 8px lifts. Without it every
+        // pointerdown would start a drag and swallow the click.
+        useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
     )
 
@@ -51,6 +55,10 @@ export const SidebarPreview = ({ data, globalSort }: SidebarPreviewProps) => {
         .map(([groupName]) => groupName)
         .filter((groupName) => groupName !== "Favorites")
 
+    // A single group has nowhere to go — showing a grab cursor on it would
+    // advertise a drag that can't do anything.
+    const canReorder = sortableGroupNames.length > 1
+
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event
         if (over && active.id !== over.id) {
@@ -69,6 +77,7 @@ export const SidebarPreview = ({ data, globalSort }: SidebarPreviewProps) => {
                                     key={groupName}
                                     groupName={groupName}
                                     globalSort={globalSort}
+                                    canReorder={canReorder}
                                     open={isGroupOpen(groupName, channels.length > 0)}
                                     onOpenChange={(open) => setOpenGroups((prev) => ({ ...prev, [groupName]: open }))}
                                 >
@@ -103,25 +112,30 @@ export const SidebarPreview = ({ data, globalSort }: SidebarPreviewProps) => {
  * group between that group's header and its own channels. Measuring the full block
  * keeps channels stuck to their group.
  *
- * Only the grip button is the activator, so dragging still starts from the handle.
+ * The activator is the whole HEADER (not the whole li) — channels rows stay
+ * plain content, and the sensor's distance constraint keeps header clicks
+ * working as the collapse toggle.
  */
 const SortableGroup = ({
     groupName,
     globalSort,
+    canReorder,
     open,
     onOpenChange,
     children,
 }: {
     groupName: string
     globalSort?: string
+    canReorder: boolean
     open: boolean
     onOpenChange: (open: boolean) => void
     children: React.ReactNode
 }) => {
     const isSortable = groupName !== "Favorites"
+    const draggable = isSortable && canReorder
     const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
         id: groupName,
-        disabled: !isSortable,
+        disabled: !draggable,
     })
 
     return (
@@ -142,8 +156,12 @@ const SortableGroup = ({
                     groupName={groupName}
                     isSortable={isSortable}
                     globalSort={globalSort}
-                    dragHandleRef={setActivatorNodeRef}
-                    dragHandleProps={{ ...attributes, ...listeners }}
+                    // Undefined when the group can't move (Favorites, or it's the only
+                    // group): spreading a disabled sortable's attributes would still stamp
+                    // role="button" + tabIndex on it, and the header keys its grab cursor
+                    // off the presence of these props.
+                    dragRef={draggable ? setActivatorNodeRef : undefined}
+                    dragProps={draggable ? { ...attributes, ...listeners } : undefined}
                 />
                 <CollapsibleContent>{children}</CollapsibleContent>
             </Collapsible>

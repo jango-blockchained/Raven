@@ -25,3 +25,10 @@ class TestChannelGroups(FrappeTestCase):
 		self.user_a.append("channel_groups", {"group_name": "Eng"})
 		self.user_a.append("channel_groups", {"group_name": "eng"})
 		self.assertRaises(frappe.ValidationError, self.user_a.save)
+
+	def test_favorites_is_a_reserved_group_name(self):
+		"""Favorites is the pinned_channels pseudo-group — a real group with that name
+		could never receive a channel (clients route it to the pin list) and would
+		render nowhere. Case-insensitive, matching the duplicate check."""
+		self.user_a.append("channel_groups", {"group_name": "favorites"})
+		self.assertRaises(frappe.ValidationError, self.user_a.save)

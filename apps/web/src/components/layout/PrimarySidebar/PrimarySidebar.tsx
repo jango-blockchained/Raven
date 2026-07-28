@@ -55,6 +55,7 @@ const PrimarySidebar = () => {
                     <div className="px-3.5 w-full">
                         <Separator />
                     </div>
+                    <SearchButton />
                     <NotificationsLink />
                     <DirectMessagesLink />
                     <ThreadsLink />
@@ -67,7 +68,6 @@ const PrimarySidebar = () => {
                     <div className="px-3.5 w-full">
                         <Separator />
                     </div>
-                    <SearchButton />
                     <SavedMessageLink />
                     <NavUserMenu />
                 </div>

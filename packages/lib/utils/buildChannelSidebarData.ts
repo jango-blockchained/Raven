@@ -13,6 +13,12 @@ export interface ChannelSidebarData {
     ungroupedChannels: SidebarChannelItem[]
 }
 
+/** The sidebar filters exist to tame a crowded sidebar. Below this many
+ *  channels in the workspace (the absolute non-archived count, exemptions
+ *  included) there is nothing to tame — hiding channels in a small workspace
+ *  costs more than it helps — so the preferences only kick in from here up. */
+const FILTER_MIN_CHANNELS = 15
+
 export const buildChannelSidebarData = (
     channels: ChannelListItem[],
     myProfile?: RavenUser,
@@ -21,19 +27,47 @@ export const buildChannelSidebarData = (
 ): ChannelSidebarData => {
     const includeHidden = options?.includeHidden ?? false
 
-    const showMyChannelsOnly = myProfile?.filter_joined_channels === 1
-    const showRecentActivityOnly = myProfile?.filter_recent_activity === 1
-
-    const thirty_days_ago = dayjs().subtract(30, "days").format("YYYY-MM-DD")
-    const workspaceChannels: SidebarChannelItem[] = []
+    const pool: ChannelListItem[] = []
     for (const ch of channels) {
         if (ch.workspace !== workspaceID) continue
         if (ch.is_archived) continue
+        pool.push(ch)
+    }
+
+    const pinnedChannelIds = new Set(myProfile?.pinned_channels?.map((pin) => pin.channel_id) || [])
+    const groupedChannelMap = new Map(
+        myProfile?.grouped_channels?.map((gc) => [gc.channel_id, gc.channel_group]) || [],
+    )
+    const groupNames = new Set(myProfile?.channel_groups?.map((group) => group.group_name) || [])
+
+    const showMyChannelsOnly = myProfile?.filter_joined_channels === 1
+    const showRecentActivityOnly = myProfile?.filter_recent_activity === 1
+
+    // A channel the filters are allowed to hide. Two standing exemptions:
+    // - Open channels: membership is implicit — member_id is only created on
+    //   the user's first visit — so "channels I've joined" would wrongly hide
+    //   an Open channel the user simply hasn't opened yet. They are also the
+    //   org-wide channels users must not lose, so they are never hidden.
+    // - Curated channels (pinned, or in one of the user's groups): the user
+    //   placed them by hand, and a filter un-placing them reads as data loss.
+    const isFilterable = (ch: ChannelListItem) =>
+        ch.type !== "Open" &&
+        !pinnedChannelIds.has(ch.name) &&
+        !groupNames.has(groupedChannelMap.get(ch.name) ?? "")
+
+    const applyFilters =
+        (showMyChannelsOnly || showRecentActivityOnly) && pool.length >= FILTER_MIN_CHANNELS
+
+    const thirty_days_ago = dayjs().subtract(30, "days").format("YYYY-MM-DD")
+    const workspaceChannels: SidebarChannelItem[] = []
+    for (const ch of pool) {
         let hiddenReason: ChannelHiddenReason | undefined
-        if (showMyChannelsOnly && !ch.member_id) {
-            hiddenReason = "not_joined"
-        } else if (showRecentActivityOnly && dayjs(ch.last_message_timestamp).isBefore(thirty_days_ago)) {
-            hiddenReason = "no_recent_activity"
+        if (applyFilters && isFilterable(ch)) {
+            if (showMyChannelsOnly && !ch.member_id) {
+                hiddenReason = "not_joined"
+            } else if (showRecentActivityOnly && dayjs(ch.last_message_timestamp).isBefore(thirty_days_ago)) {
+                hiddenReason = "no_recent_activity"
+            }
         }
         if (hiddenReason) {
             if (includeHidden) workspaceChannels.push({ ...ch, _hiddenReason: hiddenReason })
@@ -47,11 +81,6 @@ export const buildChannelSidebarData = (
 
     const groups = new Map<string, SidebarChannelItem[]>()
     const remainingChannels = new Set(workspaceChannels)
-
-    const pinnedChannelIds = new Set(myProfile.pinned_channels?.map((pin) => pin.channel_id) || [])
-    const groupedChannelMap = new Map(
-        myProfile.grouped_channels?.map((gc) => [gc.channel_id, gc.channel_group]) || [],
-    )
     // Favorites has no channel_groups row, so it has no sort_by of its own and
     // resolves to the global preference like the ungrouped list does.
     const sortByGroupName = new Map(

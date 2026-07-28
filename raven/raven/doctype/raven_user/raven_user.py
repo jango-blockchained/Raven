@@ -71,10 +71,18 @@ class RavenUser(Document):
 		Group names must be unique per user — grouped_channels references a group
 		by name, so duplicates within one user would corrupt channel assignment.
 		Enforced here because the DB cannot express "unique per parent".
+
+		"Favorites" is reserved: the sidebar renders it as a pseudo-group backed by
+		pinned_channels, not a channel_groups row. A real group with that name would
+		collide with it — clients route "Favorites" assignments to the pin list, so
+		the group could never receive a channel, and empty groups are not rendered.
+		The web client refuses the name; this covers API and older-client writers.
 		"""
 		seen = set()
 		for group in self.channel_groups or []:
 			name = (group.group_name or "").strip().casefold()
+			if name == "favorites":
+				frappe.throw(_("Group name {0} is reserved.").format(frappe.bold(group.group_name)))
 			if name in seen:
 				frappe.throw(_("Group name {0} is already used.").format(frappe.bold(group.group_name)))
 			seen.add(name)
