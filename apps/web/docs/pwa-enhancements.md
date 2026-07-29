@@ -252,7 +252,24 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
     the closing animation, and by the time navigation fires the channel usually
     opens already rendered. The same half-second that used to end on a loading
     skeleton now ends on finished messages — which reads as *faster* than the
-    instant navigation ever did. Three lessons: anything visible around the
+    instant navigation ever did.
+
+    Two refinements landed later. First: not every tap needs the wait.
+    Switching *workspaces* from the same sheet navigates instantly — the
+    destination is the very list page the sheet is sitting on (the layout and
+    footer stay mounted across the switch), so the sheet just finishes closing
+    over the new workspace's list. The ghost risk still exists in theory, but
+    back-swiping between workspace lists is a rare gesture; back-swiping out
+    of a just-opened channel is constant. Pay the cost where the gesture
+    actually happens. Second: the same bug was hiding in the *create channel*
+    sheet, which navigated to the new channel the instant the server confirmed
+    it — under the still-open sheet. Same trap, same fix: mobile now waits for
+    the sheet to close before navigating (desktop keeps the instant hop, since
+    its dialog floats over the channel rather than covering it). Once a rule
+    like this exists, audit every drawer that navigates — the second offender
+    is always somewhere.
+
+    Three lessons: anything visible around the
     instant of navigation can be frozen into the back-swipe; when you're racing
     another process's clock, don't cut it fine — buy margin you can see; and
     when a delay is forced on you, overlap it with work the user was about to

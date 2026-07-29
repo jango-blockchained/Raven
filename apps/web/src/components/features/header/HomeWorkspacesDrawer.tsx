@@ -12,6 +12,7 @@ import { channelUnreadStore } from "@stores/unread/store"
 import { useWorkspaces, type WorkspaceFields } from "@hooks/useWorkspaces"
 import useCurrentRavenUser from "@raven/lib/hooks/useCurrentRavenUser"
 import { lastChannelAtom, lastWorkspaceAtom } from "@utils/lastVisitedAtoms"
+import { DRAWER_EXIT_MS } from "@utils/drawer"
 import type { ChannelListItem } from "@raven/types/common/ChannelListItem"
 import { cn } from "@lib/utils"
 import _ from "@lib/translate"
@@ -41,9 +42,6 @@ import _ from "@lib/translate"
  */
 export const workspacesDrawerAtom = atom(false)
 
-/** vaul's exit-animation duration (TRANSITIONS.DURATION = 0.5s). */
-const DRAWER_EXIT_MS = 500
-
 export const HomeWorkspacesDrawer = ({
     open,
     onOpenChange,
@@ -53,22 +51,9 @@ export const HomeWorkspacesDrawer = ({
 }) => {
     const navigate = useNavigate()
 
-    // Navigation waits for the drawer to FINISH closing. The OS back-swipe
-    // gesture animates with a SCREENSHOT of this page taken around the moment
-    // we navigate away — if the drawer is on screen then, the screenshot keeps
-    // it, and swiping back from the channel shows the switcher "still open"
-    // until the live page paints. We first tried the fast version — unmount the
-    // drawer instantly, paint one clean frame (double rAF), navigate — and it
-    // still ghosted on real iOS: the rAFs prove OUR process painted, but iOS
-    // presents frames and records its snapshot in a separate process on its own
-    // schedule, and a two-frame margin isn't enough. Waiting out the exit
-    // animation gives the compositor ~500ms of drawer-free frames, which no
-    // timing race can beat. Cost: the tap waits out the close animation.
-    //
-    // A plain timer, NOT vaul's onAnimationEnd: that callback only fires for
-    // closes vaul initiates itself (drag, scrim tap) — a controlled close like
-    // this one never triggers it. And internally it's the same thing anyway:
-    // vaul "detects" animation end with a 500ms setTimeout, not a real event.
+    // Navigation waits for the drawer to FINISH closing, or the drawer gets
+    // baked into the OS back-swipe screenshot and haunts the next back gesture
+    // (the full mechanism is documented on DRAWER_EXIT_MS).
     //
     // Only CHANNEL opens pay the wait. A workspace switch navigates instantly:
     // it lands on the same list page (WorkspaceLayout and this footer stay
