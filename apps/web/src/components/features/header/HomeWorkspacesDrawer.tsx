@@ -69,8 +69,20 @@ export const HomeWorkspacesDrawer = ({
     // closes vaul initiates itself (drag, scrim tap) — a controlled close like
     // this one never triggers it. And internally it's the same thing anyway:
     // vaul "detects" animation end with a 500ms setTimeout, not a real event.
-    const handleNavigate = (to: string) => {
+    //
+    // Only CHANNEL opens pay the wait. A workspace switch navigates instantly:
+    // it lands on the same list page (WorkspaceLayout and this footer stay
+    // mounted across it), so the drawer simply finishes closing over the NEW
+    // workspace's list — no dead-feeling pause. That does leave the drawer in
+    // the back-entry screenshot, but back-swiping between workspace lists is a
+    // rare gesture; back-swiping out of a just-opened channel is constant,
+    // which is why the channel path keeps the wait.
+    const handleNavigate = (to: string, options?: { instant?: boolean }) => {
         onOpenChange(false)
+        if (options?.instant) {
+            navigate(to)
+            return
+        }
         window.setTimeout(() => navigate(to), DRAWER_EXIT_MS)
     }
 
@@ -93,7 +105,7 @@ export const HomeWorkspacesDrawer = ({
 
 type UnreadRow = { channel: ChannelListItem; workspace: WorkspaceFields; count: number }
 
-const DrawerBody = ({ onNavigate }: { onNavigate: (to: string) => void }) => {
+const DrawerBody = ({ onNavigate }: { onNavigate: (to: string, options?: { instant?: boolean }) => void }) => {
     const { workspaces } = useWorkspaces()
     const { channels } = useChannels()
     const { myProfile } = useCurrentRavenUser()
@@ -143,7 +155,9 @@ const DrawerBody = ({ onNavigate }: { onNavigate: (to: string) => void }) => {
         // list IS the page), so the Channel page's pair-write never fires.
         setLastWorkspace(workspace.name)
         setLastChannel("")
-        onNavigate(`/${encodeURIComponent(workspace.name)}`)
+        // Instant: the switch swaps the list already under the closing drawer
+        // (see handleNavigate) — waiting here would just feel broken.
+        onNavigate(`/${encodeURIComponent(workspace.name)}`, { instant: true })
     }
 
     const openChannel = (row: UnreadRow) => {
