@@ -35,7 +35,6 @@ const SearchFileResults = ({ searchValue, filters, onSelect, selectedID }: Searc
         searchValue,
         { ...filters, message_type: filters.message_type || ['File', 'Image'] },
         100,
-        (r) => r.title
     )
     const { usersById, channelById, dmById, workspaceById } = useMessageRowLookups()
 

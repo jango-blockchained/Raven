@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useState } from "react"
 import { Outlet, useLocation, useNavigate, useParams } from "react-router-dom"
 import { Search, X } from "lucide-react"
 import { Input } from "@components/ui/input"
@@ -15,7 +15,7 @@ import { unreadThreadsStore } from "@stores/threads/unreadStore"
 import { useIsMobile } from "@hooks/use-mobile"
 import _ from "@lib/translate"
 import { cn } from "@lib/utils"
-import { useUsersById } from "@hooks/useMessageRowLookups"
+import { useUsers } from "@hooks/useUsers"
 import { PageHeader } from "@components/layout/PageHeader"
 import AppMobileFooter from "@components/features/header/AppMobileFooter"
 import { Island } from "@components/layout/Island"
@@ -38,8 +38,7 @@ export default function Threads() {
     const [onlyShowUnread, setOnlyShowUnread] = useState(false)
     const [search, setSearch] = useState('')
     const [channel, setChannel] = useState('*all')
-    const usersById = useUsersById()
-    const users = useMemo(() => [...usersById.values()], [usersById])
+    const users = useUsers()
     const { channels, dmChannels } = useChannelList()
     const isMobile = useIsMobile()
 
@@ -114,15 +113,10 @@ export default function Threads() {
                                 users={users}
                                 value={channel}
                                 onValueChange={setChannel}
-                                placeholder={_("Channel")}
-                                allowAll
                                 allLabel={_("Any Channel")}
-                                searchable
-                                size="sm"
-                                showLabel={false}
                                 className="w-full min-w-0"
-                                dropdownClassName="max-w-68"
-                                triggerClassName="w-full max-w-40 md:w-fit"
+                                dropdownClassName="max-w-64"
+                                triggerClassName="w-full max-w-40 md:w-40"
                             />
                         </div>
                     </div>

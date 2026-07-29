@@ -44,7 +44,7 @@ export function ChannelTypeFilter({ filters }: { filters: SearchFilters }) {
             <Select
                 value={filters.is_direct_message ? 'dm' : (filters.channel_type || undefined)}
                 onValueChange={(value) => selectOption(value)}>
-                <SelectTrigger variant="outline" className="w-full">
+                <SelectTrigger variant="outline" className="h-7.5 w-full">
                     <SelectValue placeholder={_("Channel Type")} />
                 </SelectTrigger>
                 <SelectContent>

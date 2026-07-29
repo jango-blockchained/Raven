@@ -8,8 +8,7 @@ import { ListFilter, X } from 'lucide-react'
 import { SearchFilters as SearchFiltersType } from './types'
 import { ChannelListItem, DMChannelListItem } from '@raven/types/common/ChannelListItem'
 import _ from '@lib/translate'
-import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '@db'
+import { useUsers } from '@hooks/useUsers'
 import { useChannelMembers } from '@hooks/useChannelMembers'
 import { Badge } from '@components/ui/badge'
 
@@ -19,14 +18,13 @@ interface SearchFiltersProps {
     dmChannels: DMChannelListItem[]
     onChannelChange: (value: string) => void
     onUserChange: (value: string) => void
-    isMobile?: boolean
 }
-export function SearchFiltersBar({ filters, channels, dmChannels, isMobile, onChannelChange, onUserChange }: SearchFiltersProps) {
-    const users = useLiveQuery(() => db.users.toArray(), [])
+export function SearchFiltersBar({ filters, channels, dmChannels, onChannelChange, onUserChange }: SearchFiltersProps) {
+    const users = useUsers()
     const { members, isLoading: isMembersLoading } = useChannelMembers(filters.channel_id || '')
     const clearAll = useClearSearchFilters()
 
-    const userFilterOptions = filters.channel_id && members.length > 0 ? members : (users ?? [])
+    const userFilterOptions = filters.channel_id && members.length > 0 ? members : users
 
     // Ensure that if a channel is selected and a user is selected, the user must be a member of the channel, else clear the filter.
     useEffect(() => {
@@ -64,8 +62,6 @@ export function SearchFiltersBar({ filters, channels, dmChannels, isMobile, onCh
                     filters={filters}
                     users={userFilterOptions}
                     onValueChange={(value) => onUserChange?.(value)}
-                    showLabel={false}
-                    size="sm"
                     dropdownClassName="w-60"
                     triggerClassName="w-full"
                     className="w-full min-w-0"
@@ -78,16 +74,10 @@ export function SearchFiltersBar({ filters, channels, dmChannels, isMobile, onCh
                     users={users}
                     value={filters.channel_id || ""}
                     onValueChange={(value) => onChannelChange?.(value)}
-                    placeholder="In"
-                    allowAll
                     allLabel={_("In Any Channel")}
-                    size="sm"
-                    dropdownClassName="w-68"
+                    dropdownClassName="w-64"
                     triggerClassName="w-full"
                     className="w-full min-w-0"
-                    showLabel={false}
-                    label="Channel"
-                    searchable
                 />
             </div>
             {/* TODO: Add date range filter capability to sqlite search, either Frappe side or override in Raven */}
@@ -95,7 +85,7 @@ export function SearchFiltersBar({ filters, channels, dmChannels, isMobile, onCh
             {/* Compact icon Filters button — segmented with a clear-all X when any filter
                 is active. The floating count badge overhangs the top-right corner. */}
             <Popover>
-                <div className="shrink-0 inline-flex h-8 sm:h-7 items-stretch rounded border border-outline-gray-2 bg-surface-base divide-x divide-outline-gray-2">
+                <div className="shrink-0 inline-flex h-7.5 items-stretch rounded border border-outline-gray-2 bg-surface-base divide-x divide-outline-gray-2">
                     <PopoverTrigger asChild>
                         <button
                             type="button"

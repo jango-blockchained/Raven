@@ -24,8 +24,7 @@ import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@c
 import { SearchFilters } from '@components/features/search/types'
 
 import { useChannelList } from "@stores/channels/useChannelList"
-import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '@db'
+import { useUsers } from '@hooks/useUsers'
 import { Input } from '@components/ui/input'
 import { useIsMobile } from '@hooks/use-mobile'
 import { cn } from '@lib/utils'
@@ -121,7 +120,7 @@ export default function Search() {
     }
 
     const { channels, dmChannels } = useChannelList()
-    const users = useLiveQuery(() => db.users.toArray(), [])
+    const users = useUsers()
 
     // Don't fetch until there's something to search for — an empty query with no filters would
     // otherwise pull the whole corpus. Gating the render here means the result components (and
@@ -229,7 +228,6 @@ export default function Search() {
                                             dmChannels={dmChannels}
                                             onChannelChange={setChannelFilter}
                                             onUserChange={setUserFilter}
-                                            isMobile={isMobile}
                                         />
                                     </div>
                                 </div>
@@ -238,7 +236,7 @@ export default function Search() {
                                 filters={filters}
                                 channels={channels}
                                 dmChannels={dmChannels}
-                                users={users ?? []}
+                                users={users}
                             />
                         </div>
                     </div>

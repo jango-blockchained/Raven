@@ -60,7 +60,7 @@ export function FileTypeFilter({ filters }: { filters: SearchFilters }) {
                     <Button
                         variant="outline"
                         size="md"
-                        className="w-full justify-between font-normal"
+                        className="h-7.5 w-full justify-between font-normal"
                         role="combobox"
                         aria-expanded={open}
                     >

@@ -11,8 +11,7 @@ import { NotificationsEmptyState, type SelectedNotification } from "@pages/notif
 import { Input } from "@components/ui/input"
 import { useIsMobile } from "@hooks/use-mobile"
 import { useChannelList } from "@stores/channels/useChannelList"
-import { useLiveQuery } from "dexie-react-hooks"
-import { db } from "@db"
+import { useUsers } from "@hooks/useUsers"
 import { cn } from "@lib/utils"
 import _ from "@lib/translate"
 
@@ -30,7 +29,7 @@ const SavedMessages = () => {
     const [search, setSearch] = useState('')
     const [channel, setChannel] = useState('*all')
     const { channels, dmChannels } = useChannelList()
-    const users = useLiveQuery(() => db.users.toArray(), [])
+    const users = useUsers()
     const isMobile = useIsMobile()
 
     // The open message is ROUTE-driven (same as notifications): `/saved-messages/:channelID/:messageID`
@@ -119,13 +118,8 @@ const SavedMessages = () => {
                                 users={users}
                                 value={channel}
                                 onValueChange={setChannel}
-                                placeholder={_('Channel')}
-                                allowAll
                                 allLabel={_('Any Channel')}
-                                searchable
-                                size="sm"
-                                showLabel={false}
-                                dropdownClassName="w-68"
+                                dropdownClassName="w-64"
                                 className={isMobile ? "w-full min-w-0" : undefined}
                                 triggerClassName="w-40"
                             />
