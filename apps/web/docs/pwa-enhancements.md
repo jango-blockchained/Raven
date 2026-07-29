@@ -362,6 +362,19 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
     and each platform honors it under different conditions — when a native
     integration silently degrades, diff the exact attribute combination
     against each platform's rules before suspecting your own code.
+38. **A search list that re-filters must also re-scroll.** In the command
+    menu (⌘K), scroll down through some results, then keep typing — and the
+    new best match was invisible. The library re-filters on every keystroke
+    and even *selects* the first result for you, but it leaves the scroll
+    offset wherever you parked it, so the selection sat above the fold:
+    pressing Enter would activate something you couldn't see. The fix is one
+    line — snap the list back to the top whenever the query changes — and it
+    is safe to do in the input handler, before the re-filter even runs,
+    because "the top" is the top no matter what the list becomes. This one
+    isn't a PWA quirk, just quality: any UI that changes a list *underneath*
+    an existing scroll position owes the user a decision about where that
+    scroll should land, and "wherever it happened to be" is almost never the
+    answer.
 
 ## What's still on the list
 
