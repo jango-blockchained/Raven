@@ -2,7 +2,11 @@ import { LogOut, Bell, SettingsIcon, Loader2 } from "lucide-react"
 import { useLogout } from "@hooks/useLogout"
 import { UserAvatar } from "@components/features/message/UserAvatar"
 import { Button } from "@components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@components/ui/dropdown-menu"
+import { AVAILABILITY_OPTIONS, useSetAvailability, type AvailabilityStatus } from "@hooks/useSetAvailability"
+import { getStatusIndicatorColor } from "@components/features/message/UserAvatar"
+import { cn } from "@lib/utils"
+import { CircleDot } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@components/ui/tooltip"
 import _ from "@lib/translate"
 import useCurrentRavenUser from "@raven/lib/hooks/useCurrentRavenUser"
@@ -96,6 +100,7 @@ const NavUserMenu = () => {
                     </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <StatusSubMenu />
                 <DropdownMenuItem onClick={() => setOpenSettingsDialog("profile")}>
                     <SettingsIcon />
                     <span>{_("Settings")}</span>
@@ -117,6 +122,34 @@ const NavUserMenu = () => {
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
+    )
+}
+
+/** Quick availability switcher — the same options (and write path) as the
+ *  profile form, one hover away from the avatar. */
+const StatusSubMenu = () => {
+    const { availability, setAvailability } = useSetAvailability()
+
+    return (
+        <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+                <CircleDot />
+                <span>{_("Status")}</span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+                <DropdownMenuRadioGroup
+                    value={availability}
+                    onValueChange={(value) => setAvailability(value as AvailabilityStatus)}
+                >
+                    {AVAILABILITY_OPTIONS.map((option) => (
+                        <DropdownMenuRadioItem key={option.value} value={option.value}>
+                            <span className={cn("size-2 rounded-full", getStatusIndicatorColor(option.value))} />
+                            {option.label}
+                        </DropdownMenuRadioItem>
+                    ))}
+                </DropdownMenuRadioGroup>
+            </DropdownMenuSubContent>
+        </DropdownMenuSub>
     )
 }
 

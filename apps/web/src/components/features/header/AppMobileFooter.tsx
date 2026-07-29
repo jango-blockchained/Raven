@@ -8,8 +8,10 @@ import { useDMUnread, useHasUnreadChannels } from '@stores/unread/useChannelUnre
 import { BellIcon, HomeIcon, MessageSquareTextIcon, SearchIcon, UsersRoundIcon } from 'lucide-react'
 import { CircleUserRoundIcon } from "lucide-react"
 import { NavLink, useMatch } from 'react-router'
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { HomeWorkspacesDrawer, workspacesDrawerAtom } from './HomeWorkspacesDrawer'
+import { StatusDrawer } from '@components/features/profile/StatusDrawer'
+import { UserAvatar } from '@components/features/message/UserAvatar'
 import { hapticTick } from '@utils/haptics'
 import { useAtom } from 'jotai'
 
@@ -161,36 +163,23 @@ const FooterNavLinkSkeleton = ({ title, icon }: { title: string, icon: React.Rea
     return <AppMobileFooterButton icon={icon} title={title} isActive={false} />
 }
 
-/** Hold Home this long (touch) to open the catch-up drawer instead of navigating. */
+/** Hold a footer tab this long (touch) to trigger its long-press action. */
 const LONG_PRESS_MS = 450
 /** Finger drift beyond this cancels the long-press — it's a scroll, not a hold. */
 const LONG_PRESS_SLOP_PX = 10
 /** Suppress the synthetic click (and its navigation) after the long-press fires. */
 const LONG_PRESS_CLICK_GUARD_MS = 500
 
-const HomeLink = () => {
-    // Home is active on a workspace route (`/:workspaceID` or a channel/thread under it) and on
-    // the index. The catch: `/:workspaceID` is a single dynamic segment, so it also matches the
-    // sibling top-level routes (/threads, /dm-channel, /notifications, /profile, /search, …) —
-    // which is why Home looked "always active". Disambiguate by checking the first segment
-    // against the REAL workspaces, not just "any string".
-    const { workspaces } = useWorkspaces()
-    const wsMatch = useMatch("/:workspaceID/*")
-    const isIndex = Boolean(useMatch({ path: "/", end: true }))
-    const ws = wsMatch?.params.workspaceID
-    const isWorkspaceRoute = !!ws && workspaces.some((w) => w.name === ws)
-
-    // Channel unreads get a DOT, not a count — channels are ambient (curated
-    // sidebar, not an inbox); the numeric badges stay on the personal queues.
-    const hasUnreadChannels = useHasUnreadChannels()
-
-    // Long-press → catch-up drawer (unread channels across workspaces + switcher).
-    // Same touch detector as the reaction pills / message rows: timer + drift
-    // slop, then a click guard so finger-lift doesn't ALSO navigate home.
-    // iOS never fires contextmenu, so a timer is the only reliable trigger; the
-    // touch-callout suppression below stops iOS's link preview from competing.
-    // Shared with the sidebar's workspace switcher (its mobile tap opens this too).
-    const [drawerOpen, setDrawerOpen] = useAtom(workspacesDrawerAtom)
+/**
+ * Touch long-press detector for footer tabs (Home → catch-up drawer, Profile →
+ * status picker): timer + drift slop, then a click guard so finger-lift doesn't
+ * ALSO navigate. iOS never fires contextmenu, so a timer is the only reliable
+ * trigger; the touch-callout suppression in the returned props stops iOS's link
+ * preview (and Android's link context menu) from competing.
+ *
+ * Spread the returned props onto the tab's NavLink.
+ */
+const useFooterLongPress = (onLongPress: () => void) => {
     const pressRef = useRef<{ timer: number; x: number; y: number } | null>(null)
     const suppressClickUntilRef = useRef(0)
 
@@ -207,7 +196,7 @@ const HomeLink = () => {
             pressRef.current = null
             suppressClickUntilRef.current = performance.now() + LONG_PRESS_CLICK_GUARD_MS
             hapticTick()
-            setDrawerOpen(true)
+            onLongPress()
         }, LONG_PRESS_MS)
         pressRef.current = { timer, x: event.clientX, y: event.clientY }
     }
@@ -228,21 +217,42 @@ const HomeLink = () => {
         }
     }
 
+    return {
+        onPointerDown,
+        onPointerMove,
+        onPointerUp: cancelPress,
+        onPointerCancel: cancelPress,
+        onClick,
+        onContextMenu: (event: React.MouseEvent) => event.preventDefault(),
+        className: "select-none [-webkit-touch-callout:none]",
+        draggable: false,
+    }
+}
+
+const HomeLink = () => {
+    // Home is active on a workspace route (`/:workspaceID` or a channel/thread under it) and on
+    // the index. The catch: `/:workspaceID` is a single dynamic segment, so it also matches the
+    // sibling top-level routes (/threads, /dm-channel, /notifications, /profile, /search, …) —
+    // which is why Home looked "always active". Disambiguate by checking the first segment
+    // against the REAL workspaces, not just "any string".
+    const { workspaces } = useWorkspaces()
+    const wsMatch = useMatch("/:workspaceID/*")
+    const isIndex = Boolean(useMatch({ path: "/", end: true }))
+    const ws = wsMatch?.params.workspaceID
+    const isWorkspaceRoute = !!ws && workspaces.some((w) => w.name === ws)
+
+    // Channel unreads get a DOT, not a count — channels are ambient (curated
+    // sidebar, not an inbox); the numeric badges stay on the personal queues.
+    const hasUnreadChannels = useHasUnreadChannels()
+
+    // Long-press → catch-up drawer (unread channels across workspaces + switcher).
+    // Shared with the sidebar's workspace switcher (its mobile tap opens this too).
+    const [drawerOpen, setDrawerOpen] = useAtom(workspacesDrawerAtom)
+    const pressProps = useFooterLongPress(() => setDrawerOpen(true))
+
     return (
         <>
-            <NavLink
-                to="/"
-                onPointerDown={onPointerDown}
-                onPointerMove={onPointerMove}
-                onPointerUp={cancelPress}
-                onPointerCancel={cancelPress}
-                onClick={onClick}
-                // Android long-presses a link into a context menu; iOS shows a
-                // link preview via touch-callout. Both would race our timer.
-                onContextMenu={(event) => event.preventDefault()}
-                className="select-none [-webkit-touch-callout:none]"
-                draggable={false}
-            >
+            <NavLink to="/" {...pressProps}>
                 {() => (
                     <AppMobileFooterButton
                         icon={<HomeIcon />}
@@ -261,9 +271,32 @@ const ProfileLink = () => {
 
     const { myProfile } = useCurrentRavenUser()
 
-    return <FooterNavLink
-        icon={myProfile?.user_image ? <img src={myProfile.user_image} alt="Profile" className="size-6 bg-surface-gray-2 rounded-full object-cover" /> : <CircleUserRoundIcon />}
-        title={_("Profile")}
-        to={"/profile"}
-    />
+    // Long-press → quick availability picker; a plain tap still navigates to
+    // the profile page, where the full editor lives.
+    const [statusOpen, setStatusOpen] = useState(false)
+    const pressProps = useFooterLongPress(() => setStatusOpen(true))
+
+    return (
+        <>
+            <NavLink to="/profile" end {...pressProps}>
+                {({ isActive }) => (
+                    <AppMobileFooterButton
+                        // UserAvatar (not a raw img): its status indicator mirrors the
+                        // availability this tab's long-press sets — with all the usual
+                        // rules (Invisible shows nothing, on-leave badge wins) for free.
+                        // `block`: every other footer icon is block-level (Tailwind's
+                        // preflight blockifies img/svg), but UserAvatar's wrapper is
+                        // inline-block — baseline-aligned, so it adds descender space
+                        // under the icon and pushes the label down.
+                        icon={myProfile
+                            ? <UserAvatar user={myProfile} size="sm" className="block" showStatusIndicator showBotIndicator={false} />
+                            : <CircleUserRoundIcon />}
+                        title={_("Profile")}
+                        isActive={isActive}
+                    />
+                )}
+            </NavLink>
+            <StatusDrawer open={statusOpen} onOpenChange={setStatusOpen} />
+        </>
+    )
 }

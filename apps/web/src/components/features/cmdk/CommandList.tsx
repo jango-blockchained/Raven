@@ -5,30 +5,45 @@ import { useTheme } from '@components/theme-provider'
 import { useMemo } from 'react'
 import _ from '@lib/translate'
 import { Moon, Sun } from 'lucide-react'
+import { AVAILABILITY_OPTIONS, useSetAvailability } from '@hooks/useSetAvailability'
+import { getStatusIndicatorColor } from '@components/features/message/UserAvatar'
+import { cn } from '@lib/utils'
 
 const QuickActions = ({ text }: { text: string }) => {
     const setOpen = useSetAtom(commandMenuOpenAtom)
     const { theme, setTheme } = useTheme()
+    const { setAvailability } = useSetAvailability()
 
     const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
 
     const items = useMemo(() => [
         {
             value: 'toggle-theme',
-            label: isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
-            icon: isDark ? Sun : Moon,
+            label: isDark ? _('Switch to Light Mode') : _('Switch to Dark Mode'),
+            icon: isDark
+                ? <Sun className="h-4 w-4" />
+                : <Moon className="h-4 w-4" />,
+            keywords: ['theme', 'dark', 'light'],
             action: () => setTheme(isDark ? 'light' : 'dark'),
         },
-    ], [isDark, setTheme])
+        // The same quick availability switch as the avatar menu and the
+        // footer's long-press drawer — one entry per status, so "away" or
+        // "dnd" lands directly on the right one.
+        ...AVAILABILITY_OPTIONS.map((option) => ({
+            value: `set-status-${option.value}`,
+            label: _('Set status to {0}', [option.label]),
+            icon: <span className={cn('size-2 rounded-full', getStatusIndicatorColor(option.value))} />,
+            keywords: ['status', 'availability', option.value, ...(option.value === 'Do not disturb' ? ['dnd'] : [])],
+            action: () => setAvailability(option.value),
+        })),
+    ], [isDark, setTheme, setAvailability])
 
     const filteredItems = useMemo(() => {
         if (!text) return items
         const query = text.toLowerCase()
         return items.filter(item =>
             item.label.toLowerCase().includes(query) ||
-            'theme'.includes(query) ||
-            'dark'.includes(query) ||
-            'light'.includes(query)
+            item.keywords.some((keyword) => keyword.toLowerCase().includes(query))
         )
     }, [items, text])
 
@@ -36,24 +51,21 @@ const QuickActions = ({ text }: { text: string }) => {
 
     return (
         <CommandGroup heading={_("Commands")}>
-            {filteredItems.map(item => {
-                const Icon = item.icon
-                return (
-                    <CommandItem
-                        key={item.value}
-                        value={item.value}
-                        keywords={[item.label, 'theme', 'dark', 'light']}
-                        onSelect={() => {
-                            item.action()
-                            setOpen(false)
-                        }}
-                        className='cursor-pointer text-base'
-                    >
-                        <Icon className="h-4 w-4" />
-                        {_(item.label)}
-                    </CommandItem>
-                )
-            })}
+            {filteredItems.map(item => (
+                <CommandItem
+                    key={item.value}
+                    value={item.value}
+                    keywords={[item.label, ...item.keywords]}
+                    onSelect={() => {
+                        item.action()
+                        setOpen(false)
+                    }}
+                    className='cursor-pointer text-base'
+                >
+                    {item.icon}
+                    {item.label}
+                </CommandItem>
+            ))}
         </CommandGroup>
     )
 }

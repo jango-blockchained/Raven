@@ -13,13 +13,7 @@ import { FrappeError } from "frappe-react-sdk"
 import { cn } from "@lib/utils"
 import _ from "@lib/translate"
 import { errorResponseToast } from "@components/ui/error-banner"
-
-const STATUS_OPTIONS = [
-    { value: "Available", label: _("Available") },
-    { value: "Away", label: _("Away") },
-    { value: "Do not disturb", label: _("Do not disturb") },
-    { value: "Invisible", label: _("Invisible") },
-] as const
+import { AVAILABILITY_OPTIONS } from "@hooks/useSetAvailability"
 
 type ProfileFormValues = {
     full_name: string
@@ -109,7 +103,7 @@ export function EditProfileDrawer({ open, onOpenChange }: { open: boolean; onOpe
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent align="start">
-                                            {STATUS_OPTIONS.map((o) => (
+                                            {AVAILABILITY_OPTIONS.map((o) => (
                                                 <SelectItem key={o.value} value={o.value}>
                                                     <span className="flex items-center gap-2">
                                                         <span className={cn("size-2 rounded-full", getStatusIndicatorColor(o.value))} />
