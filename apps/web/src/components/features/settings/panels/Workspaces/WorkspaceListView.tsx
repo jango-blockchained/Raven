@@ -106,7 +106,8 @@ export default function WorkspaceListView({ onOpenWorkspace }: { onOpenWorkspace
 }
 
 /**
- * Name column: Shows workspace logo, name, and links to settings if admin.
+ * Name column: logo + name, always opening the detail view. Non-admins get the same
+ * link — the detail view renders read-only for them rather than being unreachable.
  */
 function WorkspaceNameCell({
     workspace,
@@ -127,19 +128,15 @@ function WorkspaceNameCell({
         </div>
     )
 
-    if (workspace.is_admin) {
-        return (
-            <button
-                type="button"
-                onClick={() => onOpenWorkspace(workspace.name)}
-                className="hover:underline underline-offset-4 text-left min-w-0"
-            >
-                {content}
-            </button>
-        )
-    }
-
-    return content
+    return (
+        <button
+            type="button"
+            onClick={() => onOpenWorkspace(workspace.name)}
+            className="hover:underline underline-offset-4 text-left min-w-0 cursor-pointer"
+        >
+            {content}
+        </button>
+    )
 }
 
 /**

@@ -7,13 +7,13 @@ import WorkspaceLogoField from "./WorkspaceLogoField"
 import type { WorkspaceFormData } from "./WorkspaceDetailView"
 
 /** Details tab — logo, description, type, channel-creation policy. Parent owns submit. */
-const WorkspaceEditForm = () => {
+const WorkspaceEditForm = ({ disabled = false }: { disabled?: boolean }) => {
     const { control } = useFormContext<WorkspaceFormData>()
 
     return (
         <div className="flex flex-col gap-5 w-full">
             <div className="flex items-center justify-center rounded-lg bg-surface-gray-1 dark:bg-surface-gray-2 py-6">
-                <WorkspaceLogoField />
+                <WorkspaceLogoField disabled={disabled} />
             </div>
             <SmallTextField
                 name="description"

@@ -2,6 +2,7 @@ import { useMemo, useState, useSyncExternalStore } from "react"
 import { useFrappeDeleteDoc, useFrappeGetCall, useFrappePostCall, useFrappeUpdateDoc, useSWRConfig } from "frappe-react-sdk"
 import { toast } from "sonner"
 import { CrownIcon, EllipsisVertical, PlusIcon, UserMinusIcon, UsersIcon } from "lucide-react"
+import { Badge } from "@components/ui/badge"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@components/ui/empty"
 import { Button } from "@components/ui/button"
 import {
@@ -13,7 +14,6 @@ import {
 } from "@components/ui/dropdown-menu"
 import ErrorBanner, { errorResponseToast } from "@components/ui/error-banner"
 import { Spinner } from "@components/ui/spinner"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@components/ui/tooltip"
 import { ListView, type ListViewColumnMeta } from "@components/ui/list-view"
 import type { ColumnDef } from "@tanstack/react-table"
 import { UserAvatar } from "@components/features/message/UserAvatar"
@@ -69,12 +69,7 @@ const WorkspaceMembers = ({ workspaceID }: { workspaceID: string }) => {
                             {user && <UserAvatar user={user} size="sm" showStatusIndicator={false} />}
                             <span className="font-medium truncate">{user?.full_name ?? row.original.user}</span>
                             {row.original.is_admin ? (
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <CrownIcon className="size-4 text-ink-amber-3" />
-                                    </TooltipTrigger>
-                                    <TooltipContent>{_("Admin")}</TooltipContent>
-                                </Tooltip>
+                                <Badge variant="subtle" className="shrink-0">{_("Admin")}</Badge>
                             ) : null}
                         </div>
                     )
