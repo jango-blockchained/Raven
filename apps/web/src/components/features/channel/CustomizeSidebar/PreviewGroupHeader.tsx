@@ -52,8 +52,10 @@ export const PreviewGroupHeader = ({ groupName, isSortable, globalSort, dragRef,
         // channel indent guide (a grip handle in front pushed it off), and the grab
         // cursor is the drag affordance instead — shown only when dragProps exist,
         // i.e. when there is actually somewhere for the group to go. The triggers
-        // set no cursor of their own — cursor is CSS-inherited, so the whole header
-        // reads as one surface. dragProps carries dnd-kit's role/tabIndex, keeping
+        // repeat it rather than inherit: cursor is an inherited property, but the UA
+        // stylesheet declares `button { cursor: default }`, and a matching declaration
+        // beats an inherited value — so a bare child <button> would show an arrow in
+        // the middle of the grab surface. dragProps carries dnd-kit's role/tabIndex, keeping
         // keyboard reordering.
         <div
             ref={dragRef}
@@ -66,7 +68,10 @@ export const PreviewGroupHeader = ({ groupName, isSortable, globalSort, dragRef,
             <CollapsibleTrigger asChild>
                 <button
                     type="button"
-                    className="flex min-w-0 flex-1 items-center gap-2 text-sm text-ink-gray-7 outline-none"
+                    className={cn(
+                        "flex min-w-0 flex-1 items-center gap-2 text-sm text-ink-gray-7 outline-none",
+                        dragProps ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
+                    )}
                 >
                     <ChannelGroupLabel groupName={groupName} />
                 </button>
@@ -81,7 +86,7 @@ export const PreviewGroupHeader = ({ groupName, isSortable, globalSort, dragRef,
                                 size="sm"
                                 isIconButton
                                 aria-label={_("Group options")}
-                                className={cn("opacity-0 group-hover/header:opacity-100 data-[state=open]:opacity-100")}
+                                className="opacity-0 group-hover/header:opacity-100 data-[state=open]:opacity-100 cursor-pointer"
                             >
                                 <MoreVertical />
                             </Button>
@@ -151,7 +156,7 @@ export const PreviewGroupHeader = ({ groupName, isSortable, globalSort, dragRef,
                 trigger so clicking it still toggles — tabIndex -1 leaves the label
                 trigger as the group's single tab stop. */}
             <CollapsibleTrigger asChild>
-                <button type="button" tabIndex={-1} aria-hidden className="shrink-0 text-ink-gray-7 outline-none">
+                <button type="button" tabIndex={-1} aria-hidden className="shrink-0 text-ink-gray-7 outline-none cursor-pointer">
                     <ChevronRight className="size-4 rtl:rotate-180 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                 </button>
             </CollapsibleTrigger>

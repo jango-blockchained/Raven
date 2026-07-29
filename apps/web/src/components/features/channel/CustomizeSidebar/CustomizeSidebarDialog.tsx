@@ -68,7 +68,11 @@ export const CustomizeSidebarDialog = () => {
 
     const onSubmit = (data: RavenUser) => {
         if (myProfile) {
-            updateDoc("Raven User", myProfile.name, data).then(() => {
+            updateDoc("Raven User", myProfile.name, {
+                channel_groups: data.channel_groups,
+                grouped_channels: data.grouped_channels,
+                pinned_channels: data.pinned_channels,
+            }).then(() => {
                 // Rebase the form's baseline onto what we just saved. useForm captured
                 // defaultValues once at mount, so without this isDirty stays true forever
                 // after the first Save — leaving "Discard changes" on screen claiming
