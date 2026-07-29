@@ -3,7 +3,7 @@ import { Drawer, DrawerContent } from '@components/ui/drawer'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@components/ui/command'
 import _ from '@lib/translate'
 import { defaultFilter } from 'cmdk'
-import React, { useEffect, useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
 import { useNavigate } from 'react-router-dom'
 import { TextSearch } from 'lucide-react'
@@ -12,13 +12,13 @@ import ChannelList from './ChannelList'
 import UserList from './UserList'
 import SettingsList from './SettingsList'
 import QuickActions from './CommandList'
+import NavigationList from './NavigationList'
 import { commandMenuOpenAtom } from './atoms'
-import { useCurrentChannelID } from '@hooks/useCurrentChannelID'
 import { useChannel } from '@hooks/useChannel'
 import { useUser } from '@hooks/useUser'
 import { ChannelIcon } from '@components/common/ChannelIcon/ChannelIcon'
 import { useIsMobile } from '@hooks/use-mobile'
-import { useLocation, useParams } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 
 const CommandMenu = () => {
     const [open, setOpen] = useAtom(commandMenuOpenAtom)
@@ -62,12 +62,22 @@ const CommandPalette = ({ inDrawer = false }: { inDrawer?: boolean }) => {
     const [text, setText] = useState('')
     const navigate = useNavigate()
     const setOpen = useSetAtom(commandMenuOpenAtom)
-    const { workspaceID, id: channelIDFromURL } = useParams()
     const location = useLocation()
-    const channelID = useCurrentChannelID()
-    const { channel, dmChannel } = useChannel(channelIDFromURL ? channelID : "")
+    const listRef = useRef<HTMLDivElement>(null)
+
+    // The current channel comes from the URL, parsed by hand — NOT useParams:
+    // the palette mounts at the AppShell root, and useParams only sees params
+    // up to its own route depth, which at the root is always {} (so a
+    // params-based scope never appeared at all). The channel sits in the
+    // second segment on every route that shows one — /:workspaceID/:id,
+    // /dm-channel/:id, and the notification/search/saved chat panes — and the
+    // store lookup below validates the candidate, so non-channel segments
+    // (a thread id, a message id) simply resolve to nothing.
+    const segments = location.pathname.split('/').filter(Boolean).map(decodeURIComponent)
+    const isDMRoute = segments[0] === 'dm-channel' && !segments[1]
+    const channelID = segments[0] === 'settings' ? '' : (segments[1] ?? '')
+    const { channel, dmChannel } = useChannel(channelID)
     const peerUser = useUser(dmChannel?.peer_user_id || "")
-    const isDMRoute = location.pathname.startsWith('/dm-channel') && !channelIDFromURL
 
     const isMobile = useIsMobile()
 
@@ -89,14 +99,24 @@ const CommandPalette = ({ inDrawer = false }: { inDrawer?: boolean }) => {
             <CommandInput
                 autoFocus={!isMobile}
                 value={text}
-                onValueChange={(v) => setText(v.slice(0, 140))}
+                onValueChange={(v) => {
+                    setText(v.slice(0, 140))
+                    // Every keystroke re-filters, but cmdk keeps the list's old
+                    // scroll offset — so after scrolling down and typing more, the
+                    // auto-selected FIRST result sat above the fold. Jump back to
+                    // the top whenever the query changes.
+                    listRef.current?.scrollTo({ top: 0 })
+                }}
                 maxLength={140}
                 placeholder={isMobile ? _("Search") : _("Search or type a command")}
             />
-            <CommandList className={inDrawer ? "flex-1 overflow-auto max-h-none pb-6" : "max-h-105"}>
+            <CommandList ref={listRef} className={inDrawer ? "flex-1 overflow-auto max-h-none pb-6" : "max-h-105"}>
 
                 <ChannelList text={text} />
                 <UserList text={text} />
+                {/* Desktop-only, like Settings/Commands: mobile already has the
+                    long-press workspace drawer and the footer tabs for these. */}
+                {!isMobile && <NavigationList />}
                 {!isMobile && <SettingsList text={text} />}
                 {!isMobile && <QuickActions text={text} />}
                 <CommandGroup forceMount>
@@ -112,7 +132,9 @@ const CommandPalette = ({ inDrawer = false }: { inDrawer?: boolean }) => {
                         onSelect={() => {
                             const params = new URLSearchParams()
                             if (text) params.set('q', text)
-                            if (channelIDFromURL) params.set('channel', channelID)
+                            // Scope only to a VALIDATED channel (the store lookup
+                            // succeeded), never to a raw URL segment.
+                            if (channel || dmChannel) params.set('channel', channelID)
                             else if (isDMRoute) params.set('is_dm', '1')
                             const qs = params.toString()
                             navigate(qs ? `/search?${qs}` : '/search')
