@@ -90,8 +90,8 @@ export const MentionWarningBanner = ({ channelID, mentionedIds, isThread = false
                     : outside.length === 1
                         ? _("{0} isn't in this channel and won't be notified.", [names(outside)])
                         : outside.length <= 3
-                            ? _("{0} aren't in this channel and won't be notified.", [names(outside)])
-                            : _("The following people aren't in this channel and won't be notified: {0}", [allNames(outside)]),
+                            ? _("{0} aren't in this channel.", [names(outside)])
+                            : _("The following people aren't in this channel: {0}", [allNames(outside)]),
             })
         }
         return result
