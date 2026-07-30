@@ -375,6 +375,28 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
     an existing scroll position owes the user a decision about where that
     scroll should land, and "wherever it happened to be" is almost never the
     answer.
+39. **The icon that wouldn't line up with wrapping text.** The mention warning
+    banner above the composer — the amber strip that says "Jane is on leave
+    today" or "The following people aren't in this channel: …" with a little
+    palm/info icon in front — is an icon next to text that *wraps* on mobile.
+    Every obvious alignment is wrong in one direction. `items-center` centers
+    the icon against the whole text block: perfect for one line, but the
+    moment the sentence wraps to three lines the icon drifts to the vertical
+    middle of the paragraph. `items-start` pins it to the top instead — and
+    now it sits visibly *above* the text, because text doesn't start at the
+    top of its line box: there's half-leading (the line-height's breathing
+    room) above the glyphs, and the icon doesn't know about it. The fix uses
+    a CSS unit built for exactly this: `lh`, "one line-height of this
+    element". Keep the row `items-start`, wrap the icon in a flex box that is
+    exactly one line tall (`h-lh`), and center the icon *inside that box*.
+    The icon lands on the first line's optical center — the same place
+    `items-center` would put it for a single line — and stays there no
+    matter how many lines the text wraps to. Bonus: it's measured from the
+    live line-height, so if the type token ever changes size, the alignment
+    follows for free, with no magic 1-pixel margin to rediscover. This one
+    is pure quality, and it generalizes: every icon-beside-wrapping-text row
+    in the app (error banners, empty states, list bullets) is the same three
+    classes.
 
 ## What's still on the list
 
