@@ -81,6 +81,18 @@ class RavenMessage(Document):
 				self.is_edited = True
 
 		self.parse_html_content()
+		self.set_file_content_fallback()
+
+	def set_file_content_fallback(self):
+		"""
+		A file message without a caption has no text, so parse_html_content never
+		sets `content` and it stays None — which every consumer then has to guard
+		(the push notification body once rendered a literal "None"). Default it
+		to the file name here, at the source, so teasers, previews and search
+		all get something meaningful.
+		"""
+		if self.message_type == "File" and not self.content and self.file:
+			self.content = self.file.split("/")[-1]
 
 	def parse_html_content(self):
 		"""
@@ -606,7 +618,10 @@ class RavenMessage(Document):
 		Gets the content of the message for the push notification
 		"""
 		if self.message_type == "File":
-			return f"📄 Sent a file - {self.content}"
+			# content is the caption, or the file name via set_file_content_fallback.
+			# The truthiness guard stays for old rows saved before that fallback
+			# existed (an f-string renders None as the literal "None").
+			return f"📄 Sent a file - {self.content}" if self.content else "📄 Sent a file"
 		elif self.message_type == "Image":
 			return "📷 Sent a photo"
 		elif self.message_type == "Poll":
