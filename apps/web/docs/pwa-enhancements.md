@@ -397,6 +397,25 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
     is pure quality, and it generalizes: every icon-beside-wrapping-text row
     in the app (error banners, empty states, list bullets) is the same three
     classes.
+40. **The drop zone that flickered — but only in Safari.** Drag a file over
+    the chat and an overlay invites you to drop it. In Chrome: rock solid.
+    In Safari: the overlay strobed on and off as you moved the file across
+    the messages. The code looked correct — show on `dragover`, hide on
+    `dragleave`, but only when `relatedTarget` (the element the drag moved
+    *to*) is outside the pane, the standard way to ignore all the
+    enter/leave noise from crossing child elements. The catch: WebKit never
+    fills in `relatedTarget` on drag events — a years-old bug — so in
+    Safari that check read every hop between two message rows as "the drag
+    left the pane". Hide; the very next `dragover` shows it again;
+    hide/show at drag-event frequency. The fix drops `relatedTarget`
+    entirely for a depth counter: every element the drag crosses fires a
+    dragenter/dragleave *pair* that bubbles up, so increment on enter,
+    decrement on leave, and hide only at zero — child crossings cancel out
+    arithmetically, no browser field required. Two lessons: when a DOM
+    event field is optional, some browser somewhere leaves it empty, and a
+    heuristic built on it will fail only there — and "works in Chrome" is
+    the start of cross-browser testing, not the end. Count things you
+    control instead of trusting fields you don't.
 
 ## What's still on the list
 
