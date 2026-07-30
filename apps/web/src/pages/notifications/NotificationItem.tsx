@@ -3,6 +3,7 @@ import { CheckCheck, MessageSquare } from "lucide-react"
 import { cn } from "@lib/utils"
 import { hapticTick } from "@utils/haptics"
 import { type NotificationObject } from "@stores/notifications/reducers"
+import { LeavingRow } from "@components/common/LeavingRow"
 import { UserAvatar } from "@components/features/message/UserAvatar"
 import { ChannelIcon } from "@components/common/ChannelIcon/ChannelIcon"
 import { formatRelativeDate } from "@lib/date"
@@ -221,25 +222,7 @@ const NotificationRowLayout = ({
     }
 
     return (
-        // Exit animation: a 1fr→0fr grid-row collapse (the modern height-to-zero
-        // trick — the inner min-h-0/overflow-hidden cell shrinks with the track)
-        // plus fade and a slight rightward drift echoing the swipe direction.
-        // Virtuoso re-measures the shrinking row every frame, so the rows below
-        // slide up to take the space; when the list finally drops the row it is
-        // already 0px tall — nothing jumps. `inert` keeps a departing row
-        // untappable. duration-300 must match LEAVE_EXIT_MS in the list hook.
-        <div
-            className={cn(
-                "grid [grid-template-rows:1fr] transition-[grid-template-rows,opacity,translate] duration-300 ease-in-out motion-reduce:transition-none",
-                // min-h-px: the collapsed row bottoms out at 1px, not 0 — Virtuoso
-                // logs "Zero-sized element" when it measures an item at exactly
-                // 0px (the frames between the animation ending and the data
-                // dropping the row). One invisible pixel keeps it happy.
-                leaving && "[grid-template-rows:0fr] opacity-0 translate-x-6 min-h-px",
-            )}
-            inert={leaving ? true : undefined}
-        >
-        <div className="min-h-0 overflow-hidden">
+        <LeavingRow leaving={leaving}>
         <div
             role="button"
             tabIndex={0}
@@ -284,8 +267,7 @@ const NotificationRowLayout = ({
                 </div>
             </div>
         </div>
-        </div>
-        </div>
+        </LeavingRow>
     )
 }
 
