@@ -406,6 +406,19 @@ be applied locally, a delete can only be reconciled. And when two pipelines do
 the same job, audit them as a pair: the channel path had the delete story
 right for months while the thread path, one `elif` below it, had it wrong.
 
+**A tab you can't see is a tab that isn't reading.** Read tracking is driven
+by messages entering the viewport — but the viewport still exists in a
+background tab. A message arriving while you're on another tab renders,
+intersects, and fires the same observers as real reading, which quietly
+advanced the read watermark, posted the visit, and cleared unread counts for
+messages nobody saw. Every read signal now checks tab visibility first:
+hidden means "remember how far the stream rendered, change nothing." The
+moment the tab is visible again, those messages genuinely are being looked
+at — so the remembered position is adopted, the badge clears, and the visit
+posts. The position has to be *remembered* rather than re-detected, because
+the observers fire on viewport entry and the rows are already on screen by
+the time you return — they will never fire again.
+
 ## One bug class you only see in production
 
 Our monorepo could accidentally bundle *two copies* of the same library. Two
