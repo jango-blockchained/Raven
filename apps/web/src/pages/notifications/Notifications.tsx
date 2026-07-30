@@ -56,6 +56,7 @@ export default function Notifications() {
 
     const {
         rows: currentData,
+        leavingIds,
         isLoading,
         error,
         hasMore,
@@ -63,7 +64,9 @@ export default function Notifications() {
         refresh,
         markMessageRead,
         markAllRead,
-    } = useNotificationList(tab, { unreadOnly: showUnread })
+        // activeMessageID exempts the OPEN notification from the unread view's
+        // leave pipeline — a read row only slides out once the user moves on.
+    } = useNotificationList(tab, { unreadOnly: showUnread, activeMessageID: selectedMessageID })
 
     const unreadCount = useUnreadNotificationsCount()
 
@@ -206,6 +209,7 @@ export default function Notifications() {
                                                 notification={item}
                                                 sender={usersById.get(item.owner)}
                                                 isActive={selectedMessageID === item.message_id}
+                                                leaving={leavingIds.has(item.name)}
                                                 onSelect={onSelect}
                                                 onMarkRead={markMessageRead}
                                             />
@@ -214,6 +218,7 @@ export default function Notifications() {
                                                 notification={item}
                                                 usersById={usersById}
                                                 isActive={selectedMessageID === item.message_id}
+                                                leaving={leavingIds.has(item.name)}
                                                 onSelect={onSelect}
                                                 onMarkRead={markMessageRead}
                                             />

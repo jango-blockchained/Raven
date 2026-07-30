@@ -71,6 +71,7 @@ const rowShellClasses = (isRead: boolean | number, isActive: boolean) => cn(
 const NotificationRowLayout = ({
     isRead,
     isActive,
+    leaving = false,
     onClick,
     onMarkRead,
     avatar,
@@ -81,6 +82,9 @@ const NotificationRowLayout = ({
 }: {
     isRead: boolean | number
     isActive: boolean
+    /** Read and moved-on-from: play the exit (fade + slide + collapse), the
+     *  list drops the row when the animation ends. */
+    leaving?: boolean
     onClick: () => void
     /** Swipe-right target (touch). Only armed while the row is unread. */
     onMarkRead?: () => void
@@ -217,6 +221,25 @@ const NotificationRowLayout = ({
     }
 
     return (
+        // Exit animation: a 1fr→0fr grid-row collapse (the modern height-to-zero
+        // trick — the inner min-h-0/overflow-hidden cell shrinks with the track)
+        // plus fade and a slight rightward drift echoing the swipe direction.
+        // Virtuoso re-measures the shrinking row every frame, so the rows below
+        // slide up to take the space; when the list finally drops the row it is
+        // already 0px tall — nothing jumps. `inert` keeps a departing row
+        // untappable. duration-300 must match LEAVE_EXIT_MS in the list hook.
+        <div
+            className={cn(
+                "grid [grid-template-rows:1fr] transition-[grid-template-rows,opacity,translate] duration-300 ease-in-out motion-reduce:transition-none",
+                // min-h-px: the collapsed row bottoms out at 1px, not 0 — Virtuoso
+                // logs "Zero-sized element" when it measures an item at exactly
+                // 0px (the frames between the animation ending and the data
+                // dropping the row). One invisible pixel keeps it happy.
+                leaving && "[grid-template-rows:0fr] opacity-0 translate-x-6 min-h-px",
+            )}
+            inert={leaving ? true : undefined}
+        >
+        <div className="min-h-0 overflow-hidden">
         <div
             role="button"
             tabIndex={0}
@@ -260,6 +283,8 @@ const NotificationRowLayout = ({
                     </div>
                 </div>
             </div>
+        </div>
+        </div>
         </div>
     )
 }
@@ -317,12 +342,15 @@ export const MentionItem = memo(({
     notification,
     sender,
     isActive,
+    leaving,
     onSelect,
     onMarkRead,
 }: {
     notification: NotificationObject
     sender?: UserData
     isActive: boolean
+    /** Mid-exit from the unread view — renders collapsing (see NotificationRowLayout). */
+    leaving?: boolean
     onSelect: (selection: SelectedNotification) => void
     /** Swipe-right on an unread row marks it read without opening it. */
     onMarkRead?: (messageID: string) => void
@@ -340,6 +368,7 @@ export const MentionItem = memo(({
         <NotificationRowLayout
             isRead={notification.is_read}
             isActive={isActive}
+            leaving={leaving}
             onClick={handleClick}
             onMarkRead={onMarkRead ? () => onMarkRead(notification.message_id) : undefined}
             avatar={
@@ -363,12 +392,15 @@ export const ReactionItem = memo(({
     notification,
     usersById,
     isActive,
+    leaving,
     onSelect,
     onMarkRead,
 }: {
     notification: NotificationObject
     usersById: Map<string, UserData>
     isActive: boolean
+    /** Mid-exit from the unread view — renders collapsing (see NotificationRowLayout). */
+    leaving?: boolean
     onSelect: (selection: SelectedNotification) => void
     /** Swipe-right on an unread row marks it read without opening it. */
     onMarkRead?: (messageID: string) => void
@@ -399,6 +431,7 @@ export const ReactionItem = memo(({
         <NotificationRowLayout
             isRead={notification.is_read}
             isActive={isActive}
+            leaving={leaving}
             onClick={handleClick}
             onMarkRead={onMarkRead ? () => onMarkRead(notification.message_id) : undefined}
             avatar={
