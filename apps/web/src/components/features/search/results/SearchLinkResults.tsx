@@ -19,6 +19,7 @@ import { searchResultToSelection } from '@components/common/MessageResultBlock/s
 import { cn } from '@lib/utils'
 import { SearchFilters } from '../types'
 import { SearchNoResults } from './SearchNoResults'
+import { SearchHighlightedText } from '@components/features/message/renderers/SearchTextRenderer'
 
 interface SearchLinkResultsProps {
     searchValue?: string
@@ -166,7 +167,11 @@ const LinkResultRowInner = ({ link, user, channel, dmChannel, peer, workspace, o
                         </div>
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5">
-                                <h3 className="text-content font-medium text-ink-gray-8 truncate">{link.title || url}</h3>
+                                {/* Same FTS snippet treatment as the file rows: the title
+                                    arrives with <mark> around matched terms. */}
+                                <h3 className="text-content font-medium text-ink-gray-8 truncate">
+                                    {link.title ? <SearchHighlightedText content={link.title} /> : url}
+                                </h3>
                                 <ExternalLink
                                     className="h-3 w-3 text-ink-gray-4 opacity-0 group-hover:opacity-100 hover:text-ink-gray-8 transition-opacity shrink-0"
                                     onClick={(e) => { e.stopPropagation(); window.open(url, '_blank', 'noopener,noreferrer') }}

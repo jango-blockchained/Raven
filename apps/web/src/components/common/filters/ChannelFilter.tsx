@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 import { CommandGroup } from "@components/ui/command"
-import { FilterCombobox, FilterComboboxItem } from "@components/common/FilterCombobox"
+import { FilterCombobox, FilterComboboxItem } from "./FilterCombobox"
 import { ChannelIcon } from "@components/common/ChannelIcon/ChannelIcon"
 import { UserAvatar } from "@components/features/message/UserAvatar"
 import { cn } from "@lib/utils"
@@ -9,12 +9,12 @@ import { UserData } from "@db"
 import _ from "@lib/translate"
 import { useWorkspaces } from "@hooks/useWorkspaces"
 
-export type ChannelSelectItem = ChannelListItem | DMChannelListItem
+export type ChannelFilterItem = ChannelListItem | DMChannelListItem
 
 /** Sentinel for "no channel filter". Not a real channel id. */
 const ALL = "*all"
 
-interface ChannelSelectProps {
+interface ChannelFilterProps {
     /** Regular channels */
     channels: ChannelListItem[]
     /** DM channels */
@@ -25,25 +25,23 @@ interface ChannelSelectProps {
     onValueChange: (value: string) => void
     /** Label for the "no filter" option. */
     allLabel?: string
-    /** Width of the open popover; also the trigger width unless triggerClassName is set. */
-    dropdownClassName?: string
+    /** The trigger's width, which its row decides. The popover doesn't follow it. */
     triggerClassName?: string
-    /** Root wrapper — width/shrink control so the select can flex down in a shared row. */
+    /** Root wrapper — width/shrink control so the filter can flex down in a shared row. */
     className?: string
 }
 
-/** Channel + DM picker for the search-style filter bars. */
-export function ChannelSelect({
+/** Channel + DM picker for the filter bars. */
+export function ChannelFilter({
     channels,
     dmChannels,
     users,
     value,
     onValueChange,
     allLabel = _("In Any Channel"),
-    dropdownClassName,
     triggerClassName,
     className,
-}: ChannelSelectProps) {
+}: ChannelFilterProps) {
     const selectedChannel = useMemo(() => {
         if (!value || value === ALL) return null
         return channels.find((channel) => channel.name === value)
@@ -74,9 +72,11 @@ export function ChannelSelect({
         <FilterCombobox
             className={className}
             triggerClassName={triggerClassName}
-            contentClassName={dropdownClassName}
             emptyLabel={_("No channels or DMs found.")}
-            onClear={() => onValueChange(ALL)}
+            // Only while a channel is picked — the trigger shows a clear button in place of
+            // its chevron, which is the sole way back to unfiltered on pages without the
+            // active-filter badges (threads, saved messages).
+            onClear={selectedChannel ? () => onValueChange(ALL) : undefined}
             trigger={
                 selectedChannel ? (
                     <ChannelOption channel={selectedChannel} users={users} compact />
@@ -85,60 +85,83 @@ export function ChannelSelect({
                 )
             }
         >
-            {(close) => (
-                <>
-                    {channelsByWorkspace.map(([workspaceID, workspaceChannels]) => (
-                        <CommandGroup key={workspaceID} heading={workspaceNames.get(workspaceID) ?? workspaceID}>
-                            {workspaceChannels.map((channel) => (
-                                <ChannelCommandItem
-                                    key={channel.name}
-                                    channel={channel}
-                                    users={users}
-                                    selected={value === channel.name}
-                                    onSelect={() => { onValueChange(channel.name); close() }}
-                                />
+            {(close, search) => {
+                const item = (channel: ChannelFilterItem, workspaceName?: string) => (
+                    <ChannelCommandItem
+                        key={channel.name}
+                        channel={channel}
+                        users={users}
+                        selected={value === channel.name}
+                        onSelect={() => { onValueChange(channel.name); close() }}
+                        workspaceName={workspaceName}
+                    />
+                )
+
+                // Searching flattens the list into one group. cmdk ranks items by score
+                // within a group but leaves the groups themselves in render order, so a
+                // weak fuzzy match in the first workspace outranked an exact match in the
+                // second — searching "memes" put the exact channel 7th, below
+                // "framework-bug-triaging-sprint". One group means one ranking, and each
+                // row carries the workspace the heading would have told you.
+                if (search) {
+                    return (
+                        <CommandGroup>
+                            {channels.map((channel) => item(
+                                channel,
+                                channel.workspace ? workspaceNames.get(channel.workspace) ?? channel.workspace : undefined,
                             ))}
+                            {dmChannels?.map((dm) => item(dm, _("Direct Message")))}
                         </CommandGroup>
-                    ))}
-                    {dmChannels && dmChannels.length > 0 && (
-                        <CommandGroup heading={_("Direct Messages")}>
-                            {dmChannels.map((dm) => (
-                                <ChannelCommandItem
-                                    key={dm.name}
-                                    channel={dm}
-                                    users={users}
-                                    selected={value === dm.name}
-                                    onSelect={() => { onValueChange(dm.name); close() }}
-                                />
-                            ))}
-                        </CommandGroup>
-                    )}
-                </>
-            )}
+                    )
+                }
+
+                // Idle: grouped by workspace, which is how you browse rather than search.
+                return (
+                    <>
+                        {channelsByWorkspace.map(([workspaceID, workspaceChannels]) => (
+                            <CommandGroup key={workspaceID} heading={workspaceNames.get(workspaceID) ?? workspaceID}>
+                                {/* Arrow, not a bare reference: map would pass the index as
+                                    the workspace name. */}
+                                {workspaceChannels.map((channel) => item(channel))}
+                            </CommandGroup>
+                        ))}
+                        {dmChannels && dmChannels.length > 0 && (
+                            <CommandGroup heading={_("Direct Messages")}>
+                                {dmChannels.map((dm) => item(dm))}
+                            </CommandGroup>
+                        )}
+                    </>
+                )
+            }}
         </FilterCombobox>
     )
 }
 
 function ChannelCommandItem({
-    channel, users, selected, onSelect,
+    channel, users, selected, onSelect, workspaceName,
 }: {
-    channel: ChannelSelectItem
+    channel: ChannelFilterItem
     users?: UserData[]
     selected: boolean
     onSelect: () => void
+    /** Shown on the row itself when the list is flat and has no workspace headings. */
+    workspaceName?: string
 }) {
     return (
         <FilterComboboxItem
-            value={`${channel.name} ${getChannelLabel(channel, users)}`}
+            // The channel id is the identity — unique per doctype, so two channels sharing
+            // a name stay separate rows. The visible name is what gets ranked.
+            value={channel.name}
+            keywords={[getChannelLabel(channel, users)]}
             selected={selected}
             onSelect={onSelect}
         >
-            <ChannelOption channel={channel} users={users} />
+            <ChannelOption channel={channel} users={users} workspaceName={workspaceName} />
         </FilterComboboxItem>
     )
 }
 
-function getChannelLabel(channel: ChannelSelectItem, users?: UserData[]): string {
+function getChannelLabel(channel: ChannelFilterItem, users?: UserData[]): string {
     if (channel.is_direct_message === 1) {
         const dm = channel as DMChannelListItem
         return users?.find((user) => user.name === dm.peer_user_id)?.full_name ?? dm.peer_user_id ?? channel.name
@@ -147,8 +170,8 @@ function getChannelLabel(channel: ChannelSelectItem, users?: UserData[]): string
 }
 
 function ChannelOption({
-    channel, users, compact = false,
-}: { channel: ChannelSelectItem; users?: UserData[]; compact?: boolean }) {
+    channel, users, compact = false, workspaceName,
+}: { channel: ChannelFilterItem; users?: UserData[]; compact?: boolean; workspaceName?: string }) {
     const isDM = channel.is_direct_message === 1
     const peerUser = users?.find((user) => user.name === (channel as DMChannelListItem).peer_user_id)
 
@@ -178,6 +201,14 @@ function ChannelOption({
             <span className="min-w-0 flex-1 truncate text-left leading-snug">
                 {getChannelLabel(channel, users)}
             </span>
+            {/* Stands in for the group heading while the list is flat: two channels can share
+                a name across workspaces, and a ranked result is useless if you can't tell
+                which one it is. max-w keeps a long workspace name from eating the channel. */}
+            {workspaceName && (
+                <span className="shrink-0 max-w-24 truncate text-sm leading-snug text-ink-gray-4">
+                    {workspaceName}
+                </span>
+            )}
         </div>
     )
 }

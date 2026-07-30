@@ -7,7 +7,7 @@ import { Label } from "@components/ui/label"
 import { UnreadFilterPill } from "@components/common/UnreadFilterPill"
 import { Tabs, TabsList, TabsTrigger } from "@components/ui/tabs"
 import { Empty, EmptyHeader, EmptyDescription } from "@components/ui/empty"
-import { ChannelSelect } from "@components/common/ChannelSelect/ChannelSelect"
+import { ChannelFilter } from "@components/common/filters/ChannelFilter"
 import ThreadsList from "@components/features/threads/ThreadsList"
 import { ThreadMessage } from "../../types/ThreadMessage"
 import { useChannelList } from "@stores/channels/useChannelList"
@@ -107,7 +107,7 @@ export default function Threads() {
                             </TabsList>
                         </Tabs>
                         <div className="flex items-center gap-1 min-w-0 flex-1 md:flex-none">
-                            <ChannelSelect
+                            <ChannelFilter
                                 channels={channels}
                                 dmChannels={dmChannels}
                                 users={users}
@@ -115,8 +115,7 @@ export default function Threads() {
                                 onValueChange={setChannel}
                                 allLabel={_("Any Channel")}
                                 className="w-full min-w-0"
-                                dropdownClassName="max-w-64"
-                                triggerClassName="w-full max-w-40 md:w-40"
+                                triggerClassName="w-full max-w-50 md:w-50"
                             />
                         </div>
                     </div>

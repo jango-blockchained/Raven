@@ -20,6 +20,7 @@ import { searchResultToSelection } from '@components/common/MessageResultBlock/s
 import { cn } from '@lib/utils'
 import { SearchFilters } from '../types'
 import { SearchNoResults } from './SearchNoResults'
+import { SearchHighlightedText, stripSearchHighlights } from '@components/features/message/renderers/SearchTextRenderer'
 
 interface SearchFileResultsProps {
     searchValue?: string
@@ -98,7 +99,12 @@ interface FileResultRowProps {
 const FileResultRowInner = ({ file, user, channel, dmChannel, peer, workspace, onClick, className }: FileResultRowProps) => {
     const peerName = peer?.full_name ?? dmChannel?.peer_user_id ?? ''
     const isImage = file.message_type === 'Image'
-    const ext = (file.file_type || file.title?.split('.').pop() || '').toLowerCase()
+    // The title is an FTS snippet: the matched terms come wrapped in <mark>, so the plain
+    // filename has to be recovered before anything parses or re-displays it. The extension
+    // is the reason this matters beyond looks — a match on "pdf" would otherwise leave the
+    // ext as "pdf</mark>".
+    const plainTitle = stripSearchHighlights(file.title ?? '')
+    const ext = (file.file_type || plainTitle.split('.').pop() || '').toLowerCase()
     const sizeLabel = file.file_size ? formatBytes(file.file_size) : null
     const relativeDate = formatRelativeDate(file.creation)
 
@@ -145,7 +151,7 @@ const FileResultRowInner = ({ file, user, channel, dmChannel, peer, workspace, o
                         {isImage && file.internal_link ? (
                             <img
                                 src={file.internal_link}
-                                alt={file.title ?? ''}
+                                alt={plainTitle}
                                 className="w-20 h-20 object-cover rounded-md border border-outline-gray-2 shrink-0 bg-surface-gray-2"
                                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
                             />
@@ -153,7 +159,9 @@ const FileResultRowInner = ({ file, user, channel, dmChannel, peer, workspace, o
                             <FileTypeIcon fileType={ext} size="4xl" />
                         )}
                         <div className="flex-1 min-w-0">
-                            <h3 className="text-content font-medium text-ink-gray-8 truncate">{file.title || _('Untitled')}</h3>
+                            <h3 className="text-content font-medium text-ink-gray-8 truncate">
+                                {file.title ? <SearchHighlightedText content={file.title} /> : _('Untitled')}
+                            </h3>
                             <div className="flex items-center gap-1.5 text-xs text-ink-gray-4 mt-0.5">
                                 {ext && <span className="uppercase">{ext}</span>}
                                 {ext && sizeLabel && <span>·</span>}

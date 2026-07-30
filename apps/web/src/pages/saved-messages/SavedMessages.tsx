@@ -4,7 +4,7 @@ import { useEscHotkey } from '@hooks/useEscHotkey'
 import { Search as SearchIcon, X } from "lucide-react"
 
 import AppMobileFooter from "@components/features/header/AppMobileFooter"
-import { ChannelSelect } from "@components/common/ChannelSelect"
+import { ChannelFilter } from "@components/common/filters/ChannelFilter"
 import SavedMessagesList from "@components/features/saved-messages/SavedMessagesList"
 import { PageHeader } from "@components/layout/PageHeader"
 import { NotificationsEmptyState, type SelectedNotification } from "@pages/notifications/NotificationChat"
@@ -112,16 +112,15 @@ const SavedMessages = () => {
                                     ))}
                                 </TabsList>
                             </Tabs> */}
-                            <ChannelSelect
+                            <ChannelFilter
                                 channels={channels}
                                 dmChannels={dmChannels}
                                 users={users}
                                 value={channel}
                                 onValueChange={setChannel}
                                 allLabel={_('Any Channel')}
-                                dropdownClassName="w-64"
                                 className={isMobile ? "w-full min-w-0" : undefined}
-                                triggerClassName="w-40"
+                                triggerClassName="w-50"
                             />
                             {/* <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setReminderDialogOpen(true)}>
                                 <Plus className="h-3.5 w-3.5 mr-1.5" />

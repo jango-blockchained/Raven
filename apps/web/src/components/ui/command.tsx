@@ -58,16 +58,36 @@ function CommandDialog({
   )
 }
 
+const COMMAND_INPUT_VARIANTS = {
+  /** An input that reads as a control in its own right — the command palette, where
+   *  typing IS the feature and the field carries the whole surface. */
+  field:
+    "m-1.5 h-8 gap-2 rounded px-2.5 py-2 border border-transparent bg-surface-gray-2 not-focus-within:hover:bg-surface-gray-3 focus-within:bg-surface-base focus-within:border-outline-gray-4 focus-within:shadow-sm focus-within:focus-ring",
+  /** Full-bleed header, no box and no icon — Frappe UI's multiselect. In a filter
+   *  popover the list is the content and the field only narrows it, so a hairline is
+   *  all the division it needs; a boxed field there reads as a second surface. */
+  plain: "h-9 md:h-8 px-3 border-b border-outline-gray-2",
+}
+
 function CommandInput({
   className,
+  variant = "field",
   ...props
-}: React.ComponentProps<typeof CommandPrimitive.Input>) {
+}: React.ComponentProps<typeof CommandPrimitive.Input> & {
+  variant?: keyof typeof COMMAND_INPUT_VARIANTS
+}) {
   return (
     <div
       data-slot="command-input-wrapper"
-      className="flex items-center gap-2 m-1.5 h-8 rounded px-2.5 py-2 border border-transparent transition-colors bg-surface-gray-2 not-focus-within:hover:bg-surface-gray-3 text-ink-gray-8 focus-within:bg-surface-base focus-within:border-outline-gray-4 focus-within:shadow-sm focus-within:focus-ring"
+      // shrink-0 in the base: the wrapper is a flex child of a height-capped column
+      // wherever it's used, and a long list would otherwise squeeze the field off its
+      // own height.
+      className={cn(
+        "flex shrink-0 items-center transition-colors text-ink-gray-8",
+        COMMAND_INPUT_VARIANTS[variant],
+      )}
     >
-      <SearchIcon className="size-4 shrink-0 text-ink-gray-4" />
+      {variant === "field" && <SearchIcon className="size-4 shrink-0 text-ink-gray-4" />}
       <CommandPrimitive.Input
         data-slot="command-input"
         className={cn(

@@ -1,6 +1,6 @@
 import { useFrappeGetCall } from "frappe-react-sdk"
 import { useMemo } from "react"
-import { expandFileTypeGroups } from "@components/features/search/FileTypeFilter"
+import { expandFileTypeGroups } from "@components/common/filters/FileTypeFilter"
 import { SearchFilters } from "@components/features/search/types";
 
 export type SearchResult = {

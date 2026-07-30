@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { Outlet, useMatch, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDebounceValue } from 'usehooks-ts'
 import { useEscHotkey } from '@hooks/useEscHotkey'
-import { Search as SearchIcon, X } from 'lucide-react'
+import { ChevronDown, Search as SearchIcon, X } from 'lucide-react'
 
 import SearchTabsBar, { SearchTab } from '@components/features/search/SearchTabsBar'
 import { SearchFiltersBar } from '@components/features/search/SearchFiltersBar'
@@ -26,9 +26,13 @@ import { SearchFilters } from '@components/features/search/types'
 import { useChannelList } from "@stores/channels/useChannelList"
 import { useUsers } from '@hooks/useUsers'
 import { Input } from '@components/ui/input'
+import { Button } from '@components/ui/button'
 import { useIsMobile } from '@hooks/use-mobile'
 import { cn } from '@lib/utils'
 import _ from '@lib/translate'
+
+/** Ties the toggle's aria-controls to the row it reveals. */
+const FILTERS_ROW_ID = 'search-filters-row'
 
 export default function Search() {
     // All search state lives in URL params so links like /search?q=foo&channel=general work.
@@ -57,18 +61,17 @@ export default function Search() {
     const channelFromURL = searchParams.get('channel') ?? ''
     const userFromURL = searchParams.get('user') ?? ''
     const fileTypeFromURL = searchParams.get('file_type')?.split(',').filter(Boolean) ?? []
-    const channelTypeFromURL = searchParams.get('channel_type') ?? ''
-    const isDMFromURL = searchParams.get('is_dm') ? 1 : null
-    const excludeDMs = channelTypeFromURL === 'Private' ? 0 : null
-    const isThreadMessageFromURL = searchParams.get('is_thread_message') ? 1 : null
-    const savedFromURL = searchParams.get('saved') ? 1 : null
-    const isPinnedFromURL = searchParams.get('is_pinned') ? 1 : null
-    const hasReactionsFromURL = searchParams.get('has_reactions') ? 1 : null
-    const mentionsMeFromURL = searchParams.get('mentions_me') ? 1 : null
     const tabFromURL = (searchParams.get('tab') as SearchTab) || 'messages'
 
     const [activeTab, setActiveTab] = useState<SearchTab>(tabFromURL)
     const isMobile = useIsMobile()
+
+    // Collapsed by default, but a link that arrives WITH filters opens on the row that
+    // explains its results. Initializer only — toggling later is the user's call, and
+    // clearing the last filter shouldn't yank the row out from under them.
+    const [showFilters, setShowFilters] = useState(() =>
+        !!channelFromURL || !!userFromURL || fileTypeFromURL.length > 0
+    )
 
     // The open result is ROUTE-driven (same as notifications): `/search/:channelID/:messageID`
     // renders NotificationChatRoute in the right pane's Outlet. Being a history entry means
@@ -108,15 +111,6 @@ export default function Search() {
         channel_id: channelFromURL,
         owner: userFromURL,
         file_type: fileTypeFromURL,
-        channel_type: channelTypeFromURL,
-        is_direct_message: isDMFromURL ?? excludeDMs,
-        saved: savedFromURL,
-        is_pinned: isPinnedFromURL,
-        is_thread: null,
-        is_thread_message: isThreadMessageFromURL,
-        is_bot_message: null,
-        has_reactions: hasReactionsFromURL,
-        mentions_me: mentionsMeFromURL,
     }
 
     const { channels, dmChannels } = useChannelList()
@@ -129,14 +123,7 @@ export default function Search() {
         (filters.query ?? '').trim().length > 0 ||
         !!filters.channel_id ||
         !!filters.owner ||
-        (filters.file_type?.length ?? 0) > 0 ||
-        !!filters.channel_type ||
-        filters.is_direct_message != null ||
-        filters.saved != null ||
-        filters.is_pinned != null ||
-        filters.is_thread_message != null ||
-        filters.has_reactions != null ||
-        filters.mentions_me != null
+        (filters.file_type?.length ?? 0) > 0
 
     const onTabChange = (tab: SearchTab) => {
         setActiveTab(tab)
@@ -154,6 +141,14 @@ export default function Search() {
         }, { replace: true })
     }
 
+    const setFileTypeFilter = (fileTypes: string[]) => {
+        setSearchParams((prev) => {
+            if (fileTypes.length) prev.set('file_type', fileTypes.join(','))
+            else prev.delete('file_type')
+            return prev
+        }, { replace: true })
+    }
+
     const setUserFilter = (userId: string) => {
         setSearchParams((prev) => {
             if (userId && userId !== 'all') prev.set('user', userId)
@@ -163,25 +158,41 @@ export default function Search() {
     }
 
     const searchInput = (
-        <div className="relative">
-            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-gray-4 pointer-events-none" />
-            <Input
-                value={searchValue}
-                onChange={(e) => setSearchValue(e.target.value)}
-                placeholder={_('Search messages, files, links, polls')}
-                className="pl-9 pr-9 h-9 md:h-8 text-xl md:text-base"
-                autoFocus={!isMobile}
-            />
-            {searchValue && (
-                <button
-                    type="button"
-                    onClick={() => setSearchValue('')}
-                    aria-label={_('Clear search')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-gray-4 hover:text-ink-gray-8"
-                >
-                    <X className="h-4 w-4" />
-                </button>
-            )}
+        <div className="flex items-center gap-2">
+            <div className="relative flex-1 min-w-0">
+                <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-gray-4 pointer-events-none" />
+                <Input
+                    value={searchValue}
+                    onChange={(e) => setSearchValue(e.target.value)}
+                    placeholder={_('Search messages, files, links, polls')}
+                    className="pl-9 pr-9 h-9 md:h-8 text-xl md:text-base"
+                    autoFocus={!isMobile}
+                />
+                {searchValue && (
+                    <button
+                        type="button"
+                        onClick={() => setSearchValue('')}
+                        aria-label={_('Clear search')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-gray-4 hover:text-ink-gray-8"
+                    >
+                        <X className="h-4 w-4" />
+                    </button>
+                )}
+            </div>
+            {/* The filter row is collapsed by default so the results start higher up.
+                Matches the input's height, not the filters' — it belongs to this row. */}
+            <Button
+                variant="outline"
+                size="md"
+                isIconButton
+                onClick={() => setShowFilters(open => !open)}
+                aria-expanded={showFilters}
+                aria-controls={FILTERS_ROW_ID}
+                aria-label={showFilters ? _('Hide filters') : _('Show filters')}
+                className="shrink-0 size-9 md:size-8 text-ink-gray-7"
+            >
+                <ChevronDown className={cn("transition-transform", showFilters && "rotate-180")} />
+            </Button>
         </div>
     )
 
@@ -207,31 +218,20 @@ export default function Search() {
                             spacing is identical across pages. */}
                         <div className="mx-auto w-full p-2 pb-0 space-y-3">
                             {searchInput}
-                            {/* Wrapper is the space-y child; it absorbs the inner row's -my-1 so the
-                                gaps stay 12px (the -my would otherwise shrink them). The inner row is
-                                tabs + filters: one row (nowrap) that scrolls horizontally at odd/narrow
-                                resolutions (the list pane is only 45% wide). py-1 -my-1 gives the filter
-                                button's floating count badge clip room (overflow-x-auto forces overflow-y
-                                to clip) while netting the row's box to zero — row height is unchanged. */}
-                            <div>
-                                <div className="flex flex-col gap-3 md:flex-row md:items-center md:py-1 md:-my-1 md:flex-nowrap md:overflow-x-auto md:min-w-0">
-                                    <SearchTabsBar activeTab={activeTab} setActiveTab={onTabChange} fullWidth={isMobile} />
-                                    {/* min-w-0: the browser over-estimates this wrapper's automatic
-                                        minimum by a few px, which forced a tiny horizontal scroll when
-                                        the clear-X appears. With it the selects flex down to their
-                                        min-w floors first; past the floors content overflows into the
-                                        row's scroll — the floors still hold, so the fallback stays. */}
-                                    <div className="md:ml-auto md:min-w-0">
-                                        <SearchFiltersBar
-                                            filters={filters}
-                                            channels={channels}
-                                            dmChannels={dmChannels}
-                                            onChannelChange={setChannelFilter}
-                                            onUserChange={setUserFilter}
-                                        />
-                                    </div>
+                            {showFilters && (
+                                <div id={FILTERS_ROW_ID}>
+                                    <SearchFiltersBar
+                                        filters={filters}
+                                        channels={channels}
+                                        dmChannels={dmChannels}
+                                        onChannelChange={setChannelFilter}
+                                        onUserChange={setUserFilter}
+                                        onFileTypeChange={setFileTypeFilter}
+                                        showFileTypeFilter={activeTab === 'files'}
+                                    />
                                 </div>
-                            </div>
+                            )}
+                            <SearchTabsBar activeTab={activeTab} setActiveTab={onTabChange} />
                             <SearchActiveBadges
                                 filters={filters}
                                 channels={channels}
