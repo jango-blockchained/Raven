@@ -4,7 +4,7 @@ import { MessageImages } from "./MessageImages"
 import { MessageFiles } from "./MessageFiles"
 import { MessageVideo } from "./MessageVideo"
 import { MessageAudio } from "./MessageAudio"
-import { EditableMessageBody } from "./MessageContent"
+import { EditableMessageBody, MessageAttributes } from "./MessageContent"
 import { MessageLinkPreview } from "./LinkPreview"
 import { MessageReactionsRow } from "./MessageReactions"
 import { MessageRow, MessageSenderLayout } from "./MessageRow"
@@ -76,6 +76,18 @@ export const BatchMessageItem = ({
     /** A batch carries one caption — whichever member has text (the composer sets it on one). */
     const captionMember = block.messages.find((message) => message.text)
 
+    // Pinned/Forwarded/Edited live on individual members (pinning targets one
+    // message, an edit lands on the caption member) — but the batch presents as
+    // ONE message, so each badge shows once if any member carries the flag.
+    const attributeFlags = useMemo(
+        () => ({
+            is_pinned: block.messages.some((message) => message.is_pinned === 1) ? (1 as const) : (0 as const),
+            is_forwarded: block.messages.some((message) => message.is_forwarded === 1) ? (1 as const) : (0 as const),
+            is_edited: block.messages.some((message) => message.is_edited === 1) ? (1 as const) : (0 as const),
+        }),
+        [block.messages],
+    )
+
     // A batch reply lives on one member (the send API attaches it to the last);
     // render the quote once, at the top of the block.
     const replyMember = block.messages.find((message) => message.linked_message && message.replied_message_details)
@@ -107,6 +119,10 @@ export const BatchMessageItem = ({
             {videos.length > 0 && <MessageVideo messages={videos} />}
             {audios.length > 0 && <MessageAudio messages={audios} />}
             {docs.length > 0 && <MessageFiles messages={docs} attachments={attachments} />}
+            {/* Below the media, above the caption — an Edited badge refers to the
+                caption text (that's the only editable part of a batch), so it sits
+                next to what it describes rather than floating above the album. */}
+            <MessageAttributes message={attributeFlags} />
             {captionMember && <EditableMessageBody message={captionMember} />}
             {/* Links live on the caption member (the server extracts them from its
                 text), so that's where the first-link preview hangs off a batch too. */}
