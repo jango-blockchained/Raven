@@ -523,18 +523,25 @@ class RavenMessage(Document):
 			# Get the number of replies in the thread
 			reply_count = refresh_thread_reply_count(self.channel_id)
 
-			self.add_mentioned_users_to_thread()
+			is_delete = event_type == "message_deleted"
+
+			if not is_delete:
+				self.add_mentioned_users_to_thread()
 
 			# Broadcast to everyone: the "N replies" pill on the parent message is shown to
-			# all channel members, so the reply count must reach all of them.
+			# all channel members, so the reply count must reach all of them. On a DELETE
+			# the timestamp is omitted — it's the deleted message's, and the client uses
+			# its presence as the signal to bump list ordering (a delete must not).
+			payload = {
+				"channel_id": self.channel_id,
+				"sent_by": self.owner,
+				"number_of_replies": reply_count,
+			}
+			if not is_delete:
+				payload["last_message_timestamp"] = self.creation
 			frappe.publish_realtime(
 				"thread_reply",
-				{
-					"channel_id": self.channel_id,
-					"sent_by": self.owner,
-					"last_message_timestamp": self.creation,
-					"number_of_replies": reply_count,
-				},
+				payload,
 				after_commit=True,
 				room=get_raven_room(),
 			)
@@ -542,7 +549,10 @@ class RavenMessage(Document):
 			# Notify ONLY the thread's participants so each can update their unread-threads
 			# badge locally — a thread is unread only for its members, so this is scoped per
 			# user (no org-wide broadcast, no leaking the participant list). get_channel_members
-			# reads from the (permission-check-warmed) cache, keyed by user_id.
+			# reads from the (permission-check-warmed) cache, keyed by user_id. `event_type`
+			# mirrors the channel unread event: new reply → add to the badge; delete →
+			# reconcile it (a delete can't be decremented locally — the deleted reply's
+			# read-state per user is unknowable client-side).
 			for member in get_channel_members(self.channel_id):
 				frappe.publish_realtime(
 					"raven:unread_thread_count_updated",
@@ -550,6 +560,7 @@ class RavenMessage(Document):
 						"channel_id": self.channel_id,
 						"sent_by": self.owner,
 						"last_message_timestamp": self.creation,
+						"event_type": event_type,
 					},
 					user=member,
 					after_commit=True,
@@ -911,6 +922,30 @@ class RavenMessage(Document):
 	def on_trash(self):
 		# delete all the reactions for the message
 		frappe.db.delete("Raven Message Reaction", {"message": self.name})
+
+		# The deleted message may be sitting in clients' unread-notification badges:
+		# a mention of someone, or reactions on the owner's message. Those id sets
+		# are kept live by events — the rows vanishing from the DB doesn't reach the
+		# clients until the next focus reconcile — so tell the affected users to
+		# refetch. `removed` routes the client to a reconcile, not a local delete.
+		for mention in self.mentions or []:
+			# The owner's own mentions never notify (the queries exclude them).
+			if mention.user and mention.user != self.owner:
+				frappe.publish_realtime(
+					"raven_mention",
+					{"message_id": self.name, "removed": True},
+					user=mention.user,
+					after_commit=True,
+				)
+		# Reactions notify the message OWNER — including when the owner deletes
+		# their own message, whose badge may hold this id.
+		if self.message_reactions and not self.is_bot_message:
+			frappe.publish_realtime(
+				"raven_reaction_notification",
+				{"message_id": self.name, "removed": True},
+				user=self.owner,
+				after_commit=True,
+			)
 
 		# If this was the channel's latest message, recompute the channel summary to the
 		# PREVIOUS message instead of just nulling it — otherwise the sidebar teaser keeps

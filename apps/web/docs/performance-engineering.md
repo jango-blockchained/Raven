@@ -380,6 +380,32 @@ and all four got the fix, because a "self-healing reconcile" that only runs
 when the server's answer *changed* is precisely a reconcile that cannot heal
 drift on the client's side of the ledger.
 
+**Deleting a message must speak a different event than sending one.** Delete a
+message that someone was mentioned in and watch the badges: the channel unread
+count healed itself, the thread unread count didn't. The channel pipeline had
+learned this lesson already — its one event carries an `event_type`, and the
+client treats the two kinds oppositely: a *send* increments locally (a new
+message is always newer than your read watermark, so +1 is provably right); a
+*delete* triggers a debounced refetch of the authoritative counts, because a
+delete can't be decremented locally — the client has no way to know whether
+the deleted message was one the user had already read. The thread pipeline had
+skipped the lesson: its publish path ignored the event type entirely and fired
+the *send* events on deletes too — so a delete broadcast the reply-count with
+the deleted message's timestamp (bumping the thread up the list), and told
+every participant's client to *add* the thread to its unread badge. Deleting a
+message marked it unread. The fix kept both existing events and taught them to
+discriminate, each with the cheapest signal available: the per-participant
+badge event now carries `event_type` (mirroring the channel event — add on
+send, reconcile-if-unread on delete), and the broadcast pill event simply
+*omits its timestamp* on deletes — the timestamp's presence was already the
+only reason to bump ordering, so its absence is the no-bump signal, no new
+field needed. Backward compatibility came free from the same asymmetry: old
+clients ignore the unknown `event_type` and keep behaving exactly as they
+already did. Two rules fall out. Deletes are not negative sends — a send can
+be applied locally, a delete can only be reconciled. And when two pipelines do
+the same job, audit them as a pair: the channel path had the delete story
+right for months while the thread path, one `elif` below it, had it wrong.
+
 ## One bug class you only see in production
 
 Our monorepo could accidentally bundle *two copies* of the same library. Two
