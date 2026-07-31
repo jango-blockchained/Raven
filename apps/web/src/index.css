@@ -398,3 +398,29 @@ body {
     display: none;
   }
 }
+/* sonner (unstyled) — three patches ported from frappe-ui's ToastProvider.vue,
+   needed because `unstyled` strips the [data-styled] selectors sonner's own
+   CSS keys these behaviors on. */
+
+/* --initial-height is measured on mount (loading state). After a promise
+   resolves the toast grows (action button), so clamp to auto instead of the
+   stale measured value. */
+[data-sonner-toast][data-mounted="true"][data-expanded="true"] {
+  height: auto;
+}
+
+/* In the collapsed stack sonner clamps every non-front toast to the front
+   toast's height and hides their content — but only on [data-styled='true']
+   toasts, which `unstyled` strips. Without this, a multiline toast behind a
+   single-line one spills its extra lines out the top. */
+[data-sonner-toast][data-expanded="false"][data-front="false"] > * {
+  opacity: 0;
+}
+
+.sonner-loading-wrapper {
+  position: static;
+}
+
+.sonner-loading-bar {
+  background-color: var(--surface-gray-1);
+}

@@ -1,69 +1,53 @@
 import { Toaster as Sonner, type ToasterProps } from "sonner"
-import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon } from "lucide-react"
 import { useTheme } from "@components/theme-provider"
-import { Spinner } from "./spinner"
+import { useIsMobile } from "@hooks/use-mobile"
 
 /**
- * Styled to match frappe-ui's CURRENT toast — the sonner-based one (verified
- * against its rendered markup: inverted surface-gray-9 card, monochrome
- * ink-base icons, text-p-base medium title, py-2.5/px-4 at w-[360px] with
- * shadow-xl, and a close button). The reka-ui Toast.vue still in the frappe-ui
- * repo is the OLD component — don't align to it. Icon colors follow their
- * per-type scheme: neutral ink-base normally, tinted for problems (their error
- * markup carries [&_[data-icon]]:text-ink-red-5; warning's amber is inferred
- * from the same vocabulary, and our own `info` type gets the parallel blue).
- * Deliberate departures: lucide glyphs (their success is a filled heroicon)
- * and the `info` type they don't have.
+ * Mirrors frappe-ui's ToastProvider.vue verbatim (their CURRENT toast — the
+ * reka-ui Toast.vue still in that repo is the old component; don't align to
+ * it). Same recipe: `unstyled` sonner with their exact class map. No custom
+ * icons on either side — the filled glyphs are sonner's own defaults, sized
+ * and colored through the `icon` class and tinted per type (error red,
+ * warning amber; success and info stay neutral ink-base, matching them).
+ *
+ * Unstyled mode needs three small CSS patches (see "sonner (unstyled)" in
+ * index.css), ported from their provider's <style> block.
  */
 const Toaster = ({ ...props }: ToasterProps) => {
     const { theme = "system" } = useTheme()
+    const isMobile = useIsMobile()
 
     return (
         <Sonner
             theme={theme}
             className="toaster group"
-            position="bottom-right"
+            // Mobile: TOP-center — the bottom is where the composer and the tab
+            // bar live, and a toast parked there blocks exactly what the user is
+            // about to touch. The offset clears the notch/status bar in the
+            // installed app (safe-area inset is 0 in a plain browser tab).
+            position={isMobile ? "top-center" : "bottom-right"}
+            mobileOffset={{ top: "calc(env(safe-area-inset-top) + 12px)" }}
             closeButton
-            icons={{
-                success: (
-                    <CircleCheckIcon className="size-4 text-ink-base" />
-                ),
-                info: (
-                    <InfoIcon className="size-4 text-ink-blue-5" />
-                ),
-                warning: (
-                    <TriangleAlertIcon className="size-4 text-ink-amber-5" />
-                ),
-                error: (
-                    <OctagonXIcon className="size-4 text-ink-red-5" />
-                ),
-                loading: (
-                    <Spinner className="size-4 text-ink-base" />
-                ),
-            }}
-            style={
-                {
-                    "--normal-bg": "var(--surface-gray-9)",
-                    "--normal-text": "var(--ink-base)",
-                    "--normal-border": "var(--surface-gray-9)",
-                    "--border-radius": "var(--radius-md)",
-                } as React.CSSProperties
-            }
+            expand={false}
+            visibleToasts={3}
             toastOptions={{
+                unstyled: true,
                 classNames: {
-                    toast: "!py-2.5 !px-4 !w-[360px] !items-center !shadow-xl",
-                    title: "!break-words !text-p-base !font-medium !text-ink-base",
-                    description: "!text-p-base !break-words !text-ink-base",
-                    // Inline at the row's END (frappe-ui's placement) — sonner's
-                    // styled default is an absolutely-positioned top-left bubble
-                    // nudged with a literal `transform: translate(-35%,-35%)`, so
-                    // it needs transform-none (Tailwind's translate-* utilities
-                    // set the separate `translate` property and would NOT override
-                    // it — the button rides 35% high, off the row's centerline).
-                    // [&_svg]:!size-4: sonner's close × renders at its native 12px
-                    // svg attributes — frappe-ui upsizes it to 16px in the 20px button.
+                    // max-w guard is ours: the fixed 360px card overflows viewports
+                    // under ~392px (320px-class phones); inert everywhere else.
+                    toast:
+                        "group py-2.5 flex items-center px-4 bg-surface-gray-9 rounded-md shadow-xl w-[360px] max-w-[calc(100vw-2rem)] after:bg-transparent",
+                    title: "text-p-base font-medium text-ink-base break-words",
+                    description: "text-p-base text-ink-base break-words",
+                    icon: "mr-2 text-ink-base [&_svg]:size-4",
                     closeButton:
-                        "!static !order-1 !ml-auto !transform-none !size-5 !rounded-sm !border-0 !bg-transparent !text-ink-base hover:!bg-surface-gray-8 [&_svg]:!size-4",
+                        "order-1 ml-auto group-has-[[data-action]]:ml-0 grid place-items-center rounded-sm text-ink-base hover:bg-surface-gray-8 size-5 !transition-colors [&_svg]:size-4",
+                    actionButton:
+                        "flex shrink-0 text-ink-blue-link font-medium py-1.5 px-2 h-7 text-base mr-2 ml-auto bg-transparent hover:bg-surface-gray-8 rounded !transition-colors",
+                    cancelButton:
+                        "flex text-ink-blue-link font-medium py-1.5 px-2 text-base hover:bg-surface-gray-8 transition-colors",
+                    error: "[&_[data-icon]]:text-ink-red-5",
+                    warning: "[&_[data-icon]]:text-ink-amber-5",
                 },
             }}
             {...props}
