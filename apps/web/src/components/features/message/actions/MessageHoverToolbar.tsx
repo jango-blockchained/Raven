@@ -8,6 +8,9 @@ import {
     DropdownMenuGroup,
     DropdownMenuItem,
     DropdownMenuSeparator,
+    DropdownMenuSub,
+    DropdownMenuSubContent,
+    DropdownMenuSubTrigger,
     DropdownMenuTrigger,
 } from "@components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@components/ui/tooltip"
@@ -198,16 +201,28 @@ export const MessageHoverToolbar = ({
                             <Fragment key={index}>
                                 {index > 0 && <DropdownMenuSeparator />}
                                 <DropdownMenuGroup>
-                                    {group.map((action) => (
-                                        <DropdownMenuItem
-                                            key={action.id}
-                                            variant={action.danger ? "destructive" : "default"}
-                                            onSelect={action.onSelect}
-                                        >
-                                            <action.icon />
-                                            <span>{action.label}</span>
-                                        </DropdownMenuItem>
-                                    ))}
+                                    {group.map((action) =>
+                                        action.submenu ? (
+                                            // Nested panel (read receipts) — same content the context
+                                            // menu nests, mounted only once the submenu opens.
+                                            <DropdownMenuSub key={action.id}>
+                                                <DropdownMenuSubTrigger>
+                                                    <action.icon />
+                                                    <span>{action.label}</span>
+                                                </DropdownMenuSubTrigger>
+                                                <DropdownMenuSubContent>{action.submenu()}</DropdownMenuSubContent>
+                                            </DropdownMenuSub>
+                                        ) : (
+                                            <DropdownMenuItem
+                                                key={action.id}
+                                                variant={action.danger ? "destructive" : "default"}
+                                                onSelect={action.onSelect}
+                                            >
+                                                <action.icon />
+                                                <span>{action.label}</span>
+                                            </DropdownMenuItem>
+                                        ),
+                                    )}
                                 </DropdownMenuGroup>
                             </Fragment>
                         ))}

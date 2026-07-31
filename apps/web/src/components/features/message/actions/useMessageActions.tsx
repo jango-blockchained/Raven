@@ -1,4 +1,4 @@
-import { useContext, useMemo } from "react"
+import { useContext, useMemo, type ReactNode } from "react"
 import { getDefaultStore, useSetAtom } from "jotai"
 import { useNavigate } from "react-router-dom"
 import { FrappeConfig, FrappeContext, useFrappeGetCall, type FrappeError } from "frappe-react-sdk"
@@ -11,6 +11,7 @@ import {
     LucideIcon,
     MessageSquareText,
     Edit3Icon,
+    Eye,
     Pin,
     PinOff,
     Reply,
@@ -21,6 +22,7 @@ import {
 import { editingMessageAtom, messageDialogAtom, replyToMessageAtom } from "@utils/channelAtoms"
 import { focusComposer } from "@components/features/ChatInput/composerFocus"
 import { resolveEditTarget } from "./editTarget"
+import { ReadReceiptsList } from "./ReadReceiptsList"
 import { channelMessagesStore } from "@stores/messages/store"
 import { parsePinnedIds } from "@stores/messages/selectors"
 import { channelStore } from "@stores/channels/store"
@@ -36,7 +38,14 @@ export type MessageAction = {
     id: string
     label: string
     icon: LucideIcon
-    onSelect: () => void
+    /** Fired on select. Absent when the action opens a `submenu` instead. */
+    onSelect?: () => void
+    /**
+     * Renders a nested panel off the item rather than doing something: a real submenu
+     * in the desktop context menu / hover dropdown, a pushed subview in the mobile
+     * sheet. Hosts supply their own wrapper, so this is just the panel's content.
+     */
+    submenu?: () => ReactNode
     /** Renders in the destructive style (delete). */
     danger?: boolean
 }
@@ -301,6 +310,18 @@ export const useMessageActions = (
                 label: _("View reactions"),
                 icon: SmilePlus,
                 onSelect: () => setDialog({ type: "reactions", message }),
+            })
+        }
+        // Who has read it — sits with the other "view what happened to this message"
+        // actions, right under View reactions. A nested list, not a dialog: the reader
+        // list is a glance. Owner-only, but NOT gated on canInteract — it reads state,
+        // it doesn't mutate the channel, so it stays available in archived channels.
+        if (isOwner) {
+            organize.push({
+                id: "read-receipts",
+                label: _("View read receipts"),
+                icon: Eye,
+                submenu: () => <ReadReceiptsList message={message} />,
             })
         }
 
