@@ -203,7 +203,15 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
 28. **A floating date pill** that appears while you scroll and fades when you
     stop, replacing a pile of sticky date headers.
 29. **Haptic ticks** at gesture commit points — small, but it's half of why
-    gestures feel native.
+    gestures feel native. The set keeps growing as gestures do: the newest is
+    the image viewer's zoom settling back to fit — pinch out, the image snaps
+    to 1x, the chrome fades back in, and the tick lands in the same instant,
+    so all three read as one physical event. The recurring implementation
+    detail: the tick must fire on the *transition* into the boundary, never on
+    mount — an effect that watches "am I at fit" also runs when the image
+    simply opens, and a guard on the previous value is what keeps opening a
+    photo from buzzing. (Android only, like all our haptics — iOS Safari has
+    no Vibration API.)
 30. **The service worker that broke image caching — and then fixed it.** A
     surprise from Safari: once a page is controlled by a service worker,
     requests the worker doesn't answer get *worse* HTTP caching — Safari
@@ -375,6 +383,88 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
     an existing scroll position owes the user a decision about where that
     scroll should land, and "wherever it happened to be" is almost never the
     answer.
+39. **The icon that wouldn't line up with wrapping text.** The mention warning
+    banner above the composer — the amber strip that says "Jane is on leave
+    today" or "The following people aren't in this channel: …" with a little
+    palm/info icon in front — is an icon next to text that *wraps* on mobile.
+    Every obvious alignment is wrong in one direction. `items-center` centers
+    the icon against the whole text block: perfect for one line, but the
+    moment the sentence wraps to three lines the icon drifts to the vertical
+    middle of the paragraph. `items-start` pins it to the top instead — and
+    now it sits visibly *above* the text, because text doesn't start at the
+    top of its line box: there's half-leading (the line-height's breathing
+    room) above the glyphs, and the icon doesn't know about it. The fix uses
+    a CSS unit built for exactly this: `lh`, "one line-height of this
+    element". Keep the row `items-start`, wrap the icon in a flex box that is
+    exactly one line tall (`h-lh`), and center the icon *inside that box*.
+    The icon lands on the first line's optical center — the same place
+    `items-center` would put it for a single line — and stays there no
+    matter how many lines the text wraps to. Bonus: it's measured from the
+    live line-height, so if the type token ever changes size, the alignment
+    follows for free, with no magic 1-pixel margin to rediscover. This one
+    is pure quality, and it generalizes: every icon-beside-wrapping-text row
+    in the app (error banners, empty states, list bullets) is the same three
+    classes.
+40. **The drop zone that flickered — but only in Safari.** Drag a file over
+    the chat and an overlay invites you to drop it. In Chrome: rock solid.
+    In Safari: the overlay strobed on and off as you moved the file across
+    the messages. The code looked correct — show on `dragover`, hide on
+    `dragleave`, but only when `relatedTarget` (the element the drag moved
+    *to*) is outside the pane, the standard way to ignore all the
+    enter/leave noise from crossing child elements. The catch: WebKit never
+    fills in `relatedTarget` on drag events — a years-old bug — so in
+    Safari that check read every hop between two message rows as "the drag
+    left the pane". Hide; the very next `dragover` shows it again;
+    hide/show at drag-event frequency. The fix drops `relatedTarget`
+    entirely for a depth counter: every element the drag crosses fires a
+    dragenter/dragleave *pair* that bubbles up, so increment on enter,
+    decrement on leave, and hide only at zero — child crossings cancel out
+    arithmetically, no browser field required. Two lessons: when a DOM
+    event field is optional, some browser somewhere leaves it empty, and a
+    heuristic built on it will fail only there — and "works in Chrome" is
+    the start of cross-browser testing, not the end. Count things you
+    control instead of trusting fields you don't.
+41. **The back-swipe that navigated underneath an open photo.** Open an image
+    in the full-screen viewer on Android and swipe from the screen edge: the
+    *page* went back — channel to channel list — while the photo stayed open
+    on top, now floating over the wrong screen. The cause is structural: the
+    viewer is a global overlay driven by app state, not a route, so it isn't
+    in the browser's history — and Android's edge-swipe is an OS gesture the
+    web cannot intercept, block, or even see coming. The only thing that
+    gesture does is press Back, which means history is the only language you
+    can answer it in. So the viewer now speaks it: opening pushes a *sentinel*
+    history entry (same URL — the router just re-renders in place), the back
+    gesture pops the sentinel, and a popstate listener closes the viewer.
+    Page stays put. One subtlety earns its comment: closing through the UI
+    instead — the ×, Escape, swipe-down — must *consume* the sentinel with a
+    silent `history.back()`, or the next real back gesture would need two
+    presses to do anything, which feels exactly as broken as the original
+    bug. Bonus: the same fix makes the browser Back button close the viewer
+    on desktop and iOS — the standard lightbox contract — for free. The
+    lesson generalizes to every state-driven overlay: if it covers the
+    screen, the system back gesture belongs to it, and the only way to claim
+    that gesture is to put yourself in history.
+42. **Tap the photo, the chrome gets out of the way.** The full-screen image
+    viewer now works like iOS Photos on mobile: tap the picture and the
+    header, filmstrip and zoom pill fade away for distraction-free viewing;
+    tap again and they return. Two design decisions carry it. First, the
+    chrome is an *overlay* — absolutely positioned over the media area, not
+    rows above and below it — so the photo is centered on the true screen and
+    never shifts a pixel when the chrome toggles; only opacity animates.
+    Second, the tap had to negotiate with its neighbors: a single tap waits a
+    ~250ms beat so a second tap can turn the pair into a double-tap zoom
+    instead, and a click whose pointer travelled is the tail of a pan, not a
+    tap at all. The gotcha inside that negotiation: you cannot build the
+    double-tap on the browser's `dblclick` event — touch double-taps don't
+    fire it everywhere (Chrome's device emulation never does; each tap
+    arrives as an ordinary click), so the pairing is done by hand from two
+    clean taps landing close together in time and place. Same family as the
+    Safari `relatedTarget` lesson a few items up: an event you don't get on
+    every platform is not a foundation, it's a convenience. And because the
+    header holds real actions (download, share, close), the chrome starts
+    visible on every open, hiding is only ever something the user did, and
+    paging to a video or file — attachments that need their buttons — brings
+    it back automatically.
 
 ## What's still on the list
 

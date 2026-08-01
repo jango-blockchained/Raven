@@ -3,20 +3,15 @@ import { CheckCheck, MessageSquare } from "lucide-react"
 import { cn } from "@lib/utils"
 import { hapticTick } from "@utils/haptics"
 import { type NotificationObject } from "@stores/notifications/reducers"
+import { LeavingRow } from "@components/common/LeavingRow"
 import { UserAvatar } from "@components/features/message/UserAvatar"
 import { ChannelIcon } from "@components/common/ChannelIcon/ChannelIcon"
 import { formatRelativeDate } from "@lib/date"
+import { formatNameList } from "@lib/nameList"
 import _ from "@lib/translate"
 import RichTextRenderer from "@components/features/message/renderers/RichTextRenderer"
 import type { UserData } from "@db"
 import type { SelectedNotification } from "./NotificationChat"
-
-export const formatReactorNames = (names: string[], total: number): string => {
-    if (total === 1) return names[0]
-    if (total === 2) return _(`{0} and {1}`, [names[0], names[1]])
-    if (total === 3) return _(`{0}, {1} and {2}`, [names[0], names[1], names[2]])
-    return _(`{0}, {1} and {2} others`, [names[0], names[1], String(total - 2)])
-}
 
 const ChannelContext = ({
     notification,
@@ -71,6 +66,7 @@ const rowShellClasses = (isRead: boolean | number, isActive: boolean) => cn(
 const NotificationRowLayout = ({
     isRead,
     isActive,
+    leaving = false,
     onClick,
     onMarkRead,
     avatar,
@@ -81,6 +77,9 @@ const NotificationRowLayout = ({
 }: {
     isRead: boolean | number
     isActive: boolean
+    /** Read and moved-on-from: play the exit (fade + slide + collapse), the
+     *  list drops the row when the animation ends. */
+    leaving?: boolean
     onClick: () => void
     /** Swipe-right target (touch). Only armed while the row is unread. */
     onMarkRead?: () => void
@@ -217,6 +216,7 @@ const NotificationRowLayout = ({
     }
 
     return (
+        <LeavingRow leaving={leaving}>
         <div
             role="button"
             tabIndex={0}
@@ -261,6 +261,7 @@ const NotificationRowLayout = ({
                 </div>
             </div>
         </div>
+        </LeavingRow>
     )
 }
 
@@ -317,12 +318,15 @@ export const MentionItem = memo(({
     notification,
     sender,
     isActive,
+    leaving,
     onSelect,
     onMarkRead,
 }: {
     notification: NotificationObject
     sender?: UserData
     isActive: boolean
+    /** Mid-exit from the unread view — renders collapsing (see NotificationRowLayout). */
+    leaving?: boolean
     onSelect: (selection: SelectedNotification) => void
     /** Swipe-right on an unread row marks it read without opening it. */
     onMarkRead?: (messageID: string) => void
@@ -340,6 +344,7 @@ export const MentionItem = memo(({
         <NotificationRowLayout
             isRead={notification.is_read}
             isActive={isActive}
+            leaving={leaving}
             onClick={handleClick}
             onMarkRead={onMarkRead ? () => onMarkRead(notification.message_id) : undefined}
             avatar={
@@ -363,26 +368,29 @@ export const ReactionItem = memo(({
     notification,
     usersById,
     isActive,
+    leaving,
     onSelect,
     onMarkRead,
 }: {
     notification: NotificationObject
     usersById: Map<string, UserData>
     isActive: boolean
+    /** Mid-exit from the unread view — renders collapsing (see NotificationRowLayout). */
+    leaving?: boolean
     onSelect: (selection: SelectedNotification) => void
     /** Swipe-right on an unread row marks it read without opening it. */
     onMarkRead?: (messageID: string) => void
 }) => {
     const reactors = notification.reactors ?? []
     const total = reactors.length
-    // formatReactorNames uses 3 names when total<=3, else only 2.
+    // formatNameList uses 3 names when total<=3, else only 2.
     const namesNeeded = total <= 3 ? total : 2
     // O(1) Map lookups against the shared users snapshot — avoids a per-row
     // Dexie `useLiveQuery` subscription (would be N observers for N rows).
     const reactorsData = reactors.slice(0, namesNeeded).map((id) => usersById.get(id))
 
     const names = reactorsData.map((u, i) => u?.full_name ?? reactors[i])
-    const reactorText = formatReactorNames(names, total)
+    const reactorText = formatNameList(names, total)
     const displayReactions = (notification.reactions ?? []).slice(0, 5)
 
     const handleClick = () => {
@@ -399,6 +407,7 @@ export const ReactionItem = memo(({
         <NotificationRowLayout
             isRead={notification.is_read}
             isActive={isActive}
+            leaving={leaving}
             onClick={handleClick}
             onMarkRead={onMarkRead ? () => onMarkRead(notification.message_id) : undefined}
             avatar={

@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useAtomValue, useSetAtom } from "jotai"
 import { useHotkeys } from "react-hotkeys-hook"
+import { useHistoryBackClose } from "@hooks/useHistoryBackClose"
 import { toast } from "sonner"
 import { ChevronLeft, ChevronRight, FileText, Film, Music, MusicIcon } from "lucide-react"
 import { Badge } from "@components/ui/badge"
@@ -61,6 +62,22 @@ const AttachmentPreviewContent = ({
     const canEmbedPdf = current.kind === "pdf" && !isMobile
 
     const close = () => setState(null)
+
+    // The lightbox owns the back gesture while open (Android's edge-swipe back
+    // was navigating the page UNDER the still-open preview — this modal is
+    // atom-driven and route-independent, so it survived the navigation).
+    useHistoryBackClose(open, close)
+
+    // Mobile, images only: tapping the photo hides the header + filmstrip +
+    // zoom pill (iOS Photos style); tapping again brings them back. Closing
+    // still works while hidden — swipe-down and the back gesture. Chrome
+    // comes back on reopen and when paging to a non-image (those need their
+    // buttons).
+    const [chromeHidden, setChromeHidden] = useState(false)
+    const toggleChrome = () => setChromeHidden((hidden) => !hidden)
+    useEffect(() => {
+        if (!open || current.kind !== "image") setChromeHidden(false)
+    }, [open, current.kind])
     // Wraps at the ends, matching the previous image slideshow behavior
     const step = (direction: 1 | -1) =>
         setState((prev) =>
@@ -125,8 +142,15 @@ const AttachmentPreviewContent = ({
 
     return (
         <MediaLightbox open={open} onOpenChange={(next) => !next && close()} title={current.fileName} overlayRef={overlayRef}>
-            {/* Floating chrome over the scrim */}
-            <div className="shrink-0 p-3">
+            {/* Floating chrome over the scrim. On mobile the header OVERLAYS the
+                media area (absolute) instead of taking a row of its own — the
+                image centers on the true screen, and toggling the chrome never
+                shifts it. Desktop keeps the in-flow row (the PDF embed needs
+                its reserved space). */}
+            <div className={cn(
+                "shrink-0 p-3 transition-opacity duration-150 max-md:absolute max-md:inset-x-0 max-md:top-0 max-md:z-20",
+                chromeHidden && "pointer-events-none opacity-0",
+            )}>
                 <MediaPreviewHeader
                     // Preview mode (composer-staged files): no author, no download/share —
                     // just a "Preview" tag. View mode (sent messages): full chrome.
@@ -153,7 +177,10 @@ const AttachmentPreviewContent = ({
                 that frame plus the width cap below is the only backdrop */}
             <div
                 className="relative flex min-h-0 flex-1 items-center justify-center md:p-4"
-                onClick={close}
+                // Mobile images: a tap toggles the chrome instead of closing —
+                // close is swipe-down / back / the header ×. Everything else
+                // keeps tap-to-close.
+                onClick={isMobile && current.kind === "image" ? toggleChrome : close}
                 onTouchStart={onTouchStart}
                 onTouchEnd={onTouchEnd}
             >
@@ -194,7 +221,20 @@ const AttachmentPreviewContent = ({
                     // is what suspends this container's swipe-paging. Swipe-down-to-close
                     // is integrated (it must arbitrate against zoom/pinch), unlike the
                     // other media kinds which share the SwipeDownToClose wrapper below.
-                    <ZoomableImage key={current.fileUrl} src={current.fileUrl} alt={current.fileName} onDismiss={close} onDismissProgress={onDismissProgress} />
+                    <ZoomableImage
+                        key={current.fileUrl}
+                        src={current.fileUrl}
+                        alt={current.fileName}
+                        onDismiss={close}
+                        onDismissProgress={onDismissProgress}
+                        onTap={isMobile ? toggleChrome : undefined}
+                        hideControls={chromeHidden}
+                        raiseControls={isMobile && hasMany}
+                        // iOS style: zooming in hides the chrome, coming back to
+                        // fit brings it back. Fires only at the 1x boundary, so a
+                        // tap-to-show while zoomed isn't fought by pinching.
+                        onZoomedChange={isMobile ? setChromeHidden : undefined}
+                    />
                 ) : (
                     <SwipeDownToClose onDismiss={close} onProgress={onDismissProgress}>
                         {current.kind === "video" ? (
@@ -242,7 +282,14 @@ const AttachmentPreviewContent = ({
                 space beside the tiles is backdrop — clicking it closes; the
                 tiles stop propagation so clicking one only selects. */}
             {hasMany && (
-                <div className="shrink-0 p-3" onClick={close}>
+                <div
+                    className={cn(
+                        // Overlay on mobile, like the header (see above).
+                        "shrink-0 p-3 transition-opacity duration-150 max-md:absolute max-md:inset-x-0 max-md:bottom-0 max-md:z-20",
+                        chromeHidden && "pointer-events-none opacity-0",
+                    )}
+                    onClick={close}
+                >
                     {/* Centering lives on the INNER w-max wrapper, not the scroller:
                         justify-center on an overflowing scroller clips the leading
                         thumbs past the scroll origin — unreachable by scrolling OR

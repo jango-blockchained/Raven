@@ -250,9 +250,29 @@ const HomeLink = () => {
     const [drawerOpen, setDrawerOpen] = useAtom(workspacesDrawerAtom)
     const pressProps = useFooterLongPress(() => setDrawerOpen(true))
 
+    // RE-TAP on the Home ROOT (the channel list — `/` or a bare workspace, no
+    // channel open) opens the same drawer: the tab is already showing its page,
+    // so the tap would otherwise be dead, and it makes the switcher reachable
+    // without knowing the long-press. Only when there is something to switch
+    // TO (2+ member workspaces) — with one, the re-tap stays inert. Deeper
+    // pages (a channel, another tab) keep the tap as plain "go home".
+    const atHomeRoot = isIndex || (isWorkspaceRoute && !wsMatch?.params["*"])
+    const hasMultipleWorkspaces = workspaces.filter((w) => w.workspace_member_name).length > 1
+
+    const onClick = (event: React.MouseEvent) => {
+        // Long-press click guard first — a finger-lift after the drawer already
+        // opened must not also count as a tap.
+        pressProps.onClick(event)
+        if (event.defaultPrevented) return
+        if (atHomeRoot && hasMultipleWorkspaces) {
+            event.preventDefault() // stay put — the drawer is the action
+            setDrawerOpen(true)
+        }
+    }
+
     return (
         <>
-            <NavLink to="/" {...pressProps}>
+            <NavLink to="/" {...pressProps} onClick={onClick}>
                 {() => (
                     <AppMobileFooterButton
                         icon={<HomeIcon />}

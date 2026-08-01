@@ -55,7 +55,9 @@ export const EditableMessageBody = ({ message }: { message: Message }) => {
     return <MessageBody content={message.text} />
 }
 
-const MessageAttributes = ({ message }: { message: Message }) => {
+/** Pinned / Forwarded / Edited badges. Takes just the three flags so a BATCH can
+ *  pass an aggregate of its members (each badge shown once for the whole block). */
+export const MessageAttributes = ({ message }: { message: Pick<Message, "is_pinned" | "is_forwarded" | "is_edited"> }) => {
     if (!message.is_pinned && !message.is_forwarded && !message.is_edited) return null
     return (
         <div className="flex items-center gap-1.5 py-0.5">
