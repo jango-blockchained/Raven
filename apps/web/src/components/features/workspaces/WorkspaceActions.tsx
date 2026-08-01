@@ -1,14 +1,15 @@
 import { WorkspaceFields } from '@hooks/useWorkspaces'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@components/ui/dropdown-menu'
 import { Button } from '@components/ui/button'
-import { EllipsisVertical } from 'lucide-react'
-import WorkspaceSettingsButton from '@components/features/workspaces/WorkspaceSettingsButton'
+import { EllipsisVertical, Settings } from 'lucide-react'
 import LeaveWorkspaceButton from '@components/features/workspaces/LeaveWorkspaceButton'
 import JoinWorkspaceButton from '@components/features/workspaces/JoinWorkspaceButton'
+import _ from '@lib/translate'
 
 type Props = {
     workspace: WorkspaceFields
-    /** When set, "Manage" invokes this instead of routing (settings-dialog context). */
+    /** Opens the in-panel detail view. "Manage" is admin-only; everyone else reaches
+     *  the same view (read-only) through the name link. */
     onManage?: (workspaceID: string) => void
 }
 
@@ -22,7 +23,12 @@ const WorkspaceActions = ({ workspace, onManage }: Props) => {
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className='min-w-36'>
-                    {workspace.is_admin ? <WorkspaceSettingsButton workspace={workspace} onManage={onManage ? () => onManage(workspace.name) : undefined} /> : null}
+                    {workspace.is_admin && onManage ? (
+                        <DropdownMenuItem onClick={() => onManage(workspace.name)}>
+                            <Settings />
+                            {_("Manage")}
+                        </DropdownMenuItem>
+                    ) : null}
                     {workspace.workspace_member_name ? <LeaveWorkspaceButton workspace={workspace} /> : <JoinWorkspaceButton workspace={workspace} />}
                 </DropdownMenuContent>
             </DropdownMenu>

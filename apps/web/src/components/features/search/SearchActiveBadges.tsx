@@ -1,6 +1,8 @@
 import { X } from 'lucide-react'
 import { Badge } from '@components/ui/badge'
 import { SearchFilters } from './types'
+import { useClearSearchFilters } from './useClearSearchFilters'
+import { formatFileTypeNames } from '@components/common/filters/FileTypeFilter'
 import { UserData } from "@db"
 import { ChannelListItem, DMChannelListItem } from '@raven/types/common/ChannelListItem'
 import { useSearchParams } from 'react-router-dom'
@@ -25,17 +27,10 @@ function FilterBadge({ label, onRemove }: FilterBadgeProps) {
     )
 }
 
-const FILE_TYPE_LABELS: Record<string, string> = {
-    pdf: 'PDFs',
-    doc: 'Documents',
-    ppt: 'Presentations',
-    xls: 'Spreadsheets',
-    image: 'Images',
-}
-
 export function SearchActiveBadges({ filters, channels, dmChannels, users }: { filters: SearchFilters, channels: ChannelListItem[], dmChannels: DMChannelListItem[], users: UserData[] }) {
 
     const [, setSearchParams] = useSearchParams()
+    const clearAll = useClearSearchFilters()
 
     if (!filters) return null
 
@@ -47,60 +42,44 @@ export function SearchActiveBadges({ filters, channels, dmChannels, users }: { f
         }, { replace: true })
     }
 
+    // Built as a list rather than inline conditionals so the row knows how many badges
+    // it has — "Clear all" is only worth showing once there's more than one to clear.
+    const badges: FilterBadgeProps[] = []
+
+    if (filters.owner) badges.push({
+        label: _('User: {0}', [users.find(u => u.name === filters.owner)?.full_name ?? filters.owner]),
+        onRemove: removeParam('user'),
+    })
+
+    if (filters.channel_id) badges.push({
+        label: _('Channel: {0}', [(channels.find(c => c.name === filters.channel_id)?.channel_name || dmChannels.find(dc => dc.name === filters.channel_id)?.peer_user_id) ?? filters.channel_id]),
+        onRemove: removeParam('channel'),
+    })
+
+    // Always the names, however many: this row wraps, so unlike the trigger it has no width
+    // to run out of, and "File: PDFs, Images" beats "File: 2 types" at saying what's on.
+    if (filters.file_type && filters.file_type.length > 0) badges.push({
+        label: _('File: {0}', [formatFileTypeNames(filters.file_type)]),
+        onRemove: removeParam('file_type'),
+    })
+
+    if (badges.length === 0) return null
+
     return (
         <div className="flex flex-wrap gap-2">
-            {filters.channel_id && filters.channel_id !== '' && (
-                <FilterBadge
-                    label={_('Channel: {0}', [(channels.find(c => c.name === filters.channel_id)?.channel_name || dmChannels.find(dc => dc.name === filters.channel_id)?.peer_user_id) ?? filters.channel_id])}
-                    onRemove={removeParam('channel')}
-                />
-            )}
-
-            {filters.owner && filters.owner !== '' && (
-                <FilterBadge
-                    label={_('User: {0}', [users.find(u => u.name === filters.owner)?.full_name ?? filters.owner])}
-                    onRemove={removeParam('user')}
-                />
-            )}
-
-            {filters.file_type && filters.file_type.length > 0 && (
-                <FilterBadge
-                    label={filters.file_type.length === 1
-                        ? _('File: {0}', [FILE_TYPE_LABELS[filters.file_type[0]] ?? filters.file_type[0]])
-                        : _('File: {0} types', [String(filters.file_type.length)])}
-                    onRemove={removeParam('file_type')}
-                />
-            )}
-
-            {filters.channel_type && filters.channel_type !== '' && (
-                <FilterBadge
-                    label={_('Channel type: {0}', [filters.channel_type])}
-                    onRemove={removeParam('channel_type')}
-                />
-            )}
-
-            {filters.is_direct_message === 1 && (
-                <FilterBadge label={_('Direct Messages')} onRemove={removeParam('is_dm')} />
-            )}
-
-            {filters.is_thread_message === 1 && (
-                <FilterBadge label={_('In thread')} onRemove={removeParam('is_thread_message')} />
-            )}
-
-            {filters.is_pinned === 1 && (
-                <FilterBadge label={_('Pinned')} onRemove={removeParam('is_pinned')} />
-            )}
-
-            {filters.saved === 1 && (
-                <FilterBadge label={_('Saved')} onRemove={removeParam('saved')} />
-            )}
-
-            {filters.has_reactions === 1 && (
-                <FilterBadge label={_('Has reactions')} onRemove={removeParam('has_reactions')} />
-            )}
-
-            {filters.mentions_me === 1 && (
-                <FilterBadge label={_('Mentions me')} onRemove={removeParam('mentions_me')} />
+            {badges.map((badge) => (
+                <FilterBadge key={badge.label} {...badge} />
+            ))}
+            {/* Lives here, not in the filter row: the row is three comboboxes wide on a
+                phone already, and this is the line that lists what's active anyway. */}
+            {badges.length > 1 && (
+                <button
+                    type="button"
+                    onClick={clearAll}
+                    className="mb-2 cursor-pointer px-1 text-base md:text-sm text-ink-gray-5 underline underline-offset-2 hover:text-ink-gray-8"
+                >
+                    {_('Clear all')}
+                </button>
             )}
         </div>
     )

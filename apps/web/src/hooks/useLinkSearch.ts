@@ -32,18 +32,8 @@ const buildParams = (query: string | undefined, filters: SearchFilters | undefin
 
     const passthrough: (keyof SearchFilters)[] = [
         'channel_id',
-        'parent_channel_id',
         'owner',
-        'channel_type',
-        'is_direct_message',
-        'is_thread_message',
-        'is_pinned',
-        'is_bot_message',
-        'bot',
-        'mentions',
-        'mentions_me',
-        'saved',
-        'has_reactions',
+        'is_thread',
     ]
     for (const k of passthrough) {
         const v = filters[k]

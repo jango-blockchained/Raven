@@ -126,7 +126,7 @@ const MembersList = ({ filteredMembers, channelID, allowSettingChange }: { filte
                             {member.full_name}
                         </span>
                         {member.is_admin === 1 && (
-                            <Badge size='md' theme='blue' className="shrink-0">
+                            <Badge size='md' theme='gray' className="shrink-0">
                                 {_('Admin')}
                             </Badge>
                         )}

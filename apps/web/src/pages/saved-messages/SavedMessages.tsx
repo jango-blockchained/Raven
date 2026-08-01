@@ -4,15 +4,14 @@ import { useEscHotkey } from '@hooks/useEscHotkey'
 import { Search as SearchIcon, X } from "lucide-react"
 
 import AppMobileFooter from "@components/features/header/AppMobileFooter"
-import { ChannelSelect } from "@components/common/ChannelSelect"
+import { ChannelFilter } from "@components/common/filters/ChannelFilter"
 import SavedMessagesList from "@components/features/saved-messages/SavedMessagesList"
 import { PageHeader } from "@components/layout/PageHeader"
 import { NotificationsEmptyState, type SelectedNotification } from "@pages/notifications/NotificationChat"
 import { Input } from "@components/ui/input"
 import { useIsMobile } from "@hooks/use-mobile"
 import { useChannelList } from "@stores/channels/useChannelList"
-import { useLiveQuery } from "dexie-react-hooks"
-import { db } from "@db"
+import { useUsers } from "@hooks/useUsers"
 import { cn } from "@lib/utils"
 import _ from "@lib/translate"
 
@@ -30,7 +29,7 @@ const SavedMessages = () => {
     const [search, setSearch] = useState('')
     const [channel, setChannel] = useState('*all')
     const { channels, dmChannels } = useChannelList()
-    const users = useLiveQuery(() => db.users.toArray(), [])
+    const users = useUsers()
     const isMobile = useIsMobile()
 
     // The open message is ROUTE-driven (same as notifications): `/saved-messages/:channelID/:messageID`
@@ -113,21 +112,15 @@ const SavedMessages = () => {
                                     ))}
                                 </TabsList>
                             </Tabs> */}
-                            <ChannelSelect
+                            <ChannelFilter
                                 channels={channels}
                                 dmChannels={dmChannels}
                                 users={users}
                                 value={channel}
                                 onValueChange={setChannel}
-                                placeholder={_('Channel')}
-                                allowAll
                                 allLabel={_('Any Channel')}
-                                searchable
-                                size="sm"
-                                showLabel={false}
-                                dropdownClassName="w-68"
                                 className={isMobile ? "w-full min-w-0" : undefined}
-                                triggerClassName="w-40"
+                                triggerClassName="w-50"
                             />
                             {/* <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setReminderDialogOpen(true)}>
                                 <Plus className="h-3.5 w-3.5 mr-1.5" />

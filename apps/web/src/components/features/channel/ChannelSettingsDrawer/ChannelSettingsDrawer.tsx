@@ -69,12 +69,12 @@ const ChannelSettingsDrawer = ({ peerUser }: ChannelSettingsDrawerProps) => {
                 instead of the panel scrolling. */}
             <Tabs value={drawerType} onValueChange={onTabChange} className="flex-1 min-h-0 px-3">
 
-                <TabsList variant="subtle" className="shrink-0">
-                    <TabsTrigger value="files">{_('Files')}</TabsTrigger>
-                    <TabsTrigger value="links">{_('Links')}</TabsTrigger>
-                    <TabsTrigger value="threads">{_('Threads')}</TabsTrigger>
-                    <TabsTrigger value="pins">{_('Pins')}</TabsTrigger>
-                    {!isDM && <TabsTrigger value="settings">{_('Settings')}</TabsTrigger>}
+                <TabsList variant="subtle" className="w-full shrink-0">
+                    <TabsTrigger value="files" className="w-full">{_('Files')}</TabsTrigger>
+                    <TabsTrigger value="links" className="w-full">{_('Links')}</TabsTrigger>
+                    <TabsTrigger value="threads" className="w-full">{_('Threads')}</TabsTrigger>
+                    <TabsTrigger value="pins" className="w-full">{_('Pins')}</TabsTrigger>
+                    {!isDM && <TabsTrigger value="settings" className="w-full">{_('Settings')}</TabsTrigger>}
                 </TabsList>
 
                 {/* data-vaul-no-drag: on mobile this drawer lives inside a vaul bottom

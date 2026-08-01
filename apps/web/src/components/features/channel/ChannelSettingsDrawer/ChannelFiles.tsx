@@ -35,7 +35,7 @@ const ChannelFiles = ({ channelID }: { channelID: string }) => {
     // debounce internally — this is the one debounce.
     const [searchQuery, setSearchQuery] = useDebounceValue('', 200)
     const [view, setView] = useState<FilesView>('list')
-    const { results, isLoading, error } = useSqliteSearch(searchQuery, { channel_id: channelID, message_type: ["File", "Image"] }, 100, (r) => r.title)
+    const { results, isLoading, error } = useSqliteSearch(searchQuery, { channel_id: channelID, message_type: ["File", "Image"] }, 100)
     const { members } = useChannelMembers(channelID)
 
     // One lookup Map instead of members.find() per file per render
