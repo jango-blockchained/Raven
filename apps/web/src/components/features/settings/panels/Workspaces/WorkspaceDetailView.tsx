@@ -114,10 +114,8 @@ const WorkspaceDetailContent = ({
                 </SettingsPanelHeader>
                 <SettingsPanelContent className="min-h-0 gap-4">
                     {error && <ErrorBanner error={error} />}
-                    <Tabs defaultValue="details" className="flex flex-col flex-1 min-h-0">
-                        {/* The list defaults to w-full for horizontal tabs; the override has
-                            to carry the same group-data variant or it loses on specificity. */}
-                        <TabsList className="group-data-[orientation=horizontal]/tabs:w-fit">
+                    <Tabs defaultValue="details">
+                        <TabsList>
                             <TabsTrigger value="details">
                                 <LayoutPanelTopIcon /> {_("Details")}
                             </TabsTrigger>
