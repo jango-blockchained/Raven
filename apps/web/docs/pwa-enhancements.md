@@ -446,11 +446,12 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
     that gesture is to put yourself in history.
 42. **Tap the photo, the chrome gets out of the way.** The full-screen image
     viewer now works like iOS Photos on mobile: tap the picture and the
-    header, filmstrip and zoom pill fade away for distraction-free viewing;
-    tap again and they return. Two design decisions carry it. First, the
-    chrome is an *overlay* — absolutely positioned over the media area, not
-    rows above and below it — so the photo is centered on the true screen and
-    never shifts a pixel when the chrome toggles; only opacity animates.
+    header and filmstrip fade away for distraction-free viewing; tap again
+    and they return. Two design decisions carry it. First, the chrome is an
+    *overlay* — absolutely positioned over the media area, not rows above
+    and below it — so hiding it is an opacity fade, never a relayout of the
+    bars themselves. (How the *photo* responds to the toggle turned out to
+    deserve a redesign of its own — that story is the next item.)
     Second, the tap had to negotiate with its neighbors: a single tap waits a
     ~250ms beat so a second tap can turn the pair into a double-tap zoom
     instead, and a click whose pointer travelled is the tail of a pan, not a
@@ -465,6 +466,41 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
     visible on every open, hiding is only ever something the user did, and
     paging to a video or file — attachments that need their buttons — brings
     it back automatically.
+43. **Contained like iOS: the photo lives between the bars, not under them.**
+    The chrome-as-overlay from the last item had a flaw you only see with a
+    tall screenshot: the image ran the full screen height, straight under the
+    header and filmstrip, and the bars became unreadable over its content.
+    Watching what iOS Photos actually does revealed a sharper model. A *wide*
+    photo takes the full width and does not move at all when the chrome
+    toggles — it never intersected the bars to begin with. A *tall* photo is
+    held to the space between the bars while they show, and expands to the
+    full screen (with a very subtle bounce) when they hide. The first attempt
+    copied the obvious mechanic — pad the media area by the bar heights — and
+    was wrong in a way worth remembering: the header and filmstrip are
+    different heights, so the padded box's center is not the screen's center,
+    and every image sat visibly off-center and *shifted* on each toggle. The
+    model that works keeps the photo centered on the true screen always and
+    instead shrinks the media box's *height*, symmetrically, by the taller
+    bar plus a small gutter on both ends. Symmetry is the entire trick: the
+    center never moves, so wide images stay pixel-still through the toggle,
+    tall ones expand in place — and a bottom band is reserved even when
+    there's no filmstrip, for free, because the taller bar (the header) sets
+    the reserve on both sides. The bounce is one overshoot cubic-bezier on
+    the height transition; no animation library. Two refinements rode along.
+    The tap grammar became state-aware: while the chrome shows, tapping the
+    dark area around the photo closes the viewer and tapping the photo hides
+    the chrome; while it's hidden, the whole screen is "the photo" and a tap
+    anywhere just brings the chrome back. And a mystery worth its lesson:
+    tall images played an uninvited *opening* animation — because the bars
+    were measured after first paint (and reset to zero while the closed
+    dialog had them unmounted), every open started at full height and slid
+    down to contained once the real numbers arrived. Measure in a layout
+    effect, before paint, and keep the last known measurement while the bars
+    are away — a CSS transition turns any late measurement into an animation
+    you didn't ask for. The mobile zoom pill is gone too: pinch and
+    double-tap cover zooming, iOS shows no zoom UI, and on a phone the pill
+    was permanent noise floating over the photo (desktop keeps it, hover-
+    revealed, where precise stepping and the % readout earn their place).
 
 ## What's still on the list
 
@@ -480,3 +516,7 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
   channels and threads have shipped.
 - **Rendering optimizations** for very busy channels (only re-drawing rows that
   changed).
+- **A hero transition for the photo viewer**: the picture growing from the
+  tapped thumbnail into the lightbox and shrinking back on close, iOS-style,
+  via the View Transitions API (today's fade stays as the fallback for
+  browsers without it).

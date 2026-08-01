@@ -58,8 +58,6 @@ export const ZoomableImage = ({
     onDismiss,
     onDismissProgress,
     onTap,
-    hideControls = false,
-    raiseControls = false,
     onZoomedChange,
 }: {
     src: string
@@ -70,10 +68,6 @@ export const ZoomableImage = ({
     /** A plain tap on the image (mobile chrome toggle). Fired after a short
      *  delay so a double-tap zoom is never also read as a tap. */
     onTap?: () => void
-    /** Hide the zoom pill (the modal hides all its chrome together). */
-    hideControls?: boolean
-    /** Lift the zoom pill above the filmstrip when it overlays the bottom (mobile). */
-    raiseControls?: boolean
     /** Fires when the image crosses between fit (1x) and zoomed — once per
      *  crossing, not on every scale change. The modal hides its chrome while
      *  zoomed (iOS style) without fighting a manual tap-to-show. */
@@ -452,16 +446,12 @@ export const ZoomableImage = ({
                 }}
             />
 
-            {/* Zoom controls — centred above the filmstrip; % tap resets.
-                Desktop (md+): shown on hover over the viewer, or while a control
-                has keyboard focus. Mobile: always visible — there is no hover. */}
+            {/* Zoom controls — desktop only, shown on hover over the viewer or
+                while a control has keyboard focus; % tap resets. Mobile gets no
+                pill: pinch and double-tap cover zoom, like iOS Photos. */}
             <div
                 data-zoom-controls=""
-                className={cn(
-                    "absolute left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 transition-opacity duration-150 md:opacity-0 md:group-hover/zoomimg:opacity-100 md:focus-within:opacity-100",
-                    raiseControls ? "bottom-20" : "bottom-3",
-                    hideControls && "pointer-events-none opacity-0",
-                )}
+                className="absolute bottom-3 left-1/2 z-10 hidden -translate-x-1/2 items-center gap-1 transition-opacity duration-150 md:flex md:opacity-0 md:group-hover/zoomimg:opacity-100 md:focus-within:opacity-100"
                 onClick={(event) => event.stopPropagation()}
                 onDoubleClick={(event) => event.stopPropagation()}
             >

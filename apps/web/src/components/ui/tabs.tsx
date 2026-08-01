@@ -104,9 +104,11 @@ function TabsList({
       list.style.setProperty("--tabs-indicator-w", `${vertical ? active.offsetHeight : active.offsetWidth}px`)
     }
     position()
-    // Radix flips data-state on the triggers when the tab changes.
+    // Radix flips data-state on the triggers when the tab changes. childList
+    // too: a trigger mounting with data-state already set emits no attribute
+    // mutation, so a dynamically added tab would otherwise go unnoticed.
     const states = new MutationObserver(position)
-    states.observe(list, { subtree: true, attributeFilter: ["data-state"] })
+    states.observe(list, { subtree: true, childList: true, attributeFilter: ["data-state"] })
     const sizes = new ResizeObserver(position)
     sizes.observe(list)
     return () => {

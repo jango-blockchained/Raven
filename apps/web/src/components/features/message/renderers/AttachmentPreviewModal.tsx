@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useAtomValue, useSetAtom } from "jotai"
 import { useHotkeys } from "react-hotkeys-hook"
 import { useHistoryBackClose } from "@hooks/useHistoryBackClose"
@@ -23,6 +23,9 @@ import FileTypeIcon from "@components/common/FileIcons/FileTypeIcon"
 
 /** Minimum horizontal travel (px) for a touch swipe to count as paging. */
 const SWIPE_THRESHOLD = 50
+
+/** Vertical air between a contained mobile image and the bars (px). */
+const CONTAINED_GUTTER = 12
 
 /**
  * The single, app-wide attachment lightbox. Mounted once at the app shell;
@@ -63,6 +66,9 @@ const AttachmentPreviewContent = ({
 
     const close = () => setState(null)
 
+    // Escape is handled by the dialog; arrows page through the set
+    const hasMany = attachments.length > 1
+
     // The lightbox owns the back gesture while open (Android's edge-swipe back
     // was navigating the page UNDER the still-open preview — this modal is
     // atom-driven and route-independent, so it survived the navigation).
@@ -78,15 +84,42 @@ const AttachmentPreviewContent = ({
     useEffect(() => {
         if (!open || current.kind !== "image") setChromeHidden(false)
     }, [open, current.kind])
+
+    // Mobile: the media area is inset by the real heights of the two bars, so
+    // the image sits BETWEEN them instead of under them (iOS Photos). Hiding
+    // the chrome drops the insets and the image expands to the full screen.
+    // Measured, not hardcoded — the bars size to their content and rotation.
+    const [headerEl, setHeaderEl] = useState<HTMLDivElement | null>(null)
+    const [filmstripEl, setFilmstripEl] = useState<HTMLDivElement | null>(null)
+    const [chromeInsets, setChromeInsets] = useState({ top: 0, bottom: 0 })
+    // Layout effect, so a (re)opened dialog is measured BEFORE its first paint —
+    // measuring after paint made every open start at full height and then
+    // animate down to the contained size (visible only on tall images, the
+    // height-limited ones). A null element keeps its previous value instead of
+    // resetting: the bars unmount while the dialog is closed, and zeroing there
+    // queued up the same start-at-full-height slide for the next open. The one
+    // real "no bar" case is a single attachment — no filmstrip, bottom = 0.
+    useLayoutEffect(() => {
+        const measure = () =>
+            setChromeInsets((prev) => {
+                const top = headerEl ? headerEl.offsetHeight : prev.top
+                const bottom = hasMany ? (filmstripEl ? filmstripEl.offsetHeight : prev.bottom) : 0
+                // Same numbers → same object, so an unchanged measurement
+                // doesn't re-render the modal.
+                return top === prev.top && bottom === prev.bottom ? prev : { top, bottom }
+            })
+        measure()
+        const observer = new ResizeObserver(measure)
+        if (headerEl) observer.observe(headerEl)
+        if (filmstripEl) observer.observe(filmstripEl)
+        return () => observer.disconnect()
+    }, [headerEl, filmstripEl, hasMany])
     // Wraps at the ends, matching the previous image slideshow behavior
     const step = (direction: 1 | -1) =>
         setState((prev) =>
             prev ? { ...prev, index: (prev.index + direction + prev.attachments.length) % prev.attachments.length } : prev,
         )
     const selectIndex = (next: number) => setState((prev) => (prev ? { ...prev, index: next } : prev))
-
-    // Escape is handled by the dialog; arrows page through the set
-    const hasMany = attachments.length > 1
 
     // Keep the selected thumbnail visible in the (overflowable) filmstrip:
     // jump to it on open, glide to it while paging. openedRef distinguishes
@@ -142,12 +175,12 @@ const AttachmentPreviewContent = ({
 
     return (
         <MediaLightbox open={open} onOpenChange={(next) => !next && close()} title={current.fileName} overlayRef={overlayRef}>
-            {/* Floating chrome over the scrim. On mobile the header OVERLAYS the
-                media area (absolute) instead of taking a row of its own — the
-                image centers on the true screen, and toggling the chrome never
-                shifts it. Desktop keeps the in-flow row (the PDF embed needs
-                its reserved space). */}
-            <div className={cn(
+            {/* Chrome bars. On mobile they are absolute so they can fade without
+                unmounting; while they show, the media box below shrinks its
+                height symmetrically to clear them (see the inner box there).
+                Desktop keeps the in-flow row (the PDF embed needs its reserved
+                space). */}
+            <div ref={setHeaderEl} className={cn(
                 "shrink-0 p-3 transition-opacity duration-150 max-md:absolute max-md:inset-x-0 max-md:top-0 max-md:z-20",
                 chromeHidden && "pointer-events-none opacity-0",
             )}>
@@ -177,10 +210,12 @@ const AttachmentPreviewContent = ({
                 that frame plus the width cap below is the only backdrop */}
             <div
                 className="relative flex min-h-0 flex-1 items-center justify-center md:p-4"
-                // Mobile images: a tap toggles the chrome instead of closing —
-                // close is swipe-down / back / the header ×. Everything else
-                // keeps tap-to-close.
-                onClick={isMobile && current.kind === "image" ? toggleChrome : close}
+                // Clicking the dark area around the media closes — unless this is
+                // a mobile image with its chrome hidden, where the whole screen is
+                // "the photo" and a tap anywhere brings the chrome back instead.
+                // Taps ON a mobile image never reach here — ZoomableImage stops
+                // their propagation and reports them via onTap (chrome toggle).
+                onClick={isMobile && current.kind === "image" && chromeHidden ? () => setChromeHidden(false) : close}
                 onTouchStart={onTouchStart}
                 onTouchEnd={onTouchEnd}
             >
@@ -215,6 +250,26 @@ const AttachmentPreviewContent = ({
                     </>
                 )}
 
+                {/* The iOS containment model: the media stays centered on the TRUE
+                    screen always — this inner box shrinks symmetrically (by the
+                    taller bar, both sides) while the chrome shows, and grows back
+                    to the full screen when it hides. Symmetric is the point: the
+                    center never moves, so a wide image (which never touches the
+                    height limit anyway) doesn't shift or resize on toggle, and a
+                    tall one expands in place. The overshoot in the curve is the
+                    subtle iOS bounce. The bottom band exists even without a
+                    filmstrip — the reserve is max(header, filmstrip) + gutter. */}
+                <div
+                    className={cn(
+                        "flex h-full min-h-0 w-full items-center justify-center",
+                        "max-md:transition-[height] max-md:duration-350 max-md:ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                    )}
+                    style={isMobile ? {
+                        height: chromeHidden
+                            ? "100%"
+                            : `calc(100% - ${2 * (Math.max(chromeInsets.top, chromeInsets.bottom) + CONTAINED_GUTTER)}px)`,
+                    } : undefined}
+                >
                 {current.kind === "image" ? (
                     // Zoomable (wheel / pinch / double-tap / drag-pan). Keyed by URL so
                     // paging remounts it at 1x. While zoomed it stops touch events, which
@@ -228,8 +283,6 @@ const AttachmentPreviewContent = ({
                         onDismiss={close}
                         onDismissProgress={onDismissProgress}
                         onTap={isMobile ? toggleChrome : undefined}
-                        hideControls={chromeHidden}
-                        raiseControls={isMobile && hasMany}
                         // iOS style: zooming in hides the chrome, coming back to
                         // fit brings it back. Fires only at the 1x boundary, so a
                         // tap-to-show while zoomed isn't fought by pinching.
@@ -276,6 +329,7 @@ const AttachmentPreviewContent = ({
                         )}
                     </SwipeDownToClose>
                 )}
+                </div>
             </div>
 
             {/* Filmstrip: image thumbnails, icon tiles for PDFs. The empty
@@ -283,8 +337,10 @@ const AttachmentPreviewContent = ({
                 tiles stop propagation so clicking one only selects. */}
             {hasMany && (
                 <div
+                    ref={setFilmstripEl}
                     className={cn(
-                        // Overlay on mobile, like the header (see above).
+                        // Absolute on mobile like the header; the media area
+                        // reserves its height while it shows (see above).
                         "shrink-0 p-3 transition-opacity duration-150 max-md:absolute max-md:inset-x-0 max-md:bottom-0 max-md:z-20",
                         chromeHidden && "pointer-events-none opacity-0",
                     )}

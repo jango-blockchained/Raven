@@ -28,7 +28,7 @@ const ReactorRow = ({ userID, trailing }: { userID: string; trailing?: React.Rea
     const user = useUser(userID)
     const display = user ?? ({ name: userID, full_name: userID } as UserData)
     return (
-        <div className="flex items-center gap-2 py-2">
+        <div className="flex items-center gap-2 py-2 min-h-11">
             <UserAvatar user={display} size="sm" showStatusIndicator={false} />
             <span className="flex-1 truncate text-sm text-ink-gray-8">{display.full_name || display.name}</span>
             {trailing}

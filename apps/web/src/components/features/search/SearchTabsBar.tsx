@@ -22,7 +22,7 @@ interface SearchTabsBarProps {
  * a 45% pane left the four of them floating far apart.
  */
 const SearchTabsBar: React.FC<SearchTabsBarProps> = ({ activeTab, setActiveTab }) => (
-    <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as SearchTab)} className="w-full md:w-fit">
+    <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as SearchTab)} className="w-full">
         {/* A grid of equal columns rather than a flex row: flex sizes each tab to its own
             label ("Messages" 87px, "Files" 51px), and equal 1fr columns make every tab as
             wide as the widest one. Under md:w-fit those columns settle on the widest label
@@ -31,10 +31,10 @@ const SearchTabsBar: React.FC<SearchTabsBarProps> = ({ activeTab, setActiveTab }
         <TabsList
             variant="subtle"
             size="md"
-            className="w-full md:w-fit"
+            className="w-full"
         >
             {TABS.map(tab => (
-                <TabsTrigger key={tab.key} value={tab.key} className="md:px-3 w-full">
+                <TabsTrigger key={tab.key} value={tab.key} className="w-full">
                     {tab.label}
                 </TabsTrigger>
             ))}
