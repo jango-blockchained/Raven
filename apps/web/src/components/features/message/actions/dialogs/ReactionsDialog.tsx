@@ -55,12 +55,12 @@ const ReactionsBody = ({ reactions }: { reactions: ReactionObject[] }) => {
 
     return (
         <Tabs defaultValue="all">
-            <TabsList className="flex w-full justify-start overflow-x-auto overflow-y-hidden">
-                <TabsTrigger value="all" className="gap-2">
+            <TabsList className="w-full">
+                <TabsTrigger value="all" className="gap-2 w-full">
                     {_("All")} <span className="text-ink-gray-5 text-sm-regular">{reactorsByUser.size}</span>
                 </TabsTrigger>
                 {reactions.map((reaction) => (
-                    <TabsTrigger key={reaction.emoji_name} value={reaction.emoji_name} className="gap-2">
+                    <TabsTrigger key={reaction.emoji_name} value={reaction.emoji_name} className="gap-2 w-full">
                         <EmojiGlyph reaction={reaction} />
                         <span className="text-ink-gray-5 text-sm-regular">{reaction.count}</span>
                     </TabsTrigger>

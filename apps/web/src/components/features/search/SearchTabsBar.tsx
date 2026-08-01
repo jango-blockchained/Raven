@@ -34,7 +34,7 @@ const SearchTabsBar: React.FC<SearchTabsBarProps> = ({ activeTab, setActiveTab }
             className="w-full md:w-fit"
         >
             {TABS.map(tab => (
-                <TabsTrigger key={tab.key} value={tab.key} className="md:px-3">
+                <TabsTrigger key={tab.key} value={tab.key} className="md:px-3 w-full">
                     {tab.label}
                 </TabsTrigger>
             ))}
