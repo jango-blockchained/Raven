@@ -436,6 +436,27 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
     lesson generalizes to every state-driven overlay: if it covers the
     screen, the system back gesture belongs to it, and the only way to claim
     that gesture is to put yourself in history.
+42. **Tap the photo, the chrome gets out of the way.** The full-screen image
+    viewer now works like iOS Photos on mobile: tap the picture and the
+    header, filmstrip and zoom pill fade away for distraction-free viewing;
+    tap again and they return. Two design decisions carry it. First, the
+    chrome is an *overlay* — absolutely positioned over the media area, not
+    rows above and below it — so the photo is centered on the true screen and
+    never shifts a pixel when the chrome toggles; only opacity animates.
+    Second, the tap had to negotiate with its neighbors: a single tap waits a
+    ~250ms beat so a second tap can turn the pair into a double-tap zoom
+    instead, and a click whose pointer travelled is the tail of a pan, not a
+    tap at all. The gotcha inside that negotiation: you cannot build the
+    double-tap on the browser's `dblclick` event — touch double-taps don't
+    fire it everywhere (Chrome's device emulation never does; each tap
+    arrives as an ordinary click), so the pairing is done by hand from two
+    clean taps landing close together in time and place. Same family as the
+    Safari `relatedTarget` lesson a few items up: an event you don't get on
+    every platform is not a foundation, it's a convenience. And because the
+    header holds real actions (download, share, close), the chrome starts
+    visible on every open, hiding is only ever something the user did, and
+    paging to a video or file — attachments that need their buttons — brings
+    it back automatically.
 
 ## What's still on the list
 
