@@ -48,7 +48,7 @@ const RavenLogo = () => {
  */
 const PrimarySidebar = () => {
     return (
-        <TooltipProvider>
+        <TooltipProvider delayDuration={0}>
             <div className="flex flex-col h-full gap-2 shrink-0 justify-between items-center border-r border-outline-gray-2 bg-surface-sidebar w-(--primary-sidebar-width) pb-4 pt-2.5">
                 <div className="flex flex-col items-center gap-3">
                     <RavenLogo />
