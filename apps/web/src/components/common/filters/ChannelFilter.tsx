@@ -193,7 +193,7 @@ function ChannelOption({
             ) : (
                 <ChannelIcon
                     type={(channel as ChannelListItem).type as "Public" | "Private" | "Open"}
-                    className="size-4 shrink-0 text-ink-gray-4"
+                    className="size-4 shrink-0 text-ink-gray-5"
                 />
             )}
             {/* leading-snug: the UI type scale's 1.15 is too tight to contain descenders

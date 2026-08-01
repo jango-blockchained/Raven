@@ -70,7 +70,7 @@ export function UserFilter({
                     // Short on purpose: three equal columns leave ~73px of label on a phone,
                     // and "From Anyone" needs 88px — it truncated to "From Anyo…".
                     <span className="min-w-0 flex-1 truncate text-left leading-snug text-ink-gray-4">
-                        {_("Anyone")}
+                        {_("Person")}
                     </span>
                 )
             }

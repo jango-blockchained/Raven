@@ -30,6 +30,7 @@ import { Button } from '@components/ui/button'
 import { useIsMobile } from '@hooks/use-mobile'
 import { cn } from '@lib/utils'
 import _ from '@lib/translate'
+import { InputGroup, InputGroupAddon, InputGroupButton } from '@components/ui/input-group'
 
 /** Ties the toggle's aria-controls to the row it reveals. */
 const FILTERS_ROW_ID = 'search-filters-row'
@@ -159,37 +160,41 @@ export default function Search() {
 
     const searchInput = (
         <div className="flex items-center gap-2">
-            <div className="relative flex-1 min-w-0">
-                <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-gray-4 pointer-events-none" />
+            <InputGroup className='pr-0.5'>
+                <InputGroupAddon>
+                    <SearchIcon className="h-4 w-4 text-ink-gray-4 pointer-events-none" />
+                </InputGroupAddon>
                 <Input
                     value={searchValue}
                     onChange={(e) => setSearchValue(e.target.value)}
-                    placeholder={_('Search messages, files, links, polls')}
-                    className="pl-9 pr-9 h-9 md:h-8 text-xl md:text-base"
+                    placeholder={_('Type to search')}
+                    // className="pl-9 pr-9 h-9 md:h-8 text-xl md:text-base"
                     autoFocus={!isMobile}
                 />
-                {searchValue && (
-                    <button
-                        type="button"
+                {searchValue && <InputGroupAddon align="inline-end">
+                    <InputGroupButton
+                        variant="ghost"
+                        size="icon-xs"
+                        isIconButton
                         onClick={() => setSearchValue('')}
                         aria-label={_('Clear search')}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-gray-4 hover:text-ink-gray-8"
+                        className="rounded-full"
                     >
-                        <X className="h-4 w-4" />
-                    </button>
-                )}
-            </div>
+                        <X />
+                    </InputGroupButton>
+                </InputGroupAddon>}
+            </InputGroup>
             {/* The filter row is collapsed by default so the results start higher up.
                 Matches the input's height, not the filters' — it belongs to this row. */}
             <Button
-                variant="outline"
+                variant="subtle"
                 size="md"
                 isIconButton
                 onClick={() => setShowFilters(open => !open)}
                 aria-expanded={showFilters}
                 aria-controls={FILTERS_ROW_ID}
                 aria-label={showFilters ? _('Hide filters') : _('Show filters')}
-                className="shrink-0 size-9 md:size-8 text-ink-gray-7"
+                className="shrink-0"
             >
                 <ChevronDown className={cn("transition-transform", showFilters && "rotate-180")} />
             </Button>

@@ -31,8 +31,7 @@ const SearchTabsBar: React.FC<SearchTabsBarProps> = ({ activeTab, setActiveTab }
         <TabsList
             variant="subtle"
             size="md"
-            className="grid w-full md:w-fit"
-            style={{ gridTemplateColumns: `repeat(${TABS.length}, minmax(0, 1fr))` }}
+            className="w-full md:w-fit"
         >
             {TABS.map(tab => (
                 <TabsTrigger key={tab.key} value={tab.key} className="md:px-3">

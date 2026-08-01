@@ -79,7 +79,7 @@ export function FileTypeFilter({ value, onValueChange, triggerClassName, classNa
     // reshuffle as boxes are ticked; the span's `truncate` clips the last one when the
     // trigger is too narrow for all three.
     const triggerLabel = checkedCount === 0
-        ? _('Any Type')
+        ? _('File Type')
         : checkedCount <= MAX_NAMED_TYPES
             ? formatFileTypeNames(selected)
             : _('{0} Types', [String(checkedCount)])

@@ -147,16 +147,16 @@ const FileResultRowInner = ({ file, user, channel, dmChannel, peer, workspace, o
                         )}
                     </div>
 
-                    <div className="flex gap-3 mt-2">
+                    <div className="flex gap-2 items-center mt-2">
                         {isImage && file.internal_link ? (
                             <img
                                 src={file.internal_link}
                                 alt={plainTitle}
-                                className="w-20 h-20 object-cover rounded-md border border-outline-gray-2 shrink-0 bg-surface-gray-2"
+                                className="w-8 h-8 object-cover rounded border border-outline-gray-2 shrink-0 bg-surface-gray-2"
                                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
                             />
                         ) : (
-                            <FileTypeIcon fileType={ext} size="4xl" />
+                            <FileTypeIcon fileType={ext} size="xl" />
                         )}
                         <div className="flex-1 min-w-0">
                             <h3 className="text-content font-medium text-ink-gray-8 truncate">
