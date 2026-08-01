@@ -13,6 +13,7 @@ import { useWorkspaces, type WorkspaceFields } from "@hooks/useWorkspaces"
 import useCurrentRavenUser from "@raven/lib/hooks/useCurrentRavenUser"
 import { lastChannelAtom, lastWorkspaceAtom } from "@utils/lastVisitedAtoms"
 import { DRAWER_EXIT_MS } from "@utils/drawer"
+import { useHistoryBackClose } from "@hooks/useHistoryBackClose"
 import type { ChannelListItem } from "@raven/types/common/ChannelListItem"
 import { cn } from "@lib/utils"
 import _ from "@lib/translate"
@@ -50,6 +51,12 @@ export const HomeWorkspacesDrawer = ({
     onOpenChange: (open: boolean) => void
 }) => {
     const navigate = useNavigate()
+
+    // The open drawer owns the system back gesture (atom-driven overlay hosted
+    // above the routes — back would otherwise navigate the page underneath it).
+    // The hook's history.state guard keeps this safe with the delayed
+    // channel-open navigation below.
+    useHistoryBackClose(open, () => onOpenChange(false))
 
     // Navigation waits for the drawer to FINISH closing, or the drawer gets
     // baked into the OS back-swipe screenshot and haunts the next back gesture

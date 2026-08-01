@@ -2,6 +2,7 @@ import { CheckIcon } from "lucide-react"
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@components/ui/drawer"
 import { getStatusIndicatorColor } from "@components/features/message/UserAvatar"
 import { AVAILABILITY_OPTIONS, useSetAvailability } from "@hooks/useSetAvailability"
+import { useHistoryBackClose } from "@hooks/useHistoryBackClose"
 import { cn } from "@lib/utils"
 import _ from "@lib/translate"
 
@@ -18,6 +19,11 @@ export const StatusDrawer = ({
     onOpenChange: (open: boolean) => void
 }) => {
     const { availability, setAvailability } = useSetAvailability()
+
+    // The open drawer owns the system back gesture — it's hosted in the footer,
+    // which is mounted across pages, so back would otherwise navigate the page
+    // underneath the still-open drawer.
+    useHistoryBackClose(open, () => onOpenChange(false))
 
     return (
         <Drawer open={open} onOpenChange={onOpenChange}>

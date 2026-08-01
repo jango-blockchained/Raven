@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from "react"
 import { useAtom, useAtomValue, useSetAtom } from "jotai"
+import { useHistoryBackClose } from "@hooks/useHistoryBackClose"
 import {
     ContextMenu,
     ContextMenuContent,
@@ -490,6 +491,10 @@ export const MessageActionMenu = ({
         setTarget(null)
         setSheetView("actions")
     }
+
+    // The open sheet owns the system back gesture (atom-driven overlay above
+    // the routes — back would otherwise navigate the page underneath it).
+    useHistoryBackClose(isMobile && !!target && target.channel_id === channelID, closeSheet)
 
     const quickEmojis = useAtomValue(QuickEmojisAtom)
 

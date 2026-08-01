@@ -416,6 +416,26 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
     heuristic built on it will fail only there — and "works in Chrome" is
     the start of cross-browser testing, not the end. Count things you
     control instead of trusting fields you don't.
+41. **The back-swipe that navigated underneath an open photo.** Open an image
+    in the full-screen viewer on Android and swipe from the screen edge: the
+    *page* went back — channel to channel list — while the photo stayed open
+    on top, now floating over the wrong screen. The cause is structural: the
+    viewer is a global overlay driven by app state, not a route, so it isn't
+    in the browser's history — and Android's edge-swipe is an OS gesture the
+    web cannot intercept, block, or even see coming. The only thing that
+    gesture does is press Back, which means history is the only language you
+    can answer it in. So the viewer now speaks it: opening pushes a *sentinel*
+    history entry (same URL — the router just re-renders in place), the back
+    gesture pops the sentinel, and a popstate listener closes the viewer.
+    Page stays put. One subtlety earns its comment: closing through the UI
+    instead — the ×, Escape, swipe-down — must *consume* the sentinel with a
+    silent `history.back()`, or the next real back gesture would need two
+    presses to do anything, which feels exactly as broken as the original
+    bug. Bonus: the same fix makes the browser Back button close the viewer
+    on desktop and iOS — the standard lightbox contract — for free. The
+    lesson generalizes to every state-driven overlay: if it covers the
+    screen, the system back gesture belongs to it, and the only way to claim
+    that gesture is to put yourself in history.
 
 ## What's still on the list
 

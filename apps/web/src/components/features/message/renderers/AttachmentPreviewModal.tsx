@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "react"
 import { useAtomValue, useSetAtom } from "jotai"
 import { useHotkeys } from "react-hotkeys-hook"
+import { useHistoryBackClose } from "@hooks/useHistoryBackClose"
 import { toast } from "sonner"
 import { ChevronLeft, ChevronRight, FileText, Film, Music, MusicIcon } from "lucide-react"
 import { Badge } from "@components/ui/badge"
@@ -61,6 +62,11 @@ const AttachmentPreviewContent = ({
     const canEmbedPdf = current.kind === "pdf" && !isMobile
 
     const close = () => setState(null)
+
+    // The lightbox owns the back gesture while open (Android's edge-swipe back
+    // was navigating the page UNDER the still-open preview — this modal is
+    // atom-driven and route-independent, so it survived the navigation).
+    useHistoryBackClose(open, close)
     // Wraps at the ends, matching the previous image slideshow behavior
     const step = (direction: 1 | -1) =>
         setState((prev) =>
