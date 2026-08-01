@@ -22,7 +22,13 @@ export const useHistoryBackClose = (open: boolean, onClose: () => void) => {
     useEffect(() => {
         if (!open) return
         let popped = false
-        window.history.pushState({ ravenOverlay: true }, "")
+        // Keep the router's own state (its `idx` position counter) in our extra
+        // entry. Dropping it poisoned every navigation made FROM this entry
+        // (picking a workspace from the switcher drawer, a command menu jump):
+        // the router computed the next idx from a missing one, wrote idx: null,
+        // and from then on "is there in-app history?" checks failed — mobile
+        // back buttons fell back to their default routes instead of popping.
+        window.history.pushState({ ...window.history.state, ravenOverlay: true }, "")
         const onPop = () => {
             popped = true
             onCloseRef.current()

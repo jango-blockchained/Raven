@@ -444,6 +444,21 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
     lesson generalizes to every state-driven overlay: if it covers the
     screen, the system back gesture belongs to it, and the only way to claim
     that gesture is to put yourself in history.
+    A hard-won addendum, found weeks later as a mystery regression: the
+    sentinel entry must *carry the router's own state forward* —
+    `pushState({ ...history.state, ourFlag: true })`, never a fresh object.
+    React Router keeps its position counter (`idx`) inside `history.state`,
+    and a sentinel that replaces the state wholesale erases it. That stays
+    invisible until some overlay *navigates from* the sentinel entry — pick
+    a workspace from the switcher, jump via the command menu — at which
+    point the router computes the next entry's counter from a missing one,
+    writes `null`, and every later "is there in-app history to pop to?"
+    check silently fails: mobile back chevrons stopped popping and started
+    jumping to their fallback routes, and the cold-start stack repair
+    synthesized wrong entries under warm pages. The failure was three
+    screens and one workspace switch away from the line that caused it.
+    Spreading the existing state costs nothing and is schema-agnostic —
+    whatever the router stores, it keeps.
 42. **Tap the photo, the chrome gets out of the way.** The full-screen image
     viewer now works like iOS Photos on mobile: tap the picture and the
     header and filmstrip fade away for distraction-free viewing; tap again
