@@ -203,7 +203,15 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
 28. **A floating date pill** that appears while you scroll and fades when you
     stop, replacing a pile of sticky date headers.
 29. **Haptic ticks** at gesture commit points — small, but it's half of why
-    gestures feel native.
+    gestures feel native. The set keeps growing as gestures do: the newest is
+    the image viewer's zoom settling back to fit — pinch out, the image snaps
+    to 1x, the chrome fades back in, and the tick lands in the same instant,
+    so all three read as one physical event. The recurring implementation
+    detail: the tick must fire on the *transition* into the boundary, never on
+    mount — an effect that watches "am I at fit" also runs when the image
+    simply opens, and a guard on the previous value is what keeps opening a
+    photo from buzzing. (Android only, like all our haptics — iOS Safari has
+    no Vibration API.)
 30. **The service worker that broke image caching — and then fixed it.** A
     surprise from Safari: once a page is controlled by a service worker,
     requests the worker doesn't answer get *worse* HTTP caching — Safari
