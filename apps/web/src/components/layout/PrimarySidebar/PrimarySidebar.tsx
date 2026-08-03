@@ -50,7 +50,11 @@ const PrimarySidebar = () => {
     return (
         <TooltipProvider delayDuration={0}>
             <div className="flex flex-col h-full gap-2 shrink-0 justify-between items-center border-r border-outline-gray-2 bg-surface-sidebar w-(--primary-sidebar-width) pb-4 pt-2.5">
-                <div className="flex flex-col items-center gap-3">
+                {/* min-h-0 lets this group shrink below its content, which is what
+                    hands the workspace list inside it a bounded height to scroll in.
+                    The nav icons above and the saved/profile block below stay put —
+                    workspaces are the only unbounded list on the rail. */}
+                <div className="flex min-h-0 flex-col items-center gap-3">
                     <RavenLogo />
                     <div className="px-3.5 w-full">
                         <Separator />
@@ -64,7 +68,7 @@ const PrimarySidebar = () => {
                     </div>
                     <WorkspaceList />
                 </div>
-                <div className="flex flex-col items-center gap-3">
+                <div className="flex shrink-0 flex-col items-center gap-3">
                     <div className="px-3.5 w-full">
                         <Separator />
                     </div>
@@ -236,7 +240,12 @@ const WorkspaceList = () => {
         updateDoc("Raven User", myProfile.name, { pinned_workspaces: order }).catch(() => mutateProfile())
     }
 
-    return <div className="flex flex-col items-center gap-3">
+    // The one scrolling section of the rail. no-scrollbar because a bar inside
+    // an icon-wide column reads as clutter (and Windows would show a chunky one);
+    // scroll-fade gives the affordance back — the edges fade only when there is
+    // more to scroll toward. py-1.5 keeps the first/last unread badges (which
+    // poke 6px above their avatars) from being clipped by the scroll container.
+    return <div className="flex min-h-0 w-full flex-col items-center gap-3 overflow-y-auto no-scrollbar scroll-fade">
         <DndContext sensors={sensors} onDragCancel={suppressNextClick} onDragEnd={onDragEnd}>
             <SortableContext items={myWorkspaces.map((workspace) => workspace.name)} strategy={verticalListSortingStrategy}>
                 {myWorkspaces.map((workspace) => (
