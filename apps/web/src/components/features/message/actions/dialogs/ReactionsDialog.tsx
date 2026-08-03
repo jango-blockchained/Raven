@@ -10,6 +10,10 @@ import type { ReactionObject } from "@raven/types/common/ChatStream"
 import type { Message } from "@raven/types/common/Message"
 import type { UserData } from "@db"
 import _ from "@lib/translate"
+import { Badge } from "@components/ui/badge"
+
+/** A custom emoji's readable name, shortcode-style. */
+const customEmojiLabel = (reaction: ReactionObject) => `:${reaction.emoji_name}:`
 
 /** Renders one reaction's glyph — a custom emoji image, or the Apple-set native emoji. */
 const EmojiGlyph = ({ reaction }: { reaction: ReactionObject }) =>
@@ -91,6 +95,14 @@ const ReactionsBody = ({ reactions }: { reactions: ReactionObject[] }) => {
 
             {reactions.map((reaction) => (
                 <TabsContent key={reaction.emoji_name} value={reaction.emoji_name} className="max-h-80 min-h-80 overflow-y-auto px-4 md:px-6">
+                    {/* A custom emoji's glyph doesn't say what it is — its panel opens
+                        with the name. Native emojis need no caption. */}
+                    {reaction.is_custom ? (
+                        <Badge variant="subtle" size='lg'>
+                            <img src={reaction.reaction} alt={reaction.emoji_name} loading="lazy" className="size-4 object-contain" />
+                            {customEmojiLabel(reaction)}
+                        </Badge>
+                    ) : null}
                     {reaction.users.map((userID) => (
                         <ReactorRow key={userID} userID={userID} />
                     ))}
