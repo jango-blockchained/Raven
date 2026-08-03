@@ -1,4 +1,4 @@
-import { BotIcon, Loader2, UserX } from "lucide-react"
+import { BotIcon, Loader2, PhoneIcon, UserX } from "lucide-react"
 import { useUser } from "@hooks/useUser"
 import { useUserCookieData } from "@hooks/useUserCookieData"
 import { useCreateDM } from "@hooks/useCreateDM"
@@ -117,6 +117,18 @@ const UserProfileCard = ({ id, fallbackLabel, isSelf }: { id: string; fallbackLa
                     )}
                     {user?.custom_status && <p className="text-p-sm text-ink-gray-7">{user.custom_status}</p>}
                 </div>
+            )}
+
+            {/* Phone, when the profile has one — a tel: link, so on mobile
+                (where this card opens by tap) it dials directly. */}
+            {user?.contact_number && (
+                <a
+                    href={`tel:${user.contact_number}`}
+                    className="flex items-center gap-1.5 text-xs text-ink-gray-6 hover:text-ink-gray-8"
+                >
+                    <PhoneIcon className="size-3.5 shrink-0" />
+                    {user.contact_number}
+                </a>
             )}
 
             {!isSelf && user?.enabled !== 0 && (
