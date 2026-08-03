@@ -41,11 +41,12 @@ export function DeleteEmojiDialog({ emojiId, emojiName, onDelete }: DeleteEmojiD
                 <Button
                     variant="ghost"
                     size="sm"
+                    theme="red"
+                    aria-label={_("Delete emoji")}
+                    className='opacity-0 group-hover:opacity-100 transition-opacity'
                     isIconButton
-                    className="opacity-0 group-hover:opacity-100 transition-opacity text-ink-gray-4 hover:text-ink-red-3"
                 >
-                    <Trash2 className="h-4 w-4" />
-                    <span className="sr-only">{_("Delete emoji")}</span>
+                    <Trash2 />
                 </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
