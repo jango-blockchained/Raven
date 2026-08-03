@@ -243,9 +243,13 @@ const WorkspaceList = () => {
     // The one scrolling section of the rail. no-scrollbar because a bar inside
     // an icon-wide column reads as clutter (and Windows would show a chunky one);
     // scroll-fade gives the affordance back — the edges fade only when there is
-    // more to scroll toward. py-1.5 keeps the first/last unread badges (which
-    // poke 6px above their avatars) from being clipped by the scroll container.
-    return <div className="flex min-h-0 w-full flex-col items-center gap-3 overflow-y-auto no-scrollbar scroll-fade">
+    // more to scroll toward. py-2 keeps the first/last unread badges (which poke
+    // 6px past their avatars) clear of the scroll container's clip edge, with
+    // slack — exact-fit padding parks the badge on the boundary, where
+    // fractional display scales round it away. -my-2 cancels the padding's
+    // OUTSIDE footprint so the rail's section gaps stay even: the clearance
+    // moves inside the scroll box instead of adding to the gap.
+    return <div className="flex min-h-0 w-full flex-col items-center gap-3 overflow-y-auto no-scrollbar scroll-fade py-2 -my-2">
         <DndContext sensors={sensors} onDragCancel={suppressNextClick} onDragEnd={onDragEnd}>
             <SortableContext items={myWorkspaces.map((workspace) => workspace.name)} strategy={verticalListSortingStrategy}>
                 {myWorkspaces.map((workspace) => (
