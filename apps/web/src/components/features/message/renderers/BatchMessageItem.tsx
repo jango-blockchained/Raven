@@ -76,14 +76,14 @@ export const BatchMessageItem = ({
     /** A batch carries one caption — whichever member has text (the composer sets it on one). */
     const captionMember = block.messages.find((message) => message.text)
 
-    // Pinned/Forwarded/Edited live on individual members (pinning targets one
-    // message, an edit lands on the caption member) — but the batch presents as
-    // ONE message, so each badge shows once if any member carries the flag.
+    // Pinned/Forwarded live on individual members (pinning targets one message)
+    // but the batch presents as ONE message, so each badge shows once if any
+    // member carries the flag. Edited needs no aggregate: an edit lands on the
+    // caption member, whose body renders its own inline "(edited)" marker.
     const attributeFlags = useMemo(
         () => ({
             is_pinned: block.messages.some((message) => message.is_pinned === 1) ? (1 as const) : (0 as const),
             is_forwarded: block.messages.some((message) => message.is_forwarded === 1) ? (1 as const) : (0 as const),
-            is_edited: block.messages.some((message) => message.is_edited === 1) ? (1 as const) : (0 as const),
         }),
         [block.messages],
     )
