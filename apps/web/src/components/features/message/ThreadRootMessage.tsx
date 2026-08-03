@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, Paperclip } from "lucide-react"
 import { Button } from "@components/ui/button"
 import { UserAvatar } from "@components/features/message/UserAvatar"
 import { MessageContent } from "@components/features/message/renderers/MessageContent"
+import RichTextRenderer from "@components/features/message/renderers/RichTextRenderer"
 import { useUser } from "@hooks/useUser"
 import { channelMessagesStore } from "@stores/messages/store"
 import type { Message } from "@raven/types/common/Message"
@@ -39,7 +40,7 @@ const useThreadRootMessage = (threadID: string, parentID?: string): Message | un
 const messageFile = (message: Message): string | undefined =>
     "file" in message ? (message.file as string | undefined) : undefined
 
-/** One-line text/file summary of the root message for the collapsed preview. */
+/** Text/file summary for roots with no HTML body (files, polls). */
 const rootPreviewText = (message: Message): string => {
     const text = (message.content ?? "").trim()
     if (text) return text.split("\n")[0] // first line (e.g. a poll's question)
@@ -83,7 +84,7 @@ export const ThreadRootMessage = ({ threadID, parentID }: { threadID: string; pa
                         </span>
                         <Button
                             variant="ghost"
-                            size="xs"
+                            size="sm"
                             isIconButton
                             className="shrink-0"
                             onClick={() => setExpanded((v) => !v)}
@@ -95,8 +96,19 @@ export const ThreadRootMessage = ({ threadID, parentID }: { threadID: string; pa
                     <div className="pt-0.5">
                         {expanded ? (
                             <MessageContent message={message} />
+                        ) : (message.text ?? "").trim() ? (
+                            // Collapsed but RICH: the real HTML body, clamped. Links and
+                            // mentions stay clickable without expanding — a plain-text
+                            // teaser here was the top complaint. line-clamp counts line
+                            // boxes across the renderer's paragraphs, so multi-block
+                            // messages still cut off at two lines. No jumbomoji (this
+                            // is a compact context, like notifications).
+                            <div className="line-clamp-2 md:text-p-base text-p-lg text-ink-gray-7">
+                                <RichTextRenderer html={(message.text ?? "").trim()} />
+                            </div>
                         ) : (
-                            <p className="flex items-center gap-1 truncate text-p-base text-ink-gray-7">
+                            // No HTML body (a file, a poll) → the plain one-line teaser.
+                            <p className="flex items-center gap-1 truncate md:text-p-base text-p-lg text-ink-gray-7">
                                 {messageFile(message) && <Paperclip className="size-3.5 shrink-0 text-ink-gray-5" />}
                                 <span className="truncate">{rootPreviewText(message)}</span>
                             </p>
