@@ -62,10 +62,14 @@ export const useNotificationList = (
     // because of a scroll reads as a bug. Reset synchronously on view change,
     // like the pipeline's own state.
     const explicitlyReadRef = useRef<Set<string>>(new Set())
+    // Of the explicit reads, the ones done by SWIPE — those skip the pipeline's
+    // linger and exit immediately (the swipe already carried the row off-screen).
+    const swipedRef = useRef<Set<string>>(new Set())
     const explicitViewKeyRef = useRef(viewKey)
     if (explicitViewKeyRef.current !== viewKey) {
         explicitViewKeyRef.current = viewKey
         explicitlyReadRef.current = new Set()
+        swipedRef.current = new Set()
     }
 
     // Sticky-then-leave unread view — the shared pipeline (see useStickyThenLeave
@@ -76,6 +80,7 @@ export const useNotificationList = (
         getId: (row) => row.name,
         shouldLeave: (row) => !!row.is_read && explicitlyReadRef.current.has(row.message_id),
         isOpen: (row) => !!activeMessageID && row.message_id === activeMessageID,
+        leaveImmediately: (row) => swipedRef.current.has(row.message_id),
     })
 
     const rows = useMemo(() => {
@@ -100,9 +105,11 @@ export const useNotificationList = (
     // applies that echo to the unread-id store (idempotent after our optimistic write).
     // On failure there's no echo, so we reconcile the page + the id set.
     const markMessageRead = useCallback(
-        (messageId: string) => {
+        (messageId: string, options?: { expedite?: boolean }) => {
             // Both explicit gestures (click-open, swipe-read) land here — recording
-            // the id is what admits the row to the leave pipeline above.
+            // the id is what admits the row to the leave pipeline above. A swipe
+            // passes expedite: its row exits without the linger.
+            if (options?.expedite) swipedRef.current.add(messageId)
             explicitlyReadRef.current.add(messageId)
             notificationListStore.markMessageRead(messageId) // optimistic
             unreadNotificationsStore.remove([messageId]) // badge ticks down instantly

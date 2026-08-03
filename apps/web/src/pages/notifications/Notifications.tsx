@@ -97,6 +97,12 @@ export default function Notifications() {
         )
     }, [markMessageRead, navigate, hasSelection])
 
+    // Swipe-to-read expedites the leave: the gesture already carried the row
+    // off-screen, so the pipeline skips its linger and closes the gap now.
+    const onSwipeRead = useCallback((messageID: string) => {
+        markMessageRead(messageID, { expedite: true })
+    }, [markMessageRead])
+
     const onShowUnreadChange = useCallback((checked: boolean) => {
         setShowUnread(checked)
         if (hasSelection) navigate("/notifications", { replace: true })
@@ -210,8 +216,9 @@ export default function Notifications() {
                                                 sender={usersById.get(item.owner)}
                                                 isActive={selectedMessageID === item.message_id}
                                                 leaving={leavingIds.has(item.name)}
+                                                swipeDismisses={showUnread}
                                                 onSelect={onSelect}
-                                                onMarkRead={markMessageRead}
+                                                onMarkRead={onSwipeRead}
                                             />
                                         ) : (
                                             <ReactionItem
@@ -219,8 +226,9 @@ export default function Notifications() {
                                                 usersById={usersById}
                                                 isActive={selectedMessageID === item.message_id}
                                                 leaving={leavingIds.has(item.name)}
+                                                swipeDismisses={showUnread}
                                                 onSelect={onSelect}
-                                                onMarkRead={markMessageRead}
+                                                onMarkRead={onSwipeRead}
                                             />
                                         )
                                     }

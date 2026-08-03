@@ -20,6 +20,10 @@ type Options<T> = {
     /** Row is the one open in the pane — exempt while it stays open; becoming
      *  open again also cancels a scheduled departure. */
     isOpen: (row: T) => boolean
+    /** Skip the linger for this row — the exit starts immediately. For rows the
+     *  user dismissed with a GESTURE (swipe-to-read): the swipe itself was the
+     *  acknowledgment, so holding the row another 700ms reads as lag. */
+    leaveImmediately?: (row: T) => boolean
 }
 
 /**
@@ -124,9 +128,11 @@ export const useStickyThenLeave = <T>(options: Options<T>) => {
                 continue
             }
             if (timers) continue
+            // Swipe-dismissed rows exit right away; everything else lingers first.
+            const linger = optionsRef.current.leaveImmediately?.(row) ? 0 : LEAVE_LINGER_MS
             const start = window.setTimeout(() => {
                 setLeavingIds((prev) => new Set(prev).add(id))
-            }, LEAVE_LINGER_MS)
+            }, linger)
             const finish = window.setTimeout(() => {
                 timersRef.current.delete(id)
                 // REPLACE the set, don't mutate it: selectors may cache their
@@ -145,7 +151,7 @@ export const useStickyThenLeave = <T>(options: Options<T>) => {
                     return next
                 })
                 bumpVersion()
-            }, LEAVE_LINGER_MS + LEAVE_EXIT_MS)
+            }, linger + LEAVE_EXIT_MS)
             timersRef.current.set(id, [start, finish])
         }
         // Intentionally no deps: this must see every rows/predicate change, and

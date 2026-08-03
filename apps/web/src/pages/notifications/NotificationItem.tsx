@@ -69,6 +69,7 @@ const NotificationRowLayout = ({
     leaving = false,
     onClick,
     onMarkRead,
+    swipeDismisses = false,
     avatar,
     name,
     relativeDate,
@@ -83,6 +84,10 @@ const NotificationRowLayout = ({
     onClick: () => void
     /** Swipe-right target (touch). Only armed while the row is unread. */
     onMarkRead?: () => void
+    /** This view REMOVES read rows (unread-only): a committed swipe carries the
+     *  row off-screen instead of snapping back — it's about to leave anyway.
+     *  Views that keep read rows snap back and just restyle. */
+    swipeDismisses?: boolean
     avatar: React.ReactNode
     name: string
     relativeDate: string
@@ -149,7 +154,12 @@ const NotificationRowLayout = ({
             swipe.lastX = event.clientX
             swipe.lastTime = event.timeStamp
 
-            const offset = Math.min(Math.max(dx, 0), SWIPE_READ_MAX_PX)
+            // Dismissing views follow the finger all the way across (the row is
+            // being thrown out — a wall mid-drag reads as resistance). Views
+            // that snap back keep the short cap: it's a hint gesture there.
+            const offset = swipeDismisses
+                ? Math.max(dx, 0)
+                : Math.min(Math.max(dx, 0), SWIPE_READ_MAX_PX)
             if (rowRef.current) rowRef.current.style.transform = `translateX(${offset}px)`
             if (glyphRef.current) glyphRef.current.style.opacity = String(Math.min(offset / SWIPE_READ_COMMIT_PX, 1))
         }
@@ -161,21 +171,6 @@ const NotificationRowLayout = ({
         swipeRef.current = null
         if (!swipe.active) return
 
-        // Snap the row back (animated), then drop the inline styles.
-        const row = rowRef.current
-        if (row) {
-            row.style.transition = "transform 150ms ease-out"
-            row.style.transform = ""
-            window.setTimeout(() => {
-                row.style.transition = ""
-            }, 200)
-        }
-        const glyph = glyphRef.current
-        if (glyph) {
-            glyph.style.transition = "opacity 150ms ease-out"
-            glyph.style.opacity = "0"
-        }
-
         suppressClickUntilRef.current = performance.now() + SWIPE_READ_CLICK_GUARD_MS
 
         // Commit on distance OR a rightward flick (same rule as swipe-to-reply).
@@ -184,6 +179,36 @@ const NotificationRowLayout = ({
             event.type !== "pointercancel" &&
             (dx >= SWIPE_READ_COMMIT_PX ||
                 (swipe.velocity > SWIPE_READ_FLICK_VELOCITY && dx >= SWIPE_READ_FLICK_MIN_PX))
+
+        const row = rowRef.current
+        const glyph = glyphRef.current
+        if (commit && swipeDismisses) {
+            // The swipe finishes what it started: the row keeps travelling off
+            // the right edge while the leave pipeline (expedited — no linger for
+            // swipes) collapses the gap behind it. No snap-back, no cleanup:
+            // the row is about to unmount.
+            if (row) {
+                row.style.transition = "transform 200ms ease-out, opacity 200ms ease-out"
+                row.style.transform = `translateX(${(row.parentElement?.clientWidth ?? 400) + 32}px)`
+                row.style.opacity = "0"
+            }
+        } else {
+            // Snap the row back (animated), then drop the inline styles. Also
+            // the commit path in views that KEEP read rows — the row stays,
+            // restyled as read.
+            if (row) {
+                row.style.transition = "transform 150ms ease-out"
+                row.style.transform = ""
+                window.setTimeout(() => {
+                    row.style.transition = ""
+                }, 200)
+            }
+        }
+        if (glyph) {
+            glyph.style.transition = "opacity 150ms ease-out"
+            glyph.style.opacity = "0"
+        }
+
         if (commit) {
             hapticTick()
             onMarkRead?.()
@@ -321,6 +346,7 @@ export const MentionItem = memo(({
     leaving,
     onSelect,
     onMarkRead,
+    swipeDismisses,
 }: {
     notification: NotificationObject
     sender?: UserData
@@ -330,6 +356,8 @@ export const MentionItem = memo(({
     onSelect: (selection: SelectedNotification) => void
     /** Swipe-right on an unread row marks it read without opening it. */
     onMarkRead?: (messageID: string) => void
+    /** See NotificationRowLayout — unread-only views dismiss on swipe. */
+    swipeDismisses?: boolean
 }) => {
     const handleClick = () => {
         onSelect({
@@ -347,6 +375,7 @@ export const MentionItem = memo(({
             leaving={leaving}
             onClick={handleClick}
             onMarkRead={onMarkRead ? () => onMarkRead(notification.message_id) : undefined}
+            swipeDismisses={swipeDismisses}
             avatar={
                 <div className="relative shrink-0">
                     {sender && <UserAvatar user={sender} size="md" />}
@@ -371,6 +400,7 @@ export const ReactionItem = memo(({
     leaving,
     onSelect,
     onMarkRead,
+    swipeDismisses,
 }: {
     notification: NotificationObject
     usersById: Map<string, UserData>
@@ -380,6 +410,8 @@ export const ReactionItem = memo(({
     onSelect: (selection: SelectedNotification) => void
     /** Swipe-right on an unread row marks it read without opening it. */
     onMarkRead?: (messageID: string) => void
+    /** See NotificationRowLayout — unread-only views dismiss on swipe. */
+    swipeDismisses?: boolean
 }) => {
     const reactors = notification.reactors ?? []
     const total = reactors.length
@@ -410,6 +442,7 @@ export const ReactionItem = memo(({
             leaving={leaving}
             onClick={handleClick}
             onMarkRead={onMarkRead ? () => onMarkRead(notification.message_id) : undefined}
+            swipeDismisses={swipeDismisses}
             avatar={
                 <div className="relative shrink-0 w-8 h-8">
                     {reactorsData[0] && (
