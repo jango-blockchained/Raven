@@ -403,9 +403,9 @@ body {
    frappe-ui's ToastProvider.vue, needed because `unstyled` strips the
    [data-styled] selectors sonner keys those behaviors on. The rest are ours
    (upstream candidates), fixing sonner rules that unstyled does NOT strip:
-   the dark close-button chip and the loader's absolute centering.
-   (frappe-ui's bar-loader patches were dropped when loading moved to our own
-   Spinner via the Toaster `icons` prop.) */
+   the system font stack on the toaster, the dark close-button chip, and the
+   loader's absolute centering. (frappe-ui's bar-loader patches were dropped
+   when loading moved to our own Spinner via the Toaster `icons` prop.) */
 
 /* --initial-height is measured on mount (loading state). After a promise
    resolves the toast grows (action button), so clamp to auto instead of the
@@ -422,6 +422,18 @@ body {
    single-line one spills its extra lines out the top. */
 [data-sonner-toast][data-expanded="false"][data-front="false"]>* {
   opacity: 0;
+}
+
+/* Sonner's toaster hardcodes a SYSTEM font stack — ungated, so it survives
+   unstyled mode and beats the InterVariable the portalled toaster would have
+   inherited from body. Toasts rendered in SF / Roboto / OEM fonts while the
+   app renders Inter; which font you got depended on the device. Doubled
+   attribute = the usual tie-break over sonner's own rule. */
+[data-sonner-toaster][data-sonner-toaster] {
+  /* inherit, not a token: the bug is sonner BLOCKING inheritance — restoring
+     it picks up body's InterVariable with no dependency on how the theme
+     emits its font variables. */
+  font-family: inherit;
 }
 
 /* Sonner's .sonner-loader centering is not gated on data-styled either: in

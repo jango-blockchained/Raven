@@ -542,6 +542,28 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
     deterministic cure for affected users is uninstall + reinstall — and
     `chrome://webapks` on the device shows every installed app's true scope,
     which turns this whole class of bug from a mystery into a one-line read.
+45. **The iOS status bar colors itself by looking at your pixels — and no meta
+    tag overrides its eyes.** Our toasts appear at the top of the screen on
+    mobile, and every time one arrived on iOS, the system status bar briefly
+    flipped its look. First theory: the toast *slides in* from off-screen,
+    passing under the status bar — so we rebuilt the entry as a fade-in-place
+    that never crosses the top edge. No change. The real mechanism: in an
+    installed app with `viewport-fit=cover`, the status bar strip isn't
+    painted from your `theme-color` — it's effectively transparent, showing
+    the page's actual rendered pixels, and iOS continuously re-derives the
+    bar's appearance by *sampling the content near the top of the viewport*.
+    `theme-color` seeds the base (we declare it, media-queried per scheme,
+    and update it from the theme provider), but live sampling adjusts on top
+    of it. A near-black card materializing near the top changes the sampled
+    result — presence triggers the flip, not motion, so no animation can
+    prevent it. We reverted to the default slide-in and accepted the blink.
+    The only genuine fix is an opaque "shim" strip pinned above everything at
+    `height: env(safe-area-inset-top)`, so the sampled pixels never change —
+    rejected deliberately: it taxes every full-bleed surface (the photo
+    viewer *wants* to render under the status bar) with a coupling they must
+    all remember. The lesson is a sharper version of an old one: on iOS, the
+    chrome around your app is a mirror, not a setting. You influence it by
+    what you draw, and some flickers are the honest cost of drawing near it.
 
 ## What's still on the list
 
