@@ -432,6 +432,12 @@ export const ZoomableImage = ({
                 draggable={false}
                 className={cn(
                     "max-h-full max-w-full select-none object-contain md:max-w-[90%]",
+                    // will-change promotes the image to its own compositor layer.
+                    // Without it, mobile WebKit re-rasterizes the scaled image
+                    // tile by tile on every pan frame, and the tile seams show
+                    // as faint bands — invisible on busy photos, glaring on
+                    // flat white ones.
+                    "will-change-transform",
                     // Smooth wheel/double-click zoom, but 1:1 tracking mid-gesture.
                     // (transition-all so the dismiss spring-back also animates
                     // translate + the slight shrink/fade together.)
