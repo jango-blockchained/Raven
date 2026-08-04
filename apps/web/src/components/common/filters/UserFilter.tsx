@@ -8,6 +8,22 @@ import _ from '@lib/translate'
 /** Sentinel for "no author filter". Not a real user id. */
 const ALL = 'all'
 
+/**
+ * Full names shared by more than one account — common enough on a real directory to matter.
+ * cmdk can tell such rows apart on its own (the value is the user id), but a reader can't.
+ * Callers show the id as secondary text on exactly these rows and nowhere else.
+ */
+export const getAmbiguousNames = (users: UserData[]): Set<string> => {
+    const seen = new Set<string>()
+    const duplicated = new Set<string>()
+    for (const user of users) {
+        const name = user.full_name ?? user.name
+        if (seen.has(name)) duplicated.add(name)
+        else seen.add(name)
+    }
+    return duplicated
+}
+
 interface UserFilterProps {
     users: UserData[]
     value: string
@@ -41,20 +57,7 @@ export function UserFilter({
         )
     }, [users])
 
-    // Two accounts can carry the same full name — this site has four such pairs, including
-    // two "Aditya Patil". cmdk can tell the rows apart on its own (the value is the user id),
-    // but a reader can't: the email is the only thing distinguishing them, so it's shown on
-    // those rows and nowhere else.
-    const ambiguousNames = useMemo(() => {
-        const seen = new Set<string>()
-        const duplicated = new Set<string>()
-        for (const user of users) {
-            const name = user.full_name ?? user.name
-            if (seen.has(name)) duplicated.add(name)
-            else seen.add(name)
-        }
-        return duplicated
-    }, [users])
+    const ambiguousNames = useMemo(() => getAmbiguousNames(users), [users])
 
     return (
         <FilterCombobox
@@ -103,7 +106,8 @@ export function UserFilter({
     )
 }
 
-function UserOption({ user, compact = false, secondary }: { user: UserData; compact?: boolean; secondary?: string }) {
+/** One person row — shared with the forward dialog's recipient picker. */
+export function UserOption({ user, compact = false, secondary }: { user: UserData; compact?: boolean; secondary?: string }) {
     return (
         <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
             <UserAvatar

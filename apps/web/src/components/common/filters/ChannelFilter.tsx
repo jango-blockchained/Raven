@@ -161,7 +161,7 @@ function ChannelCommandItem({
     )
 }
 
-function getChannelLabel(channel: ChannelFilterItem, users?: UserData[]): string {
+export function getChannelLabel(channel: ChannelFilterItem, users?: UserData[]): string {
     if (channel.is_direct_message === 1) {
         const dm = channel as DMChannelListItem
         return users?.find((user) => user.name === dm.peer_user_id)?.full_name ?? dm.peer_user_id ?? channel.name
@@ -169,7 +169,8 @@ function getChannelLabel(channel: ChannelFilterItem, users?: UserData[]): string
     return channel.channel_name ?? channel.name ?? ""
 }
 
-function ChannelOption({
+/** One channel/DM row — shared with the forward dialog's recipient picker. */
+export function ChannelOption({
     channel, users, compact = false, workspaceName,
 }: { channel: ChannelFilterItem; users?: UserData[]; compact?: boolean; workspaceName?: string }) {
     const isDM = channel.is_direct_message === 1
