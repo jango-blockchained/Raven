@@ -63,6 +63,7 @@ const Preferences = () => {
                             </div>
                             <div className="flex justify-end">
                                 <Switch
+                                    size="md"
                                     id="filter_recent_activity"
                                     className="dark:disabled:bg-surface-gray-2"
                                     checked={myProfile?.filter_recent_activity === 1}
@@ -82,6 +83,7 @@ const Preferences = () => {
                             </div>
                             <div className="flex justify-end">
                                 <Switch
+                                    size="md"
                                     id="filter_joined_channels"
                                     className="dark:disabled:bg-surface-gray-2"
                                     checked={myProfile?.filter_joined_channels === 1}

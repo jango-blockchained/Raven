@@ -140,9 +140,16 @@ function SettingsTabItem({
                             {icon}
                         </div>
                     )}
+                    {/* text-sm/snug, not `text-sm leading-snug`: Espresso's scale pairs a
+                        line-height with each size (--text-sm--line-height: 1.15), and that
+                        paired value wins over a separate leading-* utility — so the slash
+                        modifier is the only way to override it. It has to be overridden here
+                        because `truncate` sets overflow:hidden, making this span's box its own
+                        line box: 1.15 gives a 14.95px box around a 16px font box, shaving the
+                        descenders off g/j/p/y ("Emojis", "Agents", "Appearance"). */}
                     <span
                         className={cn(
-                            "flex-1 shrink-0 truncate text-sm duration-300 ease-in-out w-auto opacity-100 text-ink-gray-6",
+                            "flex-1 shrink-0 truncate text-sm/snug duration-300 ease-in-out w-auto opacity-100 text-ink-gray-6",
                             icon && "ms-2"
                         )}
                     >
