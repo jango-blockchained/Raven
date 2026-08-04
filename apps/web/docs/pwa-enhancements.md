@@ -516,6 +516,32 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
     double-tap cover zooming, iOS shows no zoom UI, and on a phone the pill
     was permanent noise floating over the photo (desktop keeps it, hover-
     revealed, where precise stepping and the % readout earn their place).
+44. **Two PWAs, one origin: an invalid scope silently claims the whole site.**
+    Frappe sites often host several installable apps on one domain — Raven at
+    `/raven`, Frappe HR at `/hrms`. Users installed both on Android and then
+    reported two baffling symptoms: tapping the Raven app sometimes opened HR,
+    and Raven's push notifications showed HR's icon and name. The cause was a
+    single line in HR's manifest: `"scope": "/assets/hrms/frontend/"` — the
+    build tool had derived the scope from its asset directory. Per the spec, a
+    scope that doesn't contain `start_url` is *invalid and silently ignored*,
+    and the fallback is the directory of `start_url` — for `/hrms`, that's
+    `/`. So HR's installed app quietly claimed the entire origin. Android's
+    WebAPK model attributes everything by scope: links under `/raven` fell
+    inside HR's effective `/` and could launch HR's app, and — the part
+    nobody guesses — **notifications follow scope too**: Chrome badges a web
+    notification with whichever installed app's scope contains the service
+    worker's scope, so Raven's SW at `/raven/` presented as HR. Three
+    lessons. First, on a shared origin every manifest needs an explicit,
+    *valid*, mutually exclusive scope — and scope matching is a raw
+    path-prefix string comparison, so use a trailing slash (`/raven/`, not
+    `/raven`, which would also claim `/ravenanything`). Second, set an
+    explicit `id` and then never change it — it's the app's permanent
+    identity, and editing it orphans existing installs (we hardened our scope
+    but deliberately left `id` untouched). Third, manifest fixes don't
+    propagate on your schedule: Chrome re-mints WebAPKs lazily, so the
+    deterministic cure for affected users is uninstall + reinstall — and
+    `chrome://webapks` on the device shows every installed app's true scope,
+    which turns this whole class of bug from a mystery into a one-line read.
 
 ## What's still on the list
 

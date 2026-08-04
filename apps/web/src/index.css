@@ -398,10 +398,13 @@ body {
     display: none;
   }
 }
-/* sonner (unstyled) — the first three patches are ported from frappe-ui's
-   ToastProvider.vue, needed because `unstyled` strips the [data-styled]
-   selectors sonner's own CSS keys these behaviors on. The last two are ours
-   (upstream candidates), fixing what unstyled mode does NOT strip. */
+/* sonner (unstyled) — patches in two families. The first two are ported from
+   frappe-ui's ToastProvider.vue, needed because `unstyled` strips the
+   [data-styled] selectors sonner keys those behaviors on. The rest are ours
+   (upstream candidates), fixing sonner rules that unstyled does NOT strip:
+   the dark close-button chip, the top-slide entry, and the loader's absolute
+   centering. (frappe-ui's bar-loader patches were dropped when loading moved
+   to our own Spinner via the Toaster `icons` prop.) */
 
 /* --initial-height is measured on mount (loading state). After a promise
    resolves the toast grows (action button), so clamp to auto instead of the
@@ -420,12 +423,26 @@ body {
   opacity: 0;
 }
 
-.sonner-loading-wrapper {
+/* Sonner's .sonner-loader centering is not gated on data-styled either: in
+   unstyled mode there is no positioned toast card to anchor to, so the loader
+   (which also wraps a custom `icons.loading`) rendered absolutely at the
+   toaster's top-left. Let it flow inside the icon slot instead, and hide it
+   fully when inactive — its default opacity-0 state would keep claiming flex
+   space beside the resolved toast's real icon. */
+[data-sonner-toast] .sonner-loader {
   position: static;
+  transform: none;
+  /* Flex, not the default block: an inline svg child sits on the text
+     baseline and carries descender slack below it, which made the spinner
+     ride a few px high of center. Flex removes baseline participation and
+     centers the svg in the wrapper's box exactly. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.sonner-loading-bar {
-  background-color: var(--surface-gray-1);
+[data-sonner-toast] .sonner-loader[data-visible="false"] {
+  display: none;
 }
 
 /* Sonner's dark-theme close-button rule is NOT gated on data-styled, so it
