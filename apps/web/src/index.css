@@ -398,13 +398,14 @@ body {
     display: none;
   }
 }
+
 /* sonner (unstyled) — patches in two families. The first two are ported from
    frappe-ui's ToastProvider.vue, needed because `unstyled` strips the
    [data-styled] selectors sonner keys those behaviors on. The rest are ours
    (upstream candidates), fixing sonner rules that unstyled does NOT strip:
-   the dark close-button chip, the top-slide entry, and the loader's absolute
-   centering. (frappe-ui's bar-loader patches were dropped when loading moved
-   to our own Spinner via the Toaster `icons` prop.) */
+   the dark close-button chip and the loader's absolute centering.
+   (frappe-ui's bar-loader patches were dropped when loading moved to our own
+   Spinner via the Toaster `icons` prop.) */
 
 /* --initial-height is measured on mount (loading state). After a promise
    resolves the toast grows (action button), so clamp to auto instead of the
@@ -419,7 +420,7 @@ body {
    toast's height and hides their content — but only on [data-styled='true']
    toasts, which `unstyled` strips. Without this, a multiline toast behind a
    single-line one spills its extra lines out the top. */
-[data-sonner-toast][data-expanded="false"][data-front="false"] > * {
+[data-sonner-toast][data-expanded="false"][data-front="false"]>* {
   opacity: 0;
 }
 
@@ -465,23 +466,4 @@ body {
 [data-sonner-toaster][data-sonner-theme="dark"] [data-sonner-toast] [data-close-button][data-close-button]:hover {
   background: var(--surface-gray-8);
   border-color: transparent;
-}
-
-/* Top-positioned (mobile) toasts enter and leave IN PLACE — a fade with a
-   small 8px drop — instead of sliding through the strip above the container.
-   The slide-through crossed the iOS status bar area, and the OS restyled the
-   bar for a beat every time a toast arrived. Only the two off-screen states
-   change; the mounted and stacked transforms (all downward, on the safe side
-   of the offset) stay sonner's. Doubled attribute = same tie-breaking trick
-   as the close-button patch above. */
-[data-sonner-toast][data-y-position="top"][data-y-position="top"] {
-  --y: translateY(-8px);
-}
-
-[data-sonner-toast][data-removed="true"][data-front="true"][data-swipe-out="false"][data-y-position="top"] {
-  --y: translateY(-8px);
-}
-
-[data-sonner-toast][data-removed="true"][data-front="false"][data-swipe-out="false"][data-expanded="true"][data-y-position="top"] {
-  --y: translateY(calc(var(--offset) - 8px));
 }
