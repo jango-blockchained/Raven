@@ -3,6 +3,7 @@ import { CommandGroup } from '@components/ui/command'
 import { FilterCombobox, FilterComboboxItem } from './FilterCombobox'
 import { UserAvatar } from '@components/features/message/UserAvatar'
 import { UserData } from "@db"
+import { getUserDisplayName, isCurrentUser } from '@utils/userDisplay'
 import _ from '@lib/translate'
 
 /** Sentinel for "no author filter". Not a real user id. */
@@ -108,6 +109,11 @@ export function UserFilter({
 
 /** One person row — shared with the forward dialog's recipient picker. */
 export function UserOption({ user, compact = false, secondary }: { user: UserData; compact?: boolean; secondary?: string }) {
+    // Your own row reads "<name> (You)", the same as it does in the DM sidebar. The suffix
+    // is applied HERE and not in the row's `keywords`, so searching "you" can't match
+    // every self row.
+    const isSelf = isCurrentUser(user.name)
+
     return (
         <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
             <UserAvatar
@@ -118,10 +124,17 @@ export function UserOption({ user, compact = false, secondary }: { user: UserDat
             />
             {/* leading-snug: the UI type scale's 1.15 clips descenders once truncate
                 bounds the line box. */}
-            <span className="min-w-0 flex-1 truncate text-left leading-snug">{user.full_name}</span>
+            <span className="min-w-0 flex-1 truncate text-left leading-snug">
+                {getUserDisplayName(user.full_name ?? user.name, isSelf)}
+            </span>
             {/* Only set when another account shares this name: the id is the sole thing
-                distinguishing the two rows. */}
-            {secondary && (
+                distinguishing the two rows.
+
+                Suppressed on your OWN row, where "(You)" already does that job and does it
+                better. Both together don't fit: this slot is shrink-0 while the name
+                truncates, so in a w-64 popover the name yields first and the "(You)" gets
+                clipped off the row that most needed it. */}
+            {secondary && !isSelf && (
                 <span className="shrink-0 max-w-32 truncate text-sm leading-snug text-ink-gray-4">
                     {secondary}
                 </span>

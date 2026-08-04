@@ -11,6 +11,7 @@ import { UserData } from "@db"
 import { useMemo } from 'react'
 import { defaultFilter } from 'cmdk'
 import { useCreateDM } from '@hooks/useCreateDM'
+import { getUserDisplayName, isCurrentUser } from '@utils/userDisplay'
 import { useUsersById } from '@hooks/useMessageRowLookups'
 import { BotIcon, Loader2 } from 'lucide-react'
 import { useIsMobile } from '@hooks/use-mobile'
@@ -84,6 +85,9 @@ const DMChannelItem = ({ user, channel }: { user: UserData; channel: DMChannelLi
     const navigate = useNavigate()
     const setOpen = useSetAtom(commandMenuOpenAtom)
     const displayName = user?.full_name || channel.peer_user_id
+    // Your own DM reads "<name> (You)", as it does in the DM sidebar. The plain name stays
+    // in `keywords` below so a search for "you" can't match this row.
+    const label = getUserDisplayName(displayName, isCurrentUser(channel.peer_user_id))
 
     return (
         <CommandItem
@@ -98,7 +102,7 @@ const DMChannelItem = ({ user, channel }: { user: UserData; channel: DMChannelLi
             {user ? (
                 <UserAvatar user={user} size="xs" showStatusIndicator={false} showBotIndicator={false} />
             ) : null}
-            <span className="truncate text-base">{displayName}</span>
+            <span className="truncate text-base">{label}</span>
             {user.type === 'Bot' && <Badge variant="subtle">
                 <BotIcon />
                 {_("Bot")}
@@ -129,7 +133,9 @@ const UserItem = ({ user }: { user: UserData }) => {
             className={user.enabled === 0 ? 'cursor-not-allowed' : 'cursor-pointer'}
         >
             <UserAvatar user={user} size="xs" showStatusIndicator={false} showBotIndicator={false} />
-            <span className="truncate text-base">{user.full_name}</span>
+            <span className="truncate text-base">
+                {getUserDisplayName(user.full_name ?? user.name, isCurrentUser(user.name))}
+            </span>
             {user.type === 'Bot' && <Badge variant="subtle">
                 <BotIcon />
                 {_("Bot")}

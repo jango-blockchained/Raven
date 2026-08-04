@@ -118,7 +118,6 @@ const SavedMessages = () => {
                                 users={users}
                                 value={channel}
                                 onValueChange={setChannel}
-                                allLabel={_('Any Channel')}
                                 className={isMobile ? "w-full min-w-0" : undefined}
                                 triggerClassName="w-50"
                             />
