@@ -12,7 +12,7 @@ import { useUnreadThreadsCount } from "@stores/threads/useUnreadThreads"
 import _ from "@lib/translate"
 import { cn } from "@lib/utils"
 import { useSetAtom } from "jotai"
-import { BellIcon, BookmarkIcon, MessageSquareTextIcon, MoreHorizontalIcon, SearchIcon, UsersRoundIcon } from "lucide-react"
+import { BellIcon, BookmarkIcon, MessageSquareTextIcon, MoreHorizontalIcon, SearchIcon, UsersIcon } from "lucide-react"
 import { NavLink } from "react-router"
 import { settingsDialogOpenTab } from "@components/features/settings/settingsDialogAtom"
 import { useMemo } from "react"
@@ -164,7 +164,7 @@ const DirectMessagesLink = () => {
     return <NavLink to="dm-channel">
         {({ isActive }) => (
             <IconBox isActive={isActive} title={_("Direct Messages")}>
-                <UsersRoundIcon />
+                <UsersIcon />
                 <UnreadBadge count={unread} />
             </IconBox>
         )}
