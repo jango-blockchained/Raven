@@ -48,9 +48,9 @@ class TestAttachFileToDocument(IntegrationTestCase):
 			}
 		).insert()
 
-		self.target = frappe.get_doc(
-			{"doctype": "ToDo", "description": "Attach target"}
-		).insert(ignore_permissions=True)
+		self.target = frappe.get_doc({"doctype": "ToDo", "description": "Attach target"}).insert(
+			ignore_permissions=True
+		)
 
 	def _create_file_message(self, file_name: str, content: str):
 		"""
@@ -131,9 +131,7 @@ class TestAttachFileToDocument(IntegrationTestCase):
 			)
 
 		self.assertEqual(
-			frappe.db.count(
-				"File", {"attached_to_doctype": "ToDo", "attached_to_name": self.target.name}
-			),
+			frappe.db.count("File", {"attached_to_doctype": "ToDo", "attached_to_name": self.target.name}),
 			0,
 		)
 
