@@ -111,12 +111,33 @@ export const MessageActionMenu = ({
     /** While the toolbar's ellipsis menu is open, hover-clearing is suspended. */
     const toolbarMenuOpenRef = useRef(false)
 
-    const blockFromEvent = (event: React.MouseEvent): { message: Message; element: HTMLElement } | null => {
+    /**
+     * The message actually under the pointer, WITHOUT resolving its batch. Deliberately
+     * cheap — a DOM lookup and a Map hit — because the hover path calls this on every
+     * mouseover, and mouseover bubbles: it re-fires as the pointer crosses each child
+     * element inside one message.
+     */
+    const hitFromEvent = (event: React.MouseEvent): { message: Message; element: HTMLElement } | null => {
         const element = (event.target as HTMLElement).closest?.("[data-message-id]") as HTMLElement | null
         const messageID = element?.getAttribute("data-message-id")
         if (!element || !messageID) return null
         const message = channelMessagesStore.getState(channelID).byId.get(messageID)
         if (!message) return null
+        return { message, element }
+    }
+
+    /**
+     * What the toolbar keys on: every member of a batch shows the SAME toolbar, so the
+     * batch is the identity, not the individual tile. Cheap to compute from a raw hit,
+     * and equal for the resolved (batch-last) message too — which is what lets the hover
+     * handler compare before paying for batch resolution.
+     */
+    const hoverKeyOf = (message: Message) => message.message_batch_id || message.name
+
+    const blockFromEvent = (event: React.MouseEvent): { message: Message; element: HTMLElement } | null => {
+        const hit = hitFromEvent(event)
+        if (!hit) return null
+        const { message, element } = hit
         // A batch acts as one logical message: target its LAST (newest) member — where
         // the reply linkage already lives — regardless of which tile was hit, and anchor
         // the toolbar to the whole batch row so it doesn't jump between album tiles.
@@ -140,8 +161,15 @@ export const MessageActionMenu = ({
     /** Desktop: tracks which message the pointer is over and positions the floating toolbar. */
     const onMouseOver = (event: React.MouseEvent) => {
         if (isMobile || toolbarMenuOpenRef.current) return
+        const hit = hitFromEvent(event)
+        if (!hit) return
+        // Bail on the CHEAP identity before resolving the batch. Batch resolution scans the
+        // channel's whole loaded window, and this handler fires many times per message
+        // (mouseover bubbles), so doing it first re-scanned on every child-element crossing
+        // only to discard the result at this very check.
+        if (hovered && hoverKeyOf(hit.message) === hoverKeyOf(hovered.message)) return
         const block = blockFromEvent(event)
-        if (!block || block.message.name === hovered?.message.name) return
+        if (!block) return
         showToolbarFor(block.message, block.element)
     }
 

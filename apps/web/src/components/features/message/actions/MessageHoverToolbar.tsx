@@ -45,7 +45,15 @@ export const MessageHoverToolbar = ({
     /** Mobile: the ellipsis opens the action bottom sheet instead of an inline dropdown. */
     onOpenFullMenu?: () => void
 }) => {
-    const { groups: actionGroups, isOwner } = useMessageActions(message, { canInteract })
+    const [menuOpen, setMenuOpen] = useState(false)
+    // File actions are built ONLY while the ellipsis dropdown is open — the three buttons
+    // below need reply/create-thread/edit, none of which touch files, and building the file
+    // actions scans the channel's loaded window to resolve the message's batch. Hover fires
+    // per message the pointer crosses; the dropdown opens deliberately.
+    const { groups: actionGroups, isOwner } = useMessageActions(message, {
+        canInteract,
+        includeFileActions: menuOpen,
+    })
     // Promoted to toolbar icons (v2 parity). Their availability rules live in
     // useMessageActions — reply/create-thread only for channel MEMBERS, edit only
     // for the owner's own non-bot messages — so absence from the groups means
@@ -59,7 +67,6 @@ export const MessageHoverToolbar = ({
     const replyAction = isOwner ? undefined : flatActions.find((action) => action.id === "reply")
     const setActionTarget = useSetAtom(messageActionTargetAtom)
     const toggleReaction = useToggleReaction()
-    const [menuOpen, setMenuOpen] = useState(false)
     const isMobile = useIsMobile()
 
     /** The ellipsis menu marks the message as the action target, like right-click does. */

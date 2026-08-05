@@ -67,7 +67,7 @@ export const replyToMessageAtom = atomFamily((_channelID: string) => atom<Messag
  */
 export const editingMessageAtom = atomFamily((_channelID: string) => atom<string | null>(null))
 
-export type MessageDialogType = "delete" | "forward" | "reactions"
+export type MessageDialogType = "delete" | "forward" | "reactions" | "attach-document"
 
 /**
  * The currently open message dialog. Separate from the menu target because
