@@ -16,6 +16,7 @@ import {
     SmilePlus,
     Trash2,
     ListXIcon,
+    ZapIcon,
 } from "lucide-react"
 import { editingMessageAtom, messageDialogAtom, replyToMessageAtom } from "@utils/channelAtoms"
 import { focusComposer } from "@components/features/ChatInput/composerFocus"
@@ -31,6 +32,7 @@ import type { Message } from "@raven/types/common/Message"
 import { useUserCookieData } from "@hooks/useUserCookieData"
 import { errorResponseToast } from "@components/ui/error-banner"
 import type { PollData } from "../renderers/PollMessageContent"
+import { useEnabledMessageActions } from "@hooks/useEnabledMessageActions"
 
 export type { MessageAction }
 
@@ -134,6 +136,7 @@ export const useMessageActions = (
         isPoll && message ? ["poll", message.name] : null,
         { dedupingInterval: 10000 },
     )
+    const enabledActions = useEnabledMessageActions()
 
     return useMemo(() => {
         if (!message) return { groups: [], isOwner: false }
@@ -244,6 +247,25 @@ export const useMessageActions = (
         // render as their own group — a divider above them on every surface — so
         // they're built separately and kept out of the clipboard group above.
         const fileActions = includeFileActions ? buildFileActions(message, { setDialog }) : []
+
+        // Custom actions (admin-defined "Raven Message Action" docs): one parent
+        // entry whose children render as a submenu / drawer sub-view. Absent
+        // entirely on sites with none — the common case. Not gated on canInteract:
+        // running an action only needs read access to the message (the server
+        // enforces exactly that).
+        const customActions: MessageAction[] = []
+        if (enabledActions.length > 0) {
+            customActions.push({
+                id: "custom-actions",
+                label: _("Actions"),
+                icon: ZapIcon,
+                children: enabledActions.map((action) => ({
+                    id: `custom-action-${action.name}`,
+                    label: action.action_name,
+                    onSelect: () => setDialog({ type: "custom-action", message, actionID: action.name }),
+                })),
+            })
+        }
 
         // Organize: pin, save, reactions.
         // Pinned state lives on the CHANNEL (pinned_messages_string, newline-separated
@@ -359,6 +381,6 @@ export const useMessageActions = (
             })
         }
 
-        return { groups: [respond, pollActions, clipboard, fileActions, organize, owner].filter((group) => group.length > 0), isOwner }
-    }, [message, currentUser, setDialog, navigate, call, pinnedString, canInteract, isPoll, pollData, mutatePoll, includeFileActions])
+        return { groups: [respond, pollActions, clipboard, fileActions, customActions, organize, owner].filter((group) => group.length > 0), isOwner }
+    }, [message, currentUser, setDialog, navigate, call, pinnedString, canInteract, isPoll, pollData, mutatePoll, includeFileActions, enabledActions])
 }

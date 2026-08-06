@@ -8,6 +8,9 @@ import {
     DropdownMenuGroup,
     DropdownMenuItem,
     DropdownMenuSeparator,
+    DropdownMenuSub,
+    DropdownMenuSubContent,
+    DropdownMenuSubTrigger,
     DropdownMenuTrigger,
 } from "@components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@components/ui/tooltip"
@@ -132,7 +135,7 @@ export const MessageHoverToolbar = ({
                                 aria-label={replyAction.label}
                                 onClick={replyAction.onSelect}
                             >
-                                <replyAction.icon />
+                                {replyAction.icon && <replyAction.icon />}
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent>{replyAction.label}</TooltipContent>
@@ -149,7 +152,7 @@ export const MessageHoverToolbar = ({
                                 aria-label={createThreadAction.label}
                                 onClick={createThreadAction.onSelect}
                             >
-                                <createThreadAction.icon />
+                                {createThreadAction.icon && <createThreadAction.icon />}
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent>{createThreadAction.label}</TooltipContent>
@@ -166,7 +169,7 @@ export const MessageHoverToolbar = ({
                                 aria-label={editAction.label}
                                 onClick={editAction.onSelect}
                             >
-                                <editAction.icon />
+                                {editAction.icon && <editAction.icon />}
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent>{editAction.label}</TooltipContent>
@@ -205,16 +208,36 @@ export const MessageHoverToolbar = ({
                             <Fragment key={index}>
                                 {index > 0 && <DropdownMenuSeparator />}
                                 <DropdownMenuGroup>
-                                    {group.map((action) => (
-                                        <DropdownMenuItem
-                                            key={action.id}
-                                            variant={action.danger ? "destructive" : "default"}
-                                            onSelect={action.onSelect}
-                                        >
-                                            <action.icon />
-                                            <span>{action.label}</span>
-                                        </DropdownMenuItem>
-                                    ))}
+                                    {group.map((action) =>
+                                        action.children ? (
+                                            <DropdownMenuSub key={action.id}>
+                                                <DropdownMenuSubTrigger>
+                                                    {action.icon && <action.icon />}
+                                                    <span>{action.label}</span>
+                                                </DropdownMenuSubTrigger>
+                                                {/* Content-sized between the primitive's min-w-[8rem] floor and a
+                                                    max-w cap: action_name is an unbounded Data field (140 chars),
+                                                    so a long admin label truncates instead of sprawling the panel. */}
+                                                <DropdownMenuSubContent className="max-w-64">
+                                                    {action.children.map((child) => (
+                                                        <DropdownMenuItem key={child.id} onSelect={child.onSelect}>
+                                                            {child.icon && <child.icon />}
+                                                            <span className="truncate">{child.label}</span>
+                                                        </DropdownMenuItem>
+                                                    ))}
+                                                </DropdownMenuSubContent>
+                                            </DropdownMenuSub>
+                                        ) : (
+                                            <DropdownMenuItem
+                                                key={action.id}
+                                                variant={action.danger ? "destructive" : "default"}
+                                                onSelect={action.onSelect}
+                                            >
+                                                {action.icon && <action.icon />}
+                                                <span>{action.label}</span>
+                                            </DropdownMenuItem>
+                                        ),
+                                    )}
                                 </DropdownMenuGroup>
                             </Fragment>
                         ))}

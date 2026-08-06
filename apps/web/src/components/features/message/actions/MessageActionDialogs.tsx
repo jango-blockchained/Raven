@@ -5,6 +5,7 @@ import { messageDialogAtom } from "@utils/channelAtoms"
 import { DeleteMessageDialog } from "./dialogs/DeleteMessageDialog"
 import { ReactionsDialog } from "./dialogs/ReactionsDialog"
 import { AttachToDocumentDialog } from "./dialogs/AttachToDocumentDialog"
+import { RunMessageActionDialog, type RunMessageActionTarget } from "./dialogs/RunMessageActionDialog"
 import _ from "@lib/translate"
 import type { Message } from "@raven/types/common/Message"
 
@@ -29,6 +30,8 @@ export const MessageActionDialogs = () => {
     if (dialog?.type === "reactions") lastReactionsRef.current = dialog.message
     const lastAttachRef = useRef<Message | null>(null)
     if (dialog?.type === "attach-document") lastAttachRef.current = dialog.message
+    const lastCustomActionRef = useRef<RunMessageActionTarget | null>(null)
+    if (dialog?.type === "custom-action") lastCustomActionRef.current = { message: dialog.message, actionID: dialog.actionID }
 
     return (
         <>
@@ -47,6 +50,12 @@ export const MessageActionDialogs = () => {
             <AttachToDocumentDialog
                 open={dialog?.type === "attach-document"}
                 message={dialog?.type === "attach-document" ? dialog.message : lastAttachRef.current}
+                onClose={close}
+            />
+
+            <RunMessageActionDialog
+                open={dialog?.type === "custom-action"}
+                target={dialog?.type === "custom-action" ? { message: dialog.message, actionID: dialog.actionID } : lastCustomActionRef.current}
                 onClose={close}
             />
 

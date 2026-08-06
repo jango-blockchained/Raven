@@ -2,7 +2,7 @@ import { Download, Link2, LucideIcon, Paperclip } from "lucide-react"
 import { toast } from "sonner"
 import _ from "@lib/translate"
 import type { Message } from "@raven/types/common/Message"
-import type { MessageDialogType } from "@utils/channelAtoms"
+import type { MessageDialog } from "@utils/channelAtoms"
 import { channelMessagesStore } from "@stores/messages/store"
 import { hasFile } from "./fileMessage"
 import { downloadBlob, downloadFile, getAbsoluteFileURL } from "@lib/file"
@@ -11,8 +11,12 @@ import { getFileName } from "@raven/lib/utils/operations"
 export type MessageAction = {
     id: string
     label: string
-    icon: LucideIcon
-    onSelect: () => void
+    /** Absent on custom-action children — admin-defined entries render label-only. */
+    icon?: LucideIcon
+    /** Absent on a parent entry — those carry `children` instead. */
+    onSelect?: () => void
+    /** Renders as a submenu (desktop) / drawer sub-view (mobile). */
+    children?: MessageAction[]
     /** Renders in the destructive style (delete). */
     danger?: boolean
 }
@@ -29,7 +33,7 @@ export type MessageAction = {
 export const buildFileActions = (
     message: Message,
     deps: {
-        setDialog: (value: { type: MessageDialogType; message: Message }) => void
+        setDialog: (value: MessageDialog) => void
     },
 ): MessageAction[] => {
     const { setDialog } = deps
