@@ -299,7 +299,7 @@ export const ForwardMessageDialog = ({
 
                 <RecipientCombobox value={recipient} onChange={setRecipient} />
 
-                <DialogFooter>
+                <DialogFooter className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:justify-end">
                     <Button variant="outline" size="md" onClick={onClose} disabled={sending}>
                         {_("Cancel")}
                     </Button>
