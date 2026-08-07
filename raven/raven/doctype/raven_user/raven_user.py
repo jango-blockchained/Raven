@@ -56,6 +56,17 @@ class RavenUser(Document):
 			self.type = "User"
 		if not self.full_name:
 			self.full_name = self.first_name
+		# A profile rename writes only `full_name`; `first_name` is otherwise
+		# seeded from the linked User (fetch_if_empty) and would stay stale
+		# forever — short displays like the typing indicator read it. Re-derive
+		# it whenever the full name changes, unless this save also set
+		# `first_name` explicitly (an explicit edit wins).
+		if (
+			self.full_name
+			and self.has_value_changed("full_name")
+			and not self.has_value_changed("first_name")
+		):
+			self.first_name = self.full_name.split(" ")[0]
 
 	def validate(self):
 		if self.type == "Bot" and not self.bot:
