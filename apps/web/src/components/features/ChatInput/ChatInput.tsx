@@ -89,7 +89,7 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
     const [linkSignal, setLinkSignal] = useState(0)
 
     // The editor's keydown/paste closures (built once) call the latest handlers via these refs.
-    const sendRef = useRef<() => void>(() => { })
+    const sendRef = useRef<(opts?: { sendSilently?: boolean }) => void>(() => { })
     const linkRef = useRef<() => void>(() => { })
     linkRef.current = () => {
         setShowFormatting(true)
@@ -198,7 +198,7 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
     }, [editor, onUserType, stopTyping])
 
     /** Build the optimistic batch, clear the composer, and fire the request. */
-    const dispatchSend = useCallback(() => {
+    const dispatchSend = useCallback((opts?: { sendSilently?: boolean }) => {
         if (!editor) return
         const isEmpty = editor.isEmpty
         if (isEmpty && files.length === 0) return
@@ -225,7 +225,7 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
             : undefined
 
         // Shows the message on screen, saves it to the outbox, then sends it.
-        enqueueSend(call, { channelID, batchId, owner: currentUser, content, files: outgoingFiles, linkedMessage, repliedMessageDetails })
+        enqueueSend(call, { channelID, batchId, owner: currentUser, content, files: outgoingFiles, linkedMessage, repliedMessageDetails, sendSilently: opts?.sendSilently })
 
         // Clear the composer right away — the message is already on screen
         editor.commands.clearContent()
@@ -244,7 +244,7 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
         if (!isMobile) editor.commands.focus()
     }, [editor, files, channelID, currentUser, call, setFiles, replyTo, setReplyTo, persistDraft, stopTyping, isMobile])
 
-    const handleSend = useCallback(() => {
+    const handleSend = useCallback((opts?: { sendSilently?: boolean }) => {
         if (!editor) return
         // Nothing to send — no meaningful text/content, no uploaded files, nothing staged.
         if (!editorHasContent && files.length === 0 && !hasUploadsInFlight && !hasFailedUploads) return
@@ -252,35 +252,36 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
         // Files are still uploading: hold the send. An effect dispatches it once
         // every upload settles, so the in-flight files aren't dropped.
         if (hasUploadsInFlight) {
-            setPendingSend(true)
+            setPendingSend({ sendSilently: opts?.sendSilently })
             return
         }
 
         // A failed upload blocks a DIRECT send too, not just a held one — the
         // user staged that file as part of this message, so sending without it
-        // silently ships something different from what they wrote. Same toast
+        // quietly ships something different from what they wrote. Same toast
         // as the held path (below) so the two flows can't drift.
         if (hasFailedUploads) {
             toast.error(_("Some files failed to upload. Remove them and try again."))
             return
         }
 
-        dispatchSend()
+        dispatchSend(opts)
     }, [editor, editorHasContent, files, hasUploadsInFlight, hasFailedUploads, dispatchSend, setPendingSend])
 
     // Disable send when there's genuinely nothing to send (mirrors the handleSend guard).
     const nothingToSend = !editorHasContent && files.length === 0 && !hasUploadsInFlight && !hasFailedUploads
 
     // Held send: once uploads settle, dispatch (or back off if any failed so the
-    // user can remove the bad file and retry — we never send silently without it).
+    // user can remove the bad file and retry — we never quietly send without it).
     useEffect(() => {
         if (!pendingSend || hasUploadsInFlight) return
+        const heldOpts = pendingSend
         setPendingSend(false)
         if (hasFailedUploads) {
             toast.error(_("Some files failed to upload. Remove them and send again."))
             return
         }
-        dispatchSend()
+        dispatchSend(heldOpts)
     }, [pendingSend, hasUploadsInFlight, hasFailedUploads, dispatchSend, setPendingSend])
 
     useEffect(() => {
@@ -404,7 +405,7 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                                     <EditorContent editor={editor} />
                                 </div>
                                 <div className="flex items-center justify-center h-10 ms-1.5">
-                                    <SendButton onSend={handleSend} loading={pendingSend} disabled={nothingToSend} />
+                                    <SendButton onSend={handleSend} onSendSilently={() => handleSend({ sendSilently: true })} loading={!!pendingSend} disabled={nothingToSend} />
                                 </div>
 
                             </div>
@@ -442,7 +443,7 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                                     <CreatePollDialog channelID={channelID} />
                                     <AttachFrappeDocumentDialog />
                                     <div className="flex-1" />
-                                    <SendButton onSend={handleSend} loading={pendingSend} disabled={nothingToSend} />
+                                    <SendButton onSend={handleSend} onSendSilently={() => handleSend({ sendSilently: true })} loading={!!pendingSend} disabled={nothingToSend} />
                                 </div>
                             </>
                         )}
