@@ -1,0 +1,226 @@
+import frappe
+from frappe.tests import IntegrationTestCase
+
+from raven.links import (
+	detect_provider,
+	is_preview_blocked,
+	normalize_url,
+	process_message_links,
+	youtube_video_id,
+)
+
+EXTRA_TEST_RECORD_DEPENDENCIES = ["User", "Raven User"]
+
+
+class TestLinkNormalization(IntegrationTestCase):
+	def test_normalize_url(self):
+		# Scheme and host lowercase, default port dropped, path case kept.
+		self.assertEqual(normalize_url("HTTPS://Example.COM:443/Path"), "https://example.com/Path")
+		# Non-default ports survive.
+		self.assertEqual(normalize_url("http://example.com:8080/x"), "http://example.com:8080/x")
+		# Tracking params dropped, load-bearing params kept.
+		self.assertEqual(
+			normalize_url("https://www.youtube.com/watch?v=abc123&utm_source=share&si=junk"),
+			"https://www.youtube.com/watch?v=abc123",
+		)
+		# Fragments are dropped, except hash-router pages.
+		self.assertEqual(normalize_url("https://example.com/page#section"), "https://example.com/page")
+		self.assertEqual(
+			normalize_url("https://example.com/app#/inbox"), "https://example.com/app#/inbox"
+		)
+		# A bare host gets the root path, so both spellings share one row.
+		self.assertEqual(normalize_url("https://example.com"), "https://example.com/")
+		# Credentials are never stored.
+		self.assertEqual(normalize_url("https://user:pass@example.com/x"), "https://example.com/x")
+		# Only http(s) normalizes.
+		self.assertIsNone(normalize_url("mailto:someone@example.com"))
+		self.assertIsNone(normalize_url("tel:+911234567890"))
+		self.assertIsNone(normalize_url("javascript:alert(1)"))
+		self.assertIsNone(normalize_url("http://"))
+		self.assertIsNone(normalize_url(""))
+
+	def test_detect_provider(self):
+		cases = {
+			"https://www.youtube.com/watch?v=abc": "YouTube",
+			"https://youtu.be/abc": "YouTube",
+			"https://music.youtube.com/watch?v=abc": "YouTube Music",
+			"https://open.spotify.com/track/xyz": "Spotify",
+			"https://en.wikipedia.org/wiki/Frappe": "Wikipedia",
+			"https://github.com/frappe/frappe": "GitHub",
+			"https://x.com/frappetech/status/1": "X",
+			"https://twitter.com/frappetech/status/1": "X",
+			"https://old.reddit.com/r/foo/comments/1/bar/": "Reddit",
+			"https://meet.google.com/abc-defg-hij": "Google Meet",
+			"https://company.zoom.us/j/1234567890": "Zoom",
+			"https://frappe.io/blog": "Frappe",
+			"https://docs.frappe.io/framework": "Frappe",
+			"https://news.ycombinator.com/item?id=1": "Hacker News",
+			"https://www.ycombinator.com/companies": "Other",
+			"https://some-random-blog.dev/post": "Other",
+		}
+		for url, provider in cases.items():
+			self.assertEqual(detect_provider(normalize_url(url)), provider, url)
+		# Links that never normalize carry no provider.
+		self.assertEqual(detect_provider(normalize_url("mailto:x@y.com")), "")
+
+	def test_youtube_video_id(self):
+		cases = {
+			"https://www.youtube.com/watch?v=abc123": "abc123",
+			"https://youtu.be/abc123": "abc123",
+			"https://youtube.com/shorts/abc123": "abc123",
+			"https://music.youtube.com/watch?v=abc123": "abc123",
+			"https://www.youtube.com/playlist?list=xyz": None,
+			"https://example.com/watch?v=abc123": None,
+		}
+		for url, video_id in cases.items():
+			self.assertEqual(youtube_video_id(url), video_id, url)
+
+	def test_the_one_video_that_never_gets_a_preview(self):
+		for url in (
+			"https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+			"https://youtu.be/dQw4w9WgXcQ",
+			"https://youtube.com/shorts/dQw4w9WgXcQ",
+		):
+			self.assertTrue(is_preview_blocked(normalize_url(url)), url)
+		self.assertFalse(is_preview_blocked("https://www.youtube.com/watch?v=abc123"))
+
+	def test_links_to_this_site(self):
+		# Raven's own pages get their own provider.
+		raven_url = frappe.utils.get_url() + "/raven/channel/general"
+		self.assertEqual(detect_provider(normalize_url(raven_url)), "Raven Link")
+		# Any other page on this site is a document link.
+		desk_url = frappe.utils.get_url() + "/app/note/some-note"
+		self.assertEqual(detect_provider(normalize_url(desk_url)), "Site Document Link")
+
+
+class TestMessageLinkRows(IntegrationTestCase):
+	# The workspace and channel are created ONCE for the class, not per
+	# test. Frappe only rolls back when the whole class finishes, so all
+	# test methods share one transaction — a per-test setUp would insert
+	# the same workspace name twice and hit the primary key. The hash
+	# suffix guards against leftovers from a hard-crashed earlier run.
+	@classmethod
+	def setUpClass(cls):
+		super().setUpClass()
+		frappe.get_doc("User", "test@example.com").add_roles("Raven User")
+		frappe.set_user("test@example.com")
+
+		suffix = frappe.generate_hash(length=8)
+		cls.workspace = frappe.get_doc(
+			{
+				"doctype": "Raven Workspace",
+				"workspace_name": f"Links Test Workspace {suffix}",
+				"type": "Public",
+			}
+		).insert()
+
+		cls.channel = frappe.get_doc(
+			{
+				"doctype": "Raven Channel",
+				"channel_name": f"links-test-channel-{suffix}",
+				"type": "Private",
+				"workspace": cls.workspace.name,
+			}
+		).insert()
+
+	def setUp(self):
+		super().setUp()
+		frappe.set_user("test@example.com")
+
+	def make_message(self, text: str):
+		return frappe.get_doc(
+			{
+				"doctype": "Raven Message",
+				"channel_id": self.channel.name,
+				"message_type": "Text",
+				"text": text,
+			}
+		).insert()
+
+	def test_link_rows_are_normalized_and_classified(self):
+		message = self.make_message(
+			'<p>watch <a href="https://www.YouTube.com/watch?v=abc123&utm_source=share">this</a>'
+			' or write to <a href="mailto:x@y.com">me</a></p>'
+		)
+
+		self.assertEqual(len(message.links_table), 2)
+
+		row = message.links_table[0]
+		# The raw spelling is preserved. get_messages ships this untouched.
+		self.assertEqual(row.url, "https://www.YouTube.com/watch?v=abc123&utm_source=share")
+		self.assertEqual(row.normalized_url, "https://www.youtube.com/watch?v=abc123")
+		self.assertEqual(row.provider, "YouTube")
+
+		# mailto never normalizes and carries no provider.
+		mail_row = message.links_table[1]
+		self.assertFalse(mail_row.normalized_url)
+		self.assertFalse(mail_row.provider)
+
+	def test_edit_replaces_rows_instead_of_duplicating(self):
+		message = self.make_message('<p><a href="https://github.com/frappe/frappe">repo</a></p>')
+		self.assertEqual(len(message.links_table), 1)
+
+		message.text = '<p><a href="https://vimeo.com/12345">video</a></p>'
+		message.save()
+		message.reload()
+
+		self.assertEqual(len(message.links_table), 1)
+		self.assertEqual(message.links_table[0].provider, "Vimeo")
+
+	def test_blocked_video_never_gets_a_preview_doc(self):
+		message = self.make_message(
+			'<p><a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ">a totally normal link</a></p>'
+		)
+		process_message_links(message.name)
+		self.assertFalse(
+			frappe.db.exists("Raven Link Preview", {"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"})
+		)
+
+	def test_get_previews_returns_stored_rows_keyed_by_raw_url(self):
+		from raven.api.preview_links import get_previews
+
+		preview = frappe.new_doc("Raven Link Preview")
+		preview.url = f"https://example.com/{frappe.generate_hash(length=12)}"
+		preview.provider = "Other"
+		preview.status = "Fetched"
+		preview.title = "Stored Title"
+		preview.insert(ignore_permissions=True)
+
+		# Two raw spellings of the stored URL, plus one the server has
+		# nothing for.
+		raw_tracked = preview.url + "?utm_source=share"
+		results = get_previews([preview.url, raw_tracked, "https://nowhere.example/x"])
+
+		self.assertEqual(results[preview.url]["title"], "Stored Title")
+		# The tracked spelling normalizes to the same stored row.
+		self.assertEqual(results[raw_tracked]["title"], "Stored Title")
+		# The payload carries the normalized url — the realtime patch key.
+		self.assertEqual(results[raw_tracked]["url"], preview.url)
+		self.assertIsNone(results["https://nowhere.example/x"])
+
+	def test_process_message_links_upserts_preview_shells(self):
+		# Two raw spellings of the same video should share one preview doc.
+		message = self.make_message(
+			'<p><a href="https://www.youtube.com/watch?v=abc123&utm_source=a">one</a>'
+			' <a href="https://www.youtube.com/watch?v=abc123&utm_source=b">two</a></p>'
+		)
+
+		process_message_links(message.name)
+
+		previews = frappe.get_all(
+			"Raven Link Preview",
+			filters={"url": "https://www.youtube.com/watch?v=abc123"},
+			fields=["url", "provider", "title", "status"],
+		)
+		self.assertEqual(len(previews), 1)
+		self.assertEqual(previews[0].provider, "YouTube")
+		# A shell only. In tests the job never fetches, so the doc stays
+		# Pending with no content.
+		self.assertFalse(previews[0].title)
+		self.assertEqual(previews[0].status, "Pending")
+
+		# Running again (a second message, a retried job) must not duplicate.
+		process_message_links(message.name)
+		self.assertEqual(
+			frappe.db.count("Raven Link Preview", {"url": "https://www.youtube.com/watch?v=abc123"}), 1
+		)

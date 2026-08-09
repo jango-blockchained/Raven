@@ -569,21 +569,9 @@ def search_links(
 
 	results = query.run(as_dict=True)
 
-	# Lazy backfill: enqueue preview fetch for rows with no title (likely brought in by
-	# the v3 link migration patch which bulk-inserted Raven Link Preview rows without
-	# triggering before_insert -> fetch_preview). One job per call, dedup via job_name.
-	blank_urls = [r["url"] for r in results if not r.get("title") and r.get("url")]
-	if blank_urls:
-		from frappe.utils.background_jobs import enqueue, is_job_enqueued
-
-		# Cap to avoid huge jobs; remaining rows get backfilled on subsequent reads.
-		blank_urls = blank_urls[:50]
-		job_id = f"search_links_backfill_{frappe.session.user}"
-		if not is_job_enqueued(job_id):
-			enqueue(
-				method="raven.api.preview_links.update_link_previews",
-				urls=json.dumps(blank_urls),
-				job_name=job_id,
-			)
+	# Rows with no title are previews that were never fetched. This used to
+	# enqueue a fetch from here, but that fetcher is gone (see
+	# raven/links.py). The Layer 2 pipeline will own fetching, with proper
+	# status and retry tracking, and will fill these rows.
 
 	return results

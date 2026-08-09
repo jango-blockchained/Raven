@@ -11,6 +11,7 @@ from frappe.utils import get_datetime, get_system_timezone
 from pytz import timezone, utc
 
 from raven.api.raven_channel import get_peer_user_id_from_dm_users
+from raven.links import detect_provider, normalize_url
 from raven.notification import (
 	send_notification_for_message,
 	send_notification_to_topic,
@@ -112,16 +113,28 @@ class RavenMessage(Document):
 		self.extract_mentions(soup)
 
 		self.links = ""
+		# Clear old rows first. On an edit, the doc loads with its existing
+		# rows. Appending without clearing would duplicate them on every
+		# save. extract_mentions clears the same way.
+		self.links_table = []
 
 		for link in soup.find_all("a"):
 			href = link.get("href")
 			if href:
-				if not frappe.db.exists("Raven Link Preview", {"url": href}):
-					preview = frappe.new_doc("Raven Link Preview")
-					preview.url = href
-					preview.deferred_insert()
-
-				self.append("links_table", {"url": href})
+				# Store the normalized URL and provider on each row now, at
+				# save time. If the normalizer changes later, old rows keep
+				# the spelling their preview was stored under. Preview docs
+				# are created by a background job (see on_update). Nothing
+				# is fetched during a message save.
+				normalized = normalize_url(href)
+				self.append(
+					"links_table",
+					{
+						"url": href,
+						"normalized_url": normalized,
+						"provider": detect_provider(normalized),
+					},
+				)
 				self.links += f"{href}\n"
 
 		# Spoilers (||text||) must not leak in the derived preview (DM list, push
@@ -149,6 +162,26 @@ class RavenMessage(Document):
 
 		if not self.content and self.link_doctype and self.link_document:
 			self.content = f"{self.link_doctype} - {self.link_document}"
+
+	def queue_link_preview_processing(self):
+		"""
+		Make sure every link in this message gets a Raven Link Preview doc.
+		Runs as a background job so a message save never waits on it.
+		Skip when the links did not change. Reaction saves, metadata edits
+		and AI token streaming also pass through on_update.
+		"""
+		if frappe.flags.in_patch or frappe.flags.in_migrate or frappe.flags.in_install:
+			return
+		if not self.links_table:
+			return
+		old_doc = self.get_doc_before_save()
+		if old_doc and old_doc.links == self.links:
+			return
+		frappe.enqueue(
+			"raven.links.process_message_links",
+			message_id=self.name,
+			enqueue_after_commit=True,
+		)
 
 	def extract_mentions(self, soup):
 		"""
@@ -804,6 +837,8 @@ class RavenMessage(Document):
 		)
 
 	def on_update(self):
+
+		self.queue_link_preview_processing()
 
 		# TEMP: this is a temp fix for the Desk interface
 		self.publish_deprecated_event_for_desk()

@@ -40,7 +40,11 @@ requests" into "processing our own data". Every phase below preserves it.
 
 ## Phase 1 — Extraction, detection, and closing the SSRF hole
 
-*No user-visible change. The foundation.*
+*No user-visible change. The foundation.* **✅ Shipped (Aug 2026)** —
+`raven/links.py` holds the normalizer, provider registry and the
+shell-upsert job; tests in `raven/tests/test_message_links.py`. Extra
+providers beyond the original list: `Raven Link` (same host, `/raven`
+path) vs `Site Document Link` (same host, any other path).
 
 - **Server-side link extraction at message save** (create + edit): parse the
   *stored* Tiptap HTML for hrefs. Never accept a client-provided link list.
@@ -61,7 +65,12 @@ and no whitelisted endpoint fetches a client-supplied URL.
 
 ## Phase 2 — The fetch pipeline
 
-*Previews start landing in the database.*
+*Previews start landing in the database.* **✅ Shipped (Aug 2026)** —
+`raven/safe_fetch.py` (DNS-pin, per-hop revalidation, size caps),
+`raven/link_fetcher.py` (oEmbed / Wikipedia REST / Hacker News API /
+OG + JSON-LD / markdown fallback), tests in
+`raven/tests/test_link_fetching.py`. Retry backoff is opportunistic
+(re-share retries) — scheduled backoff moved to Phase 4.
 
 - **One enqueued job per message** ("process links of message X"): upsert
   `Raven Link Preview` docs by normalized URL (exists-check + unique name
@@ -93,7 +102,13 @@ metadata IP, huge body, slow host) is rejected by `safe_fetch()` tests.
 
 ## Phase 3 — Frontend: store, cards, and search filter
 
-*The user-visible payoff.*
+*The user-visible payoff.* **Mostly shipped (Aug 2026)** — `get_previews`
+(POST: url batches outgrow query strings), `linkPreviewStore` +
+whole-window prefetch (cards render WITH their rows — that, not
+placeholders, is what keeps scrolling smooth), generic + Frappe-branded
+cards (`LinkPreviewCard.tsx`), YouTube facade title overlay, hover-mode
+preference. Still open: the provider filter in Links search, and site
+document cards.
 
 - **`get_previews(raw_urls)`** — new read-only batched endpoint. Normalizes
   server-side, looks up stored previews, echoes results keyed by the raw URLs
@@ -112,8 +127,34 @@ metadata IP, huge body, slow host) is rejected by `safe_fetch()` tests.
 - **Provider filter in Links search**: add a multi-value `link_providers`
   metadata field to the sqlite FTS index (`|youtube|reddit|` style, same trick
   as `mentions`), filterable server-side; filter UI built on `common/filters`.
-- **Hide-preview ✕** action wiring (`hide_link_preview` API — still pending
-  from the old roadmap).
+- ~~Hide-preview ✕~~ **DROPPED (Aug 2026)**: v2's per-message hide was
+  wrong-shaped — it hid the preview for ALL users when one person clicked ✕.
+  v3 replaces it with a **per-user display preference**: previews on hover
+  (tooltip) or as a card underneath, the user's choice
+  (`Raven User.link_previews`, set in Settings → Appearance). The
+  preference governs ONLY the generic metadata card — provider embeds
+  (YouTube player, Spotify, meeting cards …) are content and always show.
+  On mobile there is no hover: "Preview Card" shows the card, "Link Hover"
+  simply means a compact stream — a tap always opens the LINK, never the
+  preview (iOS long-press already gives a native peek). The
+  `hide_link_preview` endpoint + message field stay only for the v2 bundle
+  and die with it.
+- **The rickroll rule**: the famous video (`dQw4w9WgXcQ`) never gets a
+  preview — not fetched server-side (no preview doc is ever created), not
+  embedded client-side. Both sides keep the same `NEVER_PREVIEW_VIDEO_IDS`
+  list (raven/links.py, LinkPreview.tsx). A rickroll should stay a surprise.
+- **Site document cards** (`Site Document Link` provider): document previews
+  are permission-scoped per viewer (`get_preview_data` reads as the session
+  user), so they can NEVER enter the shared preview rows or the realtime
+  payload — that would leak titles across permission boundaries. Instead: a
+  read-only `resolve_document_link(path)` endpoint that reverse-maps the URL
+  to (doctype, docname) server-side — desk `/app/<slug>/<name>` via the
+  doctype registry, SPA apps (CRM leads, Helpdesk tickets) via a reverse
+  sibling of the `raven_document_link_override` hook — then returns
+  per-viewer preview data, or nothing if unreadable (card degrades to a
+  plain link). No extraction at save: `get_messages` ships no child rows,
+  and the stored provider already covers search. Parses paths and reads the
+  DB only; never fetches — the SSRF rule holds.
 
 **Done when:** a YouTube link shows its title without playing; an arbitrary
 article link shows a card; the Links tab filters by provider; scrolling a
@@ -131,6 +172,14 @@ channel full of links causes at most one `get_previews` call per screen.
   access; permanent-failure cache so dead hosts are never hammered.
 - **Backfill job** (optional): process links of recent historical messages so
   the Links tab isn't empty on day one.
+- **Registered Frappe sites (OAuth) — further out**: users register other
+  Frappe sites (support.frappe.io runs Helpdesk, crm.frappe.io runs CRM —
+  both frequently shared) and log in to them via OAuth, unlocking dynamic
+  document previews of docs living on those sites. When this lands,
+  classification for registered hosts comes from that settings-driven list
+  (the `frappe_meet_hosted_urls` pattern), NOT hardcoded registry entries —
+  org-specific deployments don't belong in code shipped to every install.
+  Until then such links classify as `Frappe` via the subdomain rule.
 
 ---
 

@@ -27,13 +27,13 @@ const ErrorPage = () => {
         message.includes("error loading dynamically imported module")
 
     return (
-        <div className="flex h-dvh w-full items-center justify-center bg-surface-gray-2 p-4">
-            <div className="flex w-full max-w-md flex-col items-center gap-4 text-center">
+        <div className="flex h-dvh w-full items-center bg-surface-gray-2 p-16">
+            <div className="flex w-full max-w-md flex-col items-start gap-4 text-left">
                 <h1 className="text-xl font-semibold text-ink-gray-9">
-                    {isStaleBuild ? _("A new update is available.") : _("There was an unexpected error.")}
+                    {isStaleBuild ? _("A new update is available.") : _("Chaos is a ladder.")}
                 </h1>
                 <p className="text-p-sm text-ink-gray-6">
-                    {_("If you face this error again, please report it on")}{" "}
+                    {_("An unexpected error occurred. If you face this error again, please report it on")}{" "}
                     <a
                         href="https://github.com/The-Commit-Company/raven/issues"
                         target="_blank"
