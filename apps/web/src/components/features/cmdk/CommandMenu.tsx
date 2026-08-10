@@ -119,9 +119,8 @@ const CommandPalette = ({ inDrawer = false }: { inDrawer?: boolean }) => {
                 placeholder={isMobile ? _("Search") : _("Search or type a command")}
             />
             <CommandList ref={listRef} className={inDrawer ? "flex-1 overflow-auto max-h-none pb-6" : "max-h-105"}>
-
-                <ChannelList text={text} />
                 <UserList text={text} />
+                <ChannelList text={text} />
                 {/* Desktop-only, like Settings/Commands: mobile already has the
                     long-press workspace drawer and the footer tabs for these. */}
                 {!isMobile && <NavigationList />}
