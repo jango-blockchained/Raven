@@ -9,6 +9,64 @@ from raven.links import (
 	youtube_video_id,
 )
 
+
+class TestPreviewBlocklist(IntegrationTestCase):
+	def set_blocklist(self, rows):
+		"""
+		Write blocklist rows to Raven Settings. Saving clears the cached
+		doc, which is what is_preview_blocked reads. addCleanup restores —
+		the class-level rollback alone would leave a stale settings doc in
+		the document cache for later test classes.
+		"""
+		settings = frappe.get_doc("Raven Settings")
+		settings.blocked_links = []
+		for link, match_exact in rows:
+			settings.append("blocked_links", {"link": link, "match_exact": match_exact})
+		settings.save(ignore_permissions=True)
+		self.addCleanup(self.clear_blocklist)
+
+	def clear_blocklist(self):
+		settings = frappe.get_doc("Raven Settings")
+		settings.blocked_links = []
+		settings.save(ignore_permissions=True)
+
+	def test_domain_rows_block_the_whole_domain(self):
+		self.set_blocklist([("frappe.io", 0)])
+		self.assertTrue(is_preview_blocked(normalize_url("https://frappe.io/")))
+		self.assertTrue(is_preview_blocked(normalize_url("https://frappe.io/blog/xyz")))
+		self.assertTrue(is_preview_blocked(normalize_url("https://docs.frappe.io/framework")))
+		# A lookalike domain is not a subdomain.
+		self.assertFalse(is_preview_blocked(normalize_url("https://notfrappe.io/")))
+
+	def test_exact_rows_block_one_url_in_any_spelling(self):
+		self.set_blocklist([("frappe.io", 1)])
+		# Every spelling of the homepage is blocked: scheme, trailing
+		# slash and tracking params all normalize away.
+		self.assertTrue(is_preview_blocked(normalize_url("https://frappe.io")))
+		self.assertTrue(is_preview_blocked(normalize_url("http://frappe.io/")))
+		self.assertTrue(is_preview_blocked(normalize_url("https://frappe.io/?utm_source=x")))
+		# Deeper paths keep their previews — that is the point.
+		self.assertFalse(is_preview_blocked(normalize_url("https://frappe.io/blog/xyz")))
+
+	def test_get_previews_hides_stored_docs_for_blocked_urls(self):
+		from raven.api.preview_links import get_previews
+
+		url = f"https://blocked-{frappe.generate_hash(length=8)}.example.com/page"
+		normalized = normalize_url(url)
+		preview = frappe.new_doc("Raven Link Preview")
+		preview.url = normalized
+		preview.provider = "Other"
+		preview.status = "Fetched"
+		preview.title = "Stored before the block"
+		preview.insert(ignore_permissions=True)
+
+		# Visible before the block, gone after — the doc predates the
+		# block and must not leak through reads.
+		self.assertIsNotNone(get_previews([url])[url])
+		self.set_blocklist([(normalized, 1)])
+		self.assertIsNone(get_previews([url])[url])
+
+
 EXTRA_TEST_RECORD_DEPENDENCIES = ["User", "Raven User"]
 
 

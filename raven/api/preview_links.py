@@ -3,7 +3,7 @@ import json
 import frappe
 from frappe import _
 
-from raven.links import normalize_url
+from raven.links import is_preview_blocked, normalize_url
 
 
 @frappe.whitelist(methods=["GET"])
@@ -32,7 +32,12 @@ def get_preview_link(urls: list[str] | str):
 	# Previews are stored under the normalized spelling. Normalize each raw
 	# URL the same way, then look them all up in one query.
 	normalized_by_raw = {url: normalize_url(url) for url in urls}
-	lookup = [normalized for normalized in normalized_by_raw.values() if normalized]
+	# The blocklist beats stored data — a doc may predate the block.
+	lookup = [
+		normalized
+		for normalized in normalized_by_raw.values()
+		if normalized and not is_preview_blocked(normalized)
+	]
 
 	stored = {}
 	if lookup:
@@ -90,7 +95,12 @@ def get_previews(urls: list[str] | str):
 	urls = urls[:MAX_PREVIEW_BATCH]
 
 	normalized_by_raw = {url: normalize_url(url) for url in urls}
-	lookup = {normalized for normalized in normalized_by_raw.values() if normalized}
+	# The blocklist beats stored data — a doc may predate the block.
+	lookup = {
+		normalized
+		for normalized in normalized_by_raw.values()
+		if normalized and not is_preview_blocked(normalized)
+	}
 
 	stored = {}
 	if lookup:

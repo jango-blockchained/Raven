@@ -187,8 +187,61 @@ def youtube_video_id(url: str) -> str | None:
 
 
 def is_preview_blocked(normalized_url: str) -> bool:
-	"""Links that must never get a preview. See NEVER_PREVIEW_VIDEO_IDS."""
-	return youtube_video_id(normalized_url) in NEVER_PREVIEW_VIDEO_IDS
+	"""
+	Links that must never get a preview: the one famous video, and
+	anything on the admin's blocklist (Raven Settings → Blocked Links).
+	Blocking is about the PREVIEW only — blocked links still get child
+	rows and providers, so the Links search still finds them.
+	"""
+	if youtube_video_id(normalized_url) in NEVER_PREVIEW_VIDEO_IDS:
+		return True
+
+	domains, exact = get_preview_blocklist()
+	if not domains and not exact:
+		return False
+
+	host = urlsplit(normalized_url).hostname or ""
+	if any(host == domain or host.endswith("." + domain) for domain in domains):
+		return True
+
+	# Exact rows match the whole URL but IGNORE the scheme: autolinked
+	# text ("frappe.io") and pasted links disagree about http vs https,
+	# and a block that only works for one spelling reads as flaky.
+	return _schemeless(normalized_url) in exact
+
+
+def get_preview_blocklist() -> tuple[set[str], set[str]]:
+	"""
+	The admin's blocklist, parsed. Two kinds of rows:
+	- match_exact unchecked (the default): block the whole domain,
+	  subdomains included. Returned in the first set, as hostnames.
+	- match_exact checked: block just that URL — "frappe.io" without
+	  killing the frappe.io/blog cards. Returned in the second set, as
+	  normalized scheme-less URLs.
+	"""
+	settings = frappe.get_cached_doc("Raven Settings")
+	domains: set[str] = set()
+	exact: set[str] = set()
+
+	for row in settings.blocked_links or []:
+		entry = (row.link or "").strip()
+		if not entry:
+			continue
+		with_scheme = entry if "://" in entry else f"https://{entry}"
+		if row.match_exact:
+			key = _schemeless(normalize_url(with_scheme) or "")
+			if key:
+				exact.add(key)
+		else:
+			hostname = urlsplit(with_scheme).hostname
+			if hostname:
+				domains.add(hostname.lower())
+
+	return domains, exact
+
+
+def _schemeless(url: str) -> str:
+	return url.split("://", 1)[-1] if url else ""
 
 
 def get_site_host() -> str:

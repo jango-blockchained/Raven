@@ -42,6 +42,11 @@ export const MessageLinkPreview = ({ message }: { message: Message }) => {
     //      React bails out of reconciling the whole embed subtree.
     return useMemo(() => {
         if (!href) return null
+        // Admin blocklist (Raven Settings → Blocked Links), domain rows
+        // only: kills embeds AND the card. Exact-URL rows need no client
+        // logic — the server never hands out their data, so the card
+        // never materialises (and those links have no embeds to kill).
+        if (isBlockedPreviewDomain(href)) return null
         for (const render of PROVIDERS) {
             const embed = render(href)
             if (embed) return embed
@@ -506,6 +511,25 @@ export const matchGoogleMeet = (href: string): { href: string; detail: string } 
  * host. Read lazily on FIRST use and cached: boot isn't populated yet when this
  * module is imported in dev, and it never changes within a page load.
  */
+/**
+ * Domain-wide preview blocks from Raven Settings, via boot (same lazy
+ * read as the Frappe Meet hosts below). Suffix matching, like the
+ * provider registry: blocking frappe.io covers its subdomains.
+ */
+let blockedPreviewDomains: string[] | null = null
+const isBlockedPreviewDomain = (href: string): boolean => {
+    if (blockedPreviewDomains === null) {
+        blockedPreviewDomains = (window.frappe?.boot?.link_preview_blocked_domains ?? []) as string[]
+    }
+    if (blockedPreviewDomains.length === 0) return false
+    try {
+        const host = new URL(href).hostname.toLowerCase()
+        return blockedPreviewDomains.some((domain) => host === domain || host.endsWith(`.${domain}`))
+    } catch {
+        return false
+    }
+}
+
 let frappeMeetHosts: string[] | null = null
 const getFrappeMeetHosts = (): string[] => {
     if (frappeMeetHosts) return frappeMeetHosts
