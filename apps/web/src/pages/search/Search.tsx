@@ -188,7 +188,7 @@ export default function Search() {
             <ListFilter />
             {_("Filters")}
             {activeFilterCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-surface-gray-10 px-1 text-[10px] leading-none text-ink-blue-1">
+                <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-surface-gray-10 px-1 text-[10px] leading-none text-ink-gray-1">
                     {activeFilterCount}
                 </span>
             )}
