@@ -66,7 +66,11 @@ const AdminLinkSettingsRows = () => {
                     <MeetSitesDialog
                         trigger={
                             <Button variant="subtle" size="sm">
-                                {meetHostCount > 0 ? _('{0} sites', [String(meetHostCount)]) : _('Configure')}
+                                {meetHostCount === 0
+                                    ? _('Configure')
+                                    : meetHostCount === 1
+                                        ? _('1 site')
+                                        : _('{0} sites', [String(meetHostCount)])}
                             </Button>
                         }
                     />
@@ -91,7 +95,11 @@ const AdminLinkSettingsRows = () => {
                     <BlockedLinksDialog
                         trigger={
                             <Button variant="subtle" size="sm">
-                                {blockedCount > 0 ? _('{0} links blocked', [String(blockedCount)]) : _('Configure')}
+                                {blockedCount === 0
+                                    ? _('Configure')
+                                    : blockedCount === 1
+                                        ? _('1 link blocked')
+                                        : _('{0} links blocked', [String(blockedCount)])}
                             </Button>
                         }
                     />

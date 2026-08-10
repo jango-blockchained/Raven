@@ -277,6 +277,46 @@ class TestMessageLinkRows(IntegrationTestCase):
 		self.assertIn("https://github.com/frappe/frappe", filtered)
 		self.assertNotIn("https://vimeo.com/999", filtered)
 
+	def test_search_links_respects_workspace_membership(self):
+		from raven.api.search import search_links
+
+		# An OPEN channel in a workspace the test user is NOT a member of.
+		# The old permission clause ("Open OR channel member") leaked its
+		# links to everyone on the site.
+		suffix = frappe.generate_hash(length=8)
+		frappe.set_user("Administrator")
+		other_workspace = frappe.get_doc(
+			{
+				"doctype": "Raven Workspace",
+				"workspace_name": f"Foreign Workspace {suffix}",
+				"type": "Public",
+			}
+		).insert()
+		open_channel = frappe.get_doc(
+			{
+				"doctype": "Raven Channel",
+				"channel_name": f"foreign-open-{suffix}",
+				"type": "Open",
+				"workspace": other_workspace.name,
+			}
+		).insert()
+		frappe.get_doc(
+			{
+				"doctype": "Raven Message",
+				"channel_id": open_channel.name,
+				"message_type": "Text",
+				"text": '<p><a href="https://leak.example.com/secret">leak</a></p>',
+			}
+		).insert()
+
+		# The creator is a workspace member — they see the link.
+		admin_urls = [row.url for row in search_links(channel_id=open_channel.name)]
+		self.assertIn("https://leak.example.com/secret", admin_urls)
+
+		# The test user is not — they must see nothing, Open or not.
+		frappe.set_user("test@example.com")
+		self.assertEqual(search_links(channel_id=open_channel.name), [])
+
 	def test_process_message_links_upserts_preview_shells(self):
 		# Two raw spellings of the same video should share one preview doc.
 		message = self.make_message(
