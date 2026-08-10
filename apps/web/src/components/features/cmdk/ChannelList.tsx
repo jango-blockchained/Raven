@@ -52,14 +52,14 @@ const ChannelList = ({ text }: { text: string }) => {
                     className='cursor-pointer'
                 >
                     <ChannelIcon type={channel.type} className="h-4 w-4 shrink-0" />
-                    <span className="truncate text-base">{channel.channel_name}</span>
+                    <span className="truncate">{channel.channel_name}</span>
                     <div className='flex items-center gap-1 ml-auto'>
                         {channel.is_archived ? (
                             <Badge variant="subtle" size='sm'>
                                 {_("Archived")}
                             </Badge>
                         ) : null}
-                        <div className="flex items-center gap-1 text-xs text-ink-gray-4">
+                        <div className="flex items-center gap-1 text-xs font-normal text-ink-gray-4">
                             <span>{channel.workspace}</span>
                         </div>
                     </div>

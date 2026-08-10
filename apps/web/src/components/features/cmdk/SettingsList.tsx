@@ -50,7 +50,7 @@ const SettingsList = ({ text }: { text: string }) => {
                             setSettingsDrawerOpenTab(item.value)
                             setOpen(false)
                         }}
-                        className='cursor-pointer text-base'
+                        className='cursor-pointer'
                     >
                         <Icon className="h-4 w-4" />
                         {_(item.label)}

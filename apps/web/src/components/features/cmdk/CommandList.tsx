@@ -60,7 +60,7 @@ const QuickActions = ({ text }: { text: string }) => {
                         item.action()
                         setOpen(false)
                     }}
-                    className='cursor-pointer text-base'
+                    className='cursor-pointer'
                 >
                     {item.icon}
                     {item.label}

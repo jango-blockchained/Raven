@@ -98,7 +98,7 @@ const DMChannelItem = ({ user, channel }: { user: UserData; channel: DMChannelLi
             {user ? (
                 <UserAvatar user={user} size="xs" showStatusIndicator={false} showBotIndicator={false} />
             ) : null}
-            <span className="truncate text-base">{displayName}</span>
+            <span className="truncate">{displayName}</span>
             {user.type === 'Bot' && <Badge variant="subtle">
                 <BotIcon />
                 {_("Bot")}
@@ -129,7 +129,7 @@ const UserItem = ({ user }: { user: UserData }) => {
             className={user.enabled === 0 ? 'cursor-not-allowed' : 'cursor-pointer'}
         >
             <UserAvatar user={user} size="xs" showStatusIndicator={false} showBotIndicator={false} />
-            <span className="truncate text-base">{user.full_name}</span>
+            <span className="truncate">{user.full_name}</span>
             {user.type === 'Bot' && <Badge variant="subtle">
                 <BotIcon />
                 {_("Bot")}

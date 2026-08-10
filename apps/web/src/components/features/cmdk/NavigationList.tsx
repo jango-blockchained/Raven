@@ -75,7 +75,7 @@ const NavigationList = () => {
                             className='cursor-pointer'
                         >
                             <WorkspaceLogo workspace={workspace} className="size-4 rounded" />
-                            <span className="truncate text-base">{workspace.workspace_name}</span>
+                            <span className="truncate">{workspace.workspace_name}</span>
                             {workspace.name === firstSegment && (
                                 <Badge variant="subtle" size="sm" className="ml-auto">
                                     {_("Current")}
@@ -98,7 +98,7 @@ const NavigationList = () => {
                         className='cursor-pointer'
                     >
                         <item.icon className="h-4 w-4" />
-                        <span className="text-base">{_(item.label)}</span>
+                        <span>{_(item.label)}</span>
                     </CommandItem>
                 ))}
             </CommandGroup>
