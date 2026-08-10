@@ -38,12 +38,14 @@ export type MessageAction = {
     id: string
     label: string
     icon: LucideIcon
-    /** Fired on select. Absent when the action opens a `submenu` instead. */
+    /** Fired on select. The mobile action sheet always runs this, so actions that
+     *  carry a `submenu` for desktop must also say what a tap does on a phone
+     *  (usually: open the same content as its own bottom sheet). */
     onSelect?: () => void
     /**
-     * Renders a nested panel off the item rather than doing something: a real submenu
-     * in the desktop context menu / hover dropdown, a pushed subview in the mobile
-     * sheet. Hosts supply their own wrapper, so this is just the panel's content.
+     * Renders a nested panel off the item in the DESKTOP menus (context menu /
+     * hover dropdown). Hosts supply their own wrapper, so this is just the
+     * panel's content. The mobile sheet ignores it and runs onSelect.
      */
     submenu?: () => ReactNode
     /** Renders in the destructive style (delete). */
@@ -313,17 +315,19 @@ export const useMessageActions = (
             })
         }
         // Who has read it — sits with the other "view what happened to this message"
-        // actions, right under View reactions. A nested list, not a dialog: the reader
-        // list is a glance. Owner-only, but NOT gated on canInteract — it reads state,
-        // it doesn't mutate the channel, so it stays available in archived channels.
-        if (isOwner) {
-            organize.push({
-                id: "read-receipts",
-                label: _("View read receipts"),
-                icon: Eye,
-                submenu: () => <ReadReceiptsList message={message} />,
-            })
-        }
+        // actions, right under View reactions. Open to everyone in the channel, and
+        // NOT gated on canInteract — it reads state, it doesn't mutate the channel,
+        // so it stays available in archived channels. Desktop menus fly the list out
+        // as a nested submenu (a glance, no dialog needed); the mobile action sheet
+        // runs onSelect instead, opening it as its own bottom sheet — the same flow
+        // as View reactions.
+        organize.push({
+            id: "read-receipts",
+            label: _("Read by"),
+            icon: Eye,
+            onSelect: () => setDialog({ type: "read-receipts", message }),
+            submenu: () => <ReadReceiptsList message={message} />,
+        })
 
         // Owner-only, destructive last
         const owner: MessageAction[] = []

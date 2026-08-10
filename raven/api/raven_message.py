@@ -581,10 +581,12 @@ def get_message_readers(message_id: str):
 	Return the channel members who have read `message_id`.
 
 	A member has read the message when their `last_visit` watermark is at or
-	after the message's creation. Ordered most recent reader first. The message
-	author is excluded (they trivially read their own message). Accepted caveat:
-	in Open channels a user who can see the channel but has no Raven Channel
-	Member record (never visited) does not appear.
+	after the message's creation. Ordered most recent reader first. Only user
+	ids go out: `last_visit` is the member's latest catch-up time, not when
+	they read THIS message, so showing it would mislead. The message author is
+	excluded (they trivially read their own message). Accepted caveat: in Open
+	channels a user who can see the channel but has no Raven Channel Member
+	record (never visited) does not appear.
 	"""
 	message = frappe.db.get_value(
 		"Raven Message", message_id, ["channel_id", "creation", "owner"], as_dict=True
@@ -597,7 +599,7 @@ def get_message_readers(message_id: str):
 	member = frappe.qb.DocType("Raven Channel Member")
 	readers = (
 		frappe.qb.from_(member)
-		.select(member.user_id, member.last_visit)
+		.select(member.user_id)
 		.where(member.channel_id == message.channel_id)
 		.where(member.last_visit >= message.creation)
 		.where(member.user_id != message.owner)

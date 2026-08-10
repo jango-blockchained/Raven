@@ -488,15 +488,10 @@ export const MessageActionMenu = ({
         }
     }
 
-    /** The mobile sheet shows the action list, the full emoji picker, or a pushed
-     *  action subview (the mobile stand-in for a desktop submenu). */
-    const [sheetView, setSheetView] = useState<"actions" | "picker" | "submenu">("actions")
-    /** Which action's submenu is pushed — held by id so it survives the groups being
-     *  rebuilt (a reaction/pin arriving mid-sheet returns new action objects). */
-    const [submenuActionID, setSubmenuActionID] = useState<string | null>(null)
-    // Only while a subview is actually pushed — this component re-renders on every hover
-    // move across the stream, and flattening the groups each time would be pure waste.
-    const submenuAction = submenuActionID ? actionGroups.flat().find((action) => action.id === submenuActionID) : undefined
+    /** The mobile sheet shows either the action list or the full emoji picker.
+     *  Submenu actions don't push a subview here — they run onSelect, which opens
+     *  their own bottom sheet (see useMessageActions' read-receipts action). */
+    const [sheetView, setSheetView] = useState<"actions" | "picker">("actions")
     // Closing ONLY dismisses the sheet — the view it was showing stays until the next open.
     // Resetting on the way out (directly, or off vaul's onAnimationEnd, which fires before
     // the sheet has finished sliding down) swaps the panel back to the action list
@@ -508,7 +503,6 @@ export const MessageActionMenu = ({
     useEffect(() => {
         if (!target) return
         setSheetView("actions")
-        setSubmenuActionID(null)
     }, [target?.name])
 
     // The open sheet owns the system back gesture (atom-driven overlay above
@@ -636,11 +630,6 @@ export const MessageActionMenu = ({
                             >
                                 <ReactionPickerPanel perLine={10} message={menuMessage} onClose={closeSheet} />
                             </div>
-                        ) : sheetView === "submenu" && submenuAction?.submenu ? (
-                            // A desktop submenu has nowhere to fly out to on a phone, so the
-                            // sheet swaps to the panel alone — no header, no back button: the
-                            // sheet's own handle/backdrop is the way out, same as the picker.
-                            <div className="flex flex-col gap-1 p-3 pb-6">{submenuAction.submenu()}</div>
                         ) : (
                             <div className="flex flex-col gap-1 p-3 pb-6">
                                 {/* Quick reactions — one tap reacts and dismisses; the smiley
@@ -692,15 +681,7 @@ export const MessageActionMenu = ({
                                     <Fragment key={index}>
                                         {index > 0 && <div className="my-1 border-t border-outline-gray-2" />}
                                         {group.map((action) => (
-                                            <SheetActionRow
-                                                key={action.id}
-                                                action={action}
-                                                onDone={closeSheet}
-                                                onOpenSubmenu={() => {
-                                                    setSubmenuActionID(action.id)
-                                                    setSheetView("submenu")
-                                                }}
-                                            />
+                                            <SheetActionRow key={action.id} action={action} onDone={closeSheet} />
                                         ))}
                                     </Fragment>
                                 ))}
@@ -713,26 +694,13 @@ export const MessageActionMenu = ({
     )
 }
 
-const SheetActionRow = ({
-    action,
-    onDone,
-    onOpenSubmenu,
-}: {
-    action: MessageAction
-    onDone: () => void
-    /** Submenu actions push a subview instead of running and dismissing the sheet. */
-    onOpenSubmenu: () => void
-}) => (
+const SheetActionRow = ({ action, onDone }: { action: MessageAction; onDone: () => void }) => (
     <Button
         variant="ghost"
         size="lg"
         theme={action.danger ? "red" : "gray"}
         className={cn("w-full justify-start gap-3", action.danger ? "active:bg-surface-red-2" : "active:bg-surface-gray-2")}
         onClick={() => {
-            if (action.submenu) {
-                onOpenSubmenu()
-                return
-            }
             action.onSelect?.()
             onDone()
         }}
