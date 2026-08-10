@@ -866,6 +866,10 @@ class RavenMessage(Document):
 						"channel_id": self.channel_id,
 						"file": self.file,
 						"file_size": self.file_size,
+						# Without this, an edit that changes a link keeps
+						# rendering the OLD link's preview — the client keeps
+						# whatever links string it already had.
+						"links": self.links,
 						"poll_id": self.poll_id,
 						"message_type": self.message_type,
 						"is_edited": 1 if self.is_edited else 0,
@@ -913,6 +917,10 @@ class RavenMessage(Document):
 						"content": self.content,
 						"file": self.file,
 						"file_size": self.file_size,
+						# Receivers append live messages from THIS payload —
+						# without links, their preview cards never render
+						# until the window refetches.
+						"links": self.links,
 						"message_type": self.message_type,
 						"is_edited": 1 if self.is_edited else 0,
 						"is_thread": self.is_thread,
