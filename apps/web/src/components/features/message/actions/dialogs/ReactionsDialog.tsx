@@ -10,6 +10,10 @@ import type { ReactionObject } from "@raven/types/common/ChatStream"
 import type { Message } from "@raven/types/common/Message"
 import type { UserData } from "@db"
 import _ from "@lib/translate"
+import { Badge } from "@components/ui/badge"
+
+/** A custom emoji's readable name, shortcode-style. */
+const customEmojiLabel = (reaction: ReactionObject) => `:${reaction.emoji_name}:`
 
 /** Renders one reaction's glyph — a custom emoji image, or the Apple-set native emoji. */
 const EmojiGlyph = ({ reaction }: { reaction: ReactionObject }) =>
@@ -28,7 +32,7 @@ const ReactorRow = ({ userID, trailing }: { userID: string; trailing?: React.Rea
     const user = useUser(userID)
     const display = user ?? ({ name: userID, full_name: userID } as UserData)
     return (
-        <div className="flex items-center gap-2 py-2">
+        <div className="flex items-center gap-2 py-2 min-h-11">
             <UserAvatar user={display} size="sm" showStatusIndicator={false} />
             <span className="flex-1 truncate text-sm text-ink-gray-8">{display.full_name || display.name}</span>
             {trailing}
@@ -55,12 +59,12 @@ const ReactionsBody = ({ reactions }: { reactions: ReactionObject[] }) => {
 
     return (
         <Tabs defaultValue="all">
-            <TabsList className="flex w-full justify-start overflow-x-auto overflow-y-hidden">
-                <TabsTrigger value="all" className="gap-2">
+            <TabsList className="w-full">
+                <TabsTrigger value="all" className="gap-2 w-full">
                     {_("All")} <span className="text-ink-gray-5 text-sm-regular">{reactorsByUser.size}</span>
                 </TabsTrigger>
                 {reactions.map((reaction) => (
-                    <TabsTrigger key={reaction.emoji_name} value={reaction.emoji_name} className="gap-2">
+                    <TabsTrigger key={reaction.emoji_name} value={reaction.emoji_name} className="gap-2 w-full">
                         <EmojiGlyph reaction={reaction} />
                         <span className="text-ink-gray-5 text-sm-regular">{reaction.count}</span>
                     </TabsTrigger>
@@ -91,6 +95,14 @@ const ReactionsBody = ({ reactions }: { reactions: ReactionObject[] }) => {
 
             {reactions.map((reaction) => (
                 <TabsContent key={reaction.emoji_name} value={reaction.emoji_name} className="max-h-80 min-h-80 overflow-y-auto px-4 md:px-6">
+                    {/* A custom emoji's glyph doesn't say what it is — its panel opens
+                        with the name. Native emojis need no caption. */}
+                    {reaction.is_custom ? (
+                        <Badge variant="subtle" size='lg'>
+                            <img src={reaction.reaction} alt={reaction.emoji_name} loading="lazy" className="size-4 object-contain" />
+                            {customEmojiLabel(reaction)}
+                        </Badge>
+                    ) : null}
                     {reaction.users.map((userID) => (
                         <ReactorRow key={userID} userID={userID} />
                     ))}

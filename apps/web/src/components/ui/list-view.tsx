@@ -591,7 +591,7 @@ function ListViewInner<TData>({
                                 data-index={virtualRow.index}
                                 role="row"
                                 className={cn(
-                                    "absolute top-0 ltr:left-0 rtl:right-0 w-full min-w-0 rounded px-3 transition-colors",
+                                    "absolute top-0 group ltr:left-0 rtl:right-0 w-full min-w-0 rounded px-3 transition-colors",
                                     // virtualRow.index > 0 && "border-t border-outline-gray-1",
                                     !row.getIsSelected() && "hover:bg-surface-gray-1",
                                     row.getIsSelected() && "bg-surface-gray-2 hover:bg-surface-gray-3",

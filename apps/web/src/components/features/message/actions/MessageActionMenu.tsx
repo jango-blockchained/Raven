@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from "react"
 import { useAtom, useAtomValue, useSetAtom } from "jotai"
+import { useHistoryBackClose } from "@hooks/useHistoryBackClose"
 import {
     ContextMenu,
     ContextMenuContent,
@@ -290,6 +291,9 @@ export const MessageActionMenu = ({
 
     const onPointerDown = (event: React.PointerEvent) => {
         if (!isMobile || event.pointerType !== "touch") return
+        // Inside the inline editor nothing arms — no long-press, no press
+        // highlight, no swipe-to-reply (see inInlineEditor).
+        if (inInlineEditor(event.target)) return
         // A fresh touch means any prior long-press suppression is stale.
         suppressClicksUntilRef.current = 0
         const block = blockFromEvent(event)
@@ -404,6 +408,24 @@ export const MessageActionMenu = ({
         event.stopPropagation()
     }
 
+    /** Touch/click landed inside the INLINE EDIT COMPOSER: every message gesture
+     *  must stand down there. Long-press belongs to the OS text tools (paste,
+     *  select), double-tap to word selection, right-click to the native menu —
+     *  hijacking any of them makes editing feel broken. */
+    const inInlineEditor = (target: EventTarget | null) =>
+        !!(target as HTMLElement | null)?.closest?.("[data-raven-editor]")
+
+    /** Right-click inside the inline editor must reach the BROWSER — paste and
+     *  the selection actions live in the native menu. A plain early-return in
+     *  the bubble handler below is NOT enough: Radix's trigger listener is
+     *  composed onto the same element and opens the custom menu unless the
+     *  event is defaultPrevented — but preventDefault would suppress the
+     *  native menu too. Capture-phase stopPropagation is the one move that
+     *  starves both bubble listeners while leaving the browser default alone. */
+    const onContextMenuCapture = (event: React.MouseEvent) => {
+        if (inInlineEditor(event.target)) event.stopPropagation()
+    }
+
     /** Right-click (desktop) and long-press (Android fires contextmenu for it; iOS path above). */
     const onContextMenu = (event: React.MouseEvent) => {
         const message = messageFromEvent(event)
@@ -449,7 +471,10 @@ export const MessageActionMenu = ({
         if (!isMobile) return
         const element = event.target as HTMLElement
         // A first tap on an interactive element already did something — don't
-        // let a quick second tap also fire the reaction.
+        // let a quick second tap also fire the reaction. The inline editor is
+        // contenteditable (no input/textarea to match): double-tap there is
+        // word selection, not a reaction.
+        if (inInlineEditor(element)) return
         if (element.closest("a, button, [role='button'], input, textarea")) return
         const block = blockFromEvent(event)
         if (!block) return
@@ -486,6 +511,10 @@ export const MessageActionMenu = ({
         setSubmenuActionID(null)
     }, [target?.name])
 
+    // The open sheet owns the system back gesture (atom-driven overlay above
+    // the routes — back would otherwise navigate the page underneath it).
+    useHistoryBackClose(isMobile && !!target && target.channel_id === channelID, closeSheet)
+
     const quickEmojis = useAtomValue(QuickEmojisAtom)
 
     return (
@@ -498,6 +527,7 @@ export const MessageActionMenu = ({
                 <div
                     ref={wrapperRef}
                     className="relative flex min-h-0 min-w-0 flex-1 flex-col [touch-action:manipulation]"
+                    onContextMenuCapture={onContextMenuCapture}
                     onContextMenu={onContextMenu}
                     onClick={onClick}
                     onClickCapture={onClickCapture}

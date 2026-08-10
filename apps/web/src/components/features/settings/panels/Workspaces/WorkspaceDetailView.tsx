@@ -12,6 +12,7 @@ import {
 } from "@components/ui/settings-dialog"
 import type { RavenWorkspace } from "@raven/types/Raven/RavenWorkspace"
 import _ from "@lib/translate"
+import { useWorkspaces } from "@hooks/useWorkspaces"
 import WorkspaceEditForm from "./WorkspaceEditForm"
 import WorkspaceActionMenu from "./WorkspaceActionMenu"
 import WorkspaceMembers from "./WorkspaceMembers"
@@ -61,6 +62,10 @@ const WorkspaceDetailContent = ({
 }: { data: RavenWorkspace; mutate: () => void; onBack: () => void }) => {
     const { updateDoc, loading, error } = useFrappeUpdateDoc<WorkspaceFormData>()
     const { mutate: globalMutate } = useSWRConfig()
+    // Anyone can open a workspace; only its admins can change it. The doc from
+    // get_doc carries no membership info, so admin-ness comes from the list API.
+    const { workspaces } = useWorkspaces()
+    const canEdit = !!workspaces.find((workspace) => workspace.name === data.name)?.is_admin
 
     const methods = useForm<WorkspaceFormData>({ defaultValues: toFormDefaults(data) })
     const isDirty = methods.formState.isDirty
@@ -80,18 +85,20 @@ const WorkspaceDetailContent = ({
             <form onSubmit={methods.handleSubmit(onSubmit)} className="contents">
                 <SettingsPanelHeader
                     actions={
-                        <div className="flex items-center gap-2">
-                            <WorkspaceActionMenu
-                                workspaceID={data.name}
-                                workspaceName={data.workspace_name}
-                                onDeleted={onBack}
-                                onRenamed={() => onBack()}
-                            />
-                            <Button type="submit" size="sm" disabled={loading}>
-                                {loading && <Spinner />}
-                                {loading ? _("Saving") : _("Save")}
-                            </Button>
-                        </div>
+                        canEdit ? (
+                            <div className="flex items-center gap-2">
+                                <WorkspaceActionMenu
+                                    workspaceID={data.name}
+                                    workspaceName={data.workspace_name}
+                                    onDeleted={onBack}
+                                    onRenamed={() => onBack()}
+                                />
+                                <Button type="submit" size="sm" disabled={loading}>
+                                    {loading && <Spinner />}
+                                    {loading ? _("Saving") : _("Save")}
+                                </Button>
+                            </div>
+                        ) : null
                     }
                 >
                     <SettingsPanelTitle className="items-center h-auto -ml-2">
@@ -107,7 +114,7 @@ const WorkspaceDetailContent = ({
                 </SettingsPanelHeader>
                 <SettingsPanelContent className="min-h-0 gap-4">
                     {error && <ErrorBanner error={error} />}
-                    <Tabs defaultValue="details" className="flex flex-col flex-1 min-h-0">
+                    <Tabs defaultValue="details">
                         <TabsList>
                             <TabsTrigger value="details">
                                 <LayoutPanelTopIcon /> {_("Details")}
@@ -117,7 +124,15 @@ const WorkspaceDetailContent = ({
                             </TabsTrigger>
                         </TabsList>
                         <TabsContent value="details" className="pt-4">
-                            <WorkspaceEditForm />
+                            {/* The fieldset covers the plain form controls. It is NOT enough on
+                                its own: it suppresses `click`, but `pointerdown` still fires on a
+                                disabled control, so a Radix trigger (which opens on pointerdown)
+                                would still open — and its content is portalled outside the
+                                fieldset, beyond the disable. Anything Radix-triggered therefore
+                                takes an explicit `disabled` prop as well. */}
+                            <fieldset disabled={!canEdit} className="contents">
+                                <WorkspaceEditForm disabled={!canEdit} />
+                            </fieldset>
                         </TabsContent>
                         <TabsContent value="members" className="pt-4 flex-1 min-h-0">
                             <WorkspaceMembers workspaceID={data.name} />

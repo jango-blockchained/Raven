@@ -3,20 +3,15 @@ import { CheckCheck, MessageSquare } from "lucide-react"
 import { cn } from "@lib/utils"
 import { hapticTick } from "@utils/haptics"
 import { type NotificationObject } from "@stores/notifications/reducers"
+import { LeavingRow } from "@components/common/LeavingRow"
 import { UserAvatar } from "@components/features/message/UserAvatar"
 import { ChannelIcon } from "@components/common/ChannelIcon/ChannelIcon"
 import { formatRelativeDate } from "@lib/date"
+import { formatNameList } from "@lib/nameList"
 import _ from "@lib/translate"
 import RichTextRenderer from "@components/features/message/renderers/RichTextRenderer"
 import type { UserData } from "@db"
 import type { SelectedNotification } from "./NotificationChat"
-
-export const formatReactorNames = (names: string[], total: number): string => {
-    if (total === 1) return names[0]
-    if (total === 2) return _(`{0} and {1}`, [names[0], names[1]])
-    if (total === 3) return _(`{0}, {1} and {2}`, [names[0], names[1], names[2]])
-    return _(`{0}, {1} and {2} others`, [names[0], names[1], String(total - 2)])
-}
 
 const ChannelContext = ({
     notification,
@@ -71,8 +66,10 @@ const rowShellClasses = (isRead: boolean | number, isActive: boolean) => cn(
 const NotificationRowLayout = ({
     isRead,
     isActive,
+    leaving = false,
     onClick,
     onMarkRead,
+    swipeDismisses = false,
     avatar,
     name,
     relativeDate,
@@ -81,9 +78,16 @@ const NotificationRowLayout = ({
 }: {
     isRead: boolean | number
     isActive: boolean
+    /** Read and moved-on-from: play the exit (fade + slide + collapse), the
+     *  list drops the row when the animation ends. */
+    leaving?: boolean
     onClick: () => void
     /** Swipe-right target (touch). Only armed while the row is unread. */
     onMarkRead?: () => void
+    /** This view REMOVES read rows (unread-only): a committed swipe carries the
+     *  row off-screen instead of snapping back — it's about to leave anyway.
+     *  Views that keep read rows snap back and just restyle. */
+    swipeDismisses?: boolean
     avatar: React.ReactNode
     name: string
     relativeDate: string
@@ -150,7 +154,12 @@ const NotificationRowLayout = ({
             swipe.lastX = event.clientX
             swipe.lastTime = event.timeStamp
 
-            const offset = Math.min(Math.max(dx, 0), SWIPE_READ_MAX_PX)
+            // Dismissing views follow the finger all the way across (the row is
+            // being thrown out — a wall mid-drag reads as resistance). Views
+            // that snap back keep the short cap: it's a hint gesture there.
+            const offset = swipeDismisses
+                ? Math.max(dx, 0)
+                : Math.min(Math.max(dx, 0), SWIPE_READ_MAX_PX)
             if (rowRef.current) rowRef.current.style.transform = `translateX(${offset}px)`
             if (glyphRef.current) glyphRef.current.style.opacity = String(Math.min(offset / SWIPE_READ_COMMIT_PX, 1))
         }
@@ -162,21 +171,6 @@ const NotificationRowLayout = ({
         swipeRef.current = null
         if (!swipe.active) return
 
-        // Snap the row back (animated), then drop the inline styles.
-        const row = rowRef.current
-        if (row) {
-            row.style.transition = "transform 150ms ease-out"
-            row.style.transform = ""
-            window.setTimeout(() => {
-                row.style.transition = ""
-            }, 200)
-        }
-        const glyph = glyphRef.current
-        if (glyph) {
-            glyph.style.transition = "opacity 150ms ease-out"
-            glyph.style.opacity = "0"
-        }
-
         suppressClickUntilRef.current = performance.now() + SWIPE_READ_CLICK_GUARD_MS
 
         // Commit on distance OR a rightward flick (same rule as swipe-to-reply).
@@ -185,6 +179,36 @@ const NotificationRowLayout = ({
             event.type !== "pointercancel" &&
             (dx >= SWIPE_READ_COMMIT_PX ||
                 (swipe.velocity > SWIPE_READ_FLICK_VELOCITY && dx >= SWIPE_READ_FLICK_MIN_PX))
+
+        const row = rowRef.current
+        const glyph = glyphRef.current
+        if (commit && swipeDismisses) {
+            // The swipe finishes what it started: the row keeps travelling off
+            // the right edge while the leave pipeline (expedited — no linger for
+            // swipes) collapses the gap behind it. No snap-back, no cleanup:
+            // the row is about to unmount.
+            if (row) {
+                row.style.transition = "transform 200ms ease-out, opacity 200ms ease-out"
+                row.style.transform = `translateX(${(row.parentElement?.clientWidth ?? 400) + 32}px)`
+                row.style.opacity = "0"
+            }
+        } else {
+            // Snap the row back (animated), then drop the inline styles. Also
+            // the commit path in views that KEEP read rows — the row stays,
+            // restyled as read.
+            if (row) {
+                row.style.transition = "transform 150ms ease-out"
+                row.style.transform = ""
+                window.setTimeout(() => {
+                    row.style.transition = ""
+                }, 200)
+            }
+        }
+        if (glyph) {
+            glyph.style.transition = "opacity 150ms ease-out"
+            glyph.style.opacity = "0"
+        }
+
         if (commit) {
             hapticTick()
             onMarkRead?.()
@@ -217,6 +241,7 @@ const NotificationRowLayout = ({
     }
 
     return (
+        <LeavingRow leaving={leaving}>
         <div
             role="button"
             tabIndex={0}
@@ -261,6 +286,7 @@ const NotificationRowLayout = ({
                 </div>
             </div>
         </div>
+        </LeavingRow>
     )
 }
 
@@ -317,15 +343,21 @@ export const MentionItem = memo(({
     notification,
     sender,
     isActive,
+    leaving,
     onSelect,
     onMarkRead,
+    swipeDismisses,
 }: {
     notification: NotificationObject
     sender?: UserData
     isActive: boolean
+    /** Mid-exit from the unread view — renders collapsing (see NotificationRowLayout). */
+    leaving?: boolean
     onSelect: (selection: SelectedNotification) => void
     /** Swipe-right on an unread row marks it read without opening it. */
     onMarkRead?: (messageID: string) => void
+    /** See NotificationRowLayout — unread-only views dismiss on swipe. */
+    swipeDismisses?: boolean
 }) => {
     const handleClick = () => {
         onSelect({
@@ -340,8 +372,10 @@ export const MentionItem = memo(({
         <NotificationRowLayout
             isRead={notification.is_read}
             isActive={isActive}
+            leaving={leaving}
             onClick={handleClick}
             onMarkRead={onMarkRead ? () => onMarkRead(notification.message_id) : undefined}
+            swipeDismisses={swipeDismisses}
             avatar={
                 <div className="relative shrink-0">
                     {sender && <UserAvatar user={sender} size="md" />}
@@ -363,26 +397,32 @@ export const ReactionItem = memo(({
     notification,
     usersById,
     isActive,
+    leaving,
     onSelect,
     onMarkRead,
+    swipeDismisses,
 }: {
     notification: NotificationObject
     usersById: Map<string, UserData>
     isActive: boolean
+    /** Mid-exit from the unread view — renders collapsing (see NotificationRowLayout). */
+    leaving?: boolean
     onSelect: (selection: SelectedNotification) => void
     /** Swipe-right on an unread row marks it read without opening it. */
     onMarkRead?: (messageID: string) => void
+    /** See NotificationRowLayout — unread-only views dismiss on swipe. */
+    swipeDismisses?: boolean
 }) => {
     const reactors = notification.reactors ?? []
     const total = reactors.length
-    // formatReactorNames uses 3 names when total<=3, else only 2.
+    // formatNameList uses 3 names when total<=3, else only 2.
     const namesNeeded = total <= 3 ? total : 2
     // O(1) Map lookups against the shared users snapshot — avoids a per-row
     // Dexie `useLiveQuery` subscription (would be N observers for N rows).
     const reactorsData = reactors.slice(0, namesNeeded).map((id) => usersById.get(id))
 
     const names = reactorsData.map((u, i) => u?.full_name ?? reactors[i])
-    const reactorText = formatReactorNames(names, total)
+    const reactorText = formatNameList(names, total)
     const displayReactions = (notification.reactions ?? []).slice(0, 5)
 
     const handleClick = () => {
@@ -399,8 +439,10 @@ export const ReactionItem = memo(({
         <NotificationRowLayout
             isRead={notification.is_read}
             isActive={isActive}
+            leaving={leaving}
             onClick={handleClick}
             onMarkRead={onMarkRead ? () => onMarkRead(notification.message_id) : undefined}
+            swipeDismisses={swipeDismisses}
             avatar={
                 <div className="relative shrink-0 w-8 h-8">
                     {reactorsData[0] && (

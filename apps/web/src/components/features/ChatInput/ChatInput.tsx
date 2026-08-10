@@ -256,6 +256,15 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
             return
         }
 
+        // A failed upload blocks a DIRECT send too, not just a held one — the
+        // user staged that file as part of this message, so sending without it
+        // silently ships something different from what they wrote. Same toast
+        // as the held path (below) so the two flows can't drift.
+        if (hasFailedUploads) {
+            toast.error(_("Some files failed to upload. Remove them and try again."))
+            return
+        }
+
         dispatchSend()
     }, [editor, editorHasContent, files, hasUploadsInFlight, hasFailedUploads, dispatchSend, setPendingSend])
 

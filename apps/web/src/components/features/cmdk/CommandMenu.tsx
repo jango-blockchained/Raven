@@ -14,6 +14,7 @@ import SettingsList from './SettingsList'
 import QuickActions from './CommandList'
 import NavigationList from './NavigationList'
 import { commandMenuOpenAtom } from './atoms'
+import { useHistoryBackClose } from '@hooks/useHistoryBackClose'
 import { useChannel } from '@hooks/useChannel'
 import { useUser } from '@hooks/useUser'
 import { ChannelIcon } from '@components/common/ChannelIcon/ChannelIcon'
@@ -29,6 +30,13 @@ const CommandMenu = () => {
         enableOnFormTags: true,
         enableOnContentEditable: true,
     })
+
+    // MOBILE only: the open palette drawer owns the system back gesture
+    // (atom-driven overlay above the routes). Every selection closes AND
+    // navigates in one handler — the hook's history.state guard is what keeps
+    // that from popping the destination. Desktop keeps browser-back as plain
+    // navigation (no gesture problem to solve there).
+    useHistoryBackClose(isMobile && open, () => setOpen(false))
 
     if (isMobile) {
         return (
@@ -111,9 +119,8 @@ const CommandPalette = ({ inDrawer = false }: { inDrawer?: boolean }) => {
                 placeholder={isMobile ? _("Search") : _("Search or type a command")}
             />
             <CommandList ref={listRef} className={inDrawer ? "flex-1 overflow-auto max-h-none pb-6" : "max-h-105"}>
-
-                <ChannelList text={text} />
                 <UserList text={text} />
+                <ChannelList text={text} />
                 {/* Desktop-only, like Settings/Commands: mobile already has the
                     long-press workspace drawer and the footer tabs for these. */}
                 {!isMobile && <NavigationList />}

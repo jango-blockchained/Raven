@@ -56,6 +56,7 @@ export default function Notifications() {
 
     const {
         rows: currentData,
+        leavingIds,
         isLoading,
         error,
         hasMore,
@@ -63,7 +64,9 @@ export default function Notifications() {
         refresh,
         markMessageRead,
         markAllRead,
-    } = useNotificationList(tab, { unreadOnly: showUnread })
+        // activeMessageID exempts the OPEN notification from the unread view's
+        // leave pipeline — a read row only slides out once the user moves on.
+    } = useNotificationList(tab, { unreadOnly: showUnread, activeMessageID: selectedMessageID })
 
     const unreadCount = useUnreadNotificationsCount()
 
@@ -93,6 +96,12 @@ export default function Notifications() {
             },
         )
     }, [markMessageRead, navigate, hasSelection])
+
+    // Swipe-to-read expedites the leave: the gesture already carried the row
+    // off-screen, so the pipeline skips its linger and closes the gap now.
+    const onSwipeRead = useCallback((messageID: string) => {
+        markMessageRead(messageID, { expedite: true })
+    }, [markMessageRead])
 
     const onShowUnreadChange = useCallback((checked: boolean) => {
         setShowUnread(checked)
@@ -206,16 +215,20 @@ export default function Notifications() {
                                                 notification={item}
                                                 sender={usersById.get(item.owner)}
                                                 isActive={selectedMessageID === item.message_id}
+                                                leaving={leavingIds.has(item.name)}
+                                                swipeDismisses={showUnread}
                                                 onSelect={onSelect}
-                                                onMarkRead={markMessageRead}
+                                                onMarkRead={onSwipeRead}
                                             />
                                         ) : (
                                             <ReactionItem
                                                 notification={item}
                                                 usersById={usersById}
                                                 isActive={selectedMessageID === item.message_id}
+                                                leaving={leavingIds.has(item.name)}
+                                                swipeDismisses={showUnread}
                                                 onSelect={onSelect}
-                                                onMarkRead={markMessageRead}
+                                                onMarkRead={onSwipeRead}
                                             />
                                         )
                                     }

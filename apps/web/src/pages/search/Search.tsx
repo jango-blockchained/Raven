@@ -2,10 +2,13 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { Outlet, useMatch, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDebounceValue } from 'usehooks-ts'
 import { useEscHotkey } from '@hooks/useEscHotkey'
-import { Search as SearchIcon, X } from 'lucide-react'
+import { ListFilter, Search as SearchIcon, X } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@components/ui/popover'
+import { Drawer, DrawerContent, DrawerTitle, DrawerTrigger } from '@components/ui/drawer'
 
 import SearchTabsBar, { SearchTab } from '@components/features/search/SearchTabsBar'
 import { SearchFiltersBar } from '@components/features/search/SearchFiltersBar'
+import { SearchFiltersSheet } from '@components/features/search/SearchFiltersSheet'
 import { SearchActiveBadges } from '@components/features/search/SearchActiveBadges'
 import SearchMessageResults from '@components/features/search/results/SearchMessageResults'
 import { MessageListSkeleton } from '@components/features/dm-channel/DirectMessagePageSkeleton'
@@ -24,12 +27,13 @@ import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@c
 import { SearchFilters } from '@components/features/search/types'
 
 import { useChannelList } from "@stores/channels/useChannelList"
-import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '@db'
+import { useUsers } from '@hooks/useUsers'
 import { Input } from '@components/ui/input'
+import { Button } from '@components/ui/button'
 import { useIsMobile } from '@hooks/use-mobile'
 import { cn } from '@lib/utils'
 import _ from '@lib/translate'
+import { InputGroup, InputGroupAddon, InputGroupButton } from '@components/ui/input-group'
 
 export default function Search() {
     // All search state lives in URL params so links like /search?q=foo&channel=general work.
@@ -58,18 +62,20 @@ export default function Search() {
     const channelFromURL = searchParams.get('channel') ?? ''
     const userFromURL = searchParams.get('user') ?? ''
     const fileTypeFromURL = searchParams.get('file_type')?.split(',').filter(Boolean) ?? []
-    const channelTypeFromURL = searchParams.get('channel_type') ?? ''
-    const isDMFromURL = searchParams.get('is_dm') ? 1 : null
-    const excludeDMs = channelTypeFromURL === 'Private' ? 0 : null
-    const isThreadMessageFromURL = searchParams.get('is_thread_message') ? 1 : null
-    const savedFromURL = searchParams.get('saved') ? 1 : null
-    const isPinnedFromURL = searchParams.get('is_pinned') ? 1 : null
-    const hasReactionsFromURL = searchParams.get('has_reactions') ? 1 : null
-    const mentionsMeFromURL = searchParams.get('mentions_me') ? 1 : null
+    const linkProviderFromURL = searchParams.get('link_provider')?.split(',').filter(Boolean) ?? []
     const tabFromURL = (searchParams.get('tab') as SearchTab) || 'messages'
 
     const [activeTab, setActiveTab] = useState<SearchTab>(tabFromURL)
     const isMobile = useIsMobile()
+
+    // How many filter CONTROLS are active — the dot on the filter button.
+    // A deep link that arrives with filters needs no auto-open anymore:
+    // the badge row below the tabs already explains the results.
+    const activeFilterCount =
+        (channelFromURL ? 1 : 0) +
+        (userFromURL ? 1 : 0) +
+        (fileTypeFromURL.length > 0 ? 1 : 0) +
+        (linkProviderFromURL.length > 0 ? 1 : 0)
 
     // The open result is ROUTE-driven (same as notifications): `/search/:channelID/:messageID`
     // renders NotificationChatRoute in the right pane's Outlet. Being a history entry means
@@ -109,19 +115,11 @@ export default function Search() {
         channel_id: channelFromURL,
         owner: userFromURL,
         file_type: fileTypeFromURL,
-        channel_type: channelTypeFromURL,
-        is_direct_message: isDMFromURL ?? excludeDMs,
-        saved: savedFromURL,
-        is_pinned: isPinnedFromURL,
-        is_thread: null,
-        is_thread_message: isThreadMessageFromURL,
-        is_bot_message: null,
-        has_reactions: hasReactionsFromURL,
-        mentions_me: mentionsMeFromURL,
+        link_provider: linkProviderFromURL,
     }
 
     const { channels, dmChannels } = useChannelList()
-    const users = useLiveQuery(() => db.users.toArray(), [])
+    const users = useUsers()
 
     // Don't fetch until there's something to search for — an empty query with no filters would
     // otherwise pull the whole corpus. Gating the render here means the result components (and
@@ -131,18 +129,17 @@ export default function Search() {
         !!filters.channel_id ||
         !!filters.owner ||
         (filters.file_type?.length ?? 0) > 0 ||
-        !!filters.channel_type ||
-        filters.is_direct_message != null ||
-        filters.saved != null ||
-        filters.is_pinned != null ||
-        filters.is_thread_message != null ||
-        filters.has_reactions != null ||
-        filters.mentions_me != null
+        (filters.link_provider?.length ?? 0) > 0
 
     const onTabChange = (tab: SearchTab) => {
         setActiveTab(tab)
         setSearchParams((prev) => {
             prev.set('tab', tab)
+            // Tab-scoped filters leave with their tab. They only ever
+            // narrowed their own tab's results, but their badges lingered
+            // on every tab — reading like a filter that isn't filtering.
+            if (tab !== 'files') prev.delete('file_type')
+            if (tab !== 'links') prev.delete('link_provider')
             return prev
         }, { replace: true })
     }
@@ -155,6 +152,22 @@ export default function Search() {
         }, { replace: true })
     }
 
+    const setFileTypeFilter = (fileTypes: string[]) => {
+        setSearchParams((prev) => {
+            if (fileTypes.length) prev.set('file_type', fileTypes.join(','))
+            else prev.delete('file_type')
+            return prev
+        }, { replace: true })
+    }
+
+    const setProviderFilter = (providers: string[]) => {
+        setSearchParams((prev) => {
+            if (providers.length) prev.set('link_provider', providers.join(','))
+            else prev.delete('link_provider')
+            return prev
+        }, { replace: true })
+    }
+
     const setUserFilter = (userId: string) => {
         setSearchParams((prev) => {
             if (userId && userId !== 'all') prev.set('user', userId)
@@ -163,25 +176,99 @@ export default function Search() {
         }, { replace: true })
     }
 
+    // Shared between the desktop popover and the mobile drawer, so the two
+    // surfaces can never drift apart in what they offer.
+    const filterButton = (
+        <Button
+            variant="subtle"
+            size="md"
+            aria-label={_('Filters')}
+            className="relative shrink-0"
+        >
+            <ListFilter />
+            {_("Filters")}
+            {activeFilterCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-surface-gray-10 px-1 text-[10px] leading-none text-ink-blue-1">
+                    {activeFilterCount}
+                </span>
+            )}
+        </Button>
+    )
+
+    const filtersPanel = (
+        <SearchFiltersBar
+            filters={filters}
+            channels={channels}
+            dmChannels={dmChannels}
+            onChannelChange={setChannelFilter}
+            onUserChange={setUserFilter}
+            onFileTypeChange={setFileTypeFilter}
+            onProviderChange={setProviderFilter}
+            showFileTypeFilter={activeTab === 'files'}
+            showProviderFilter={activeTab === 'links'}
+        />
+    )
+
     const searchInput = (
-        <div className="relative">
-            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-gray-4 pointer-events-none" />
-            <Input
-                value={searchValue}
-                onChange={(e) => setSearchValue(e.target.value)}
-                placeholder={_('Search messages, files, links, polls')}
-                className="pl-9 pr-9 h-9 md:h-8 text-xl md:text-base"
-                autoFocus={!isMobile}
-            />
-            {searchValue && (
-                <button
-                    type="button"
-                    onClick={() => setSearchValue('')}
-                    aria-label={_('Clear search')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-gray-4 hover:text-ink-gray-8"
-                >
-                    <X className="h-4 w-4" />
-                </button>
+        <div className="flex items-center gap-2">
+            <InputGroup className='pr-0.5'>
+                <InputGroupAddon>
+                    <SearchIcon className="h-4 w-4 text-ink-gray-4 pointer-events-none" />
+                </InputGroupAddon>
+                <Input
+                    value={searchValue}
+                    onChange={(e) => setSearchValue(e.target.value)}
+                    placeholder={_('Type to search')}
+                    // className="pl-9 pr-9 h-9 md:h-8 text-xl md:text-base"
+                    autoFocus={!isMobile}
+                />
+                {searchValue && <InputGroupAddon align="inline-end">
+                    <InputGroupButton
+                        variant="ghost"
+                        size="icon-xs"
+                        isIconButton
+                        onClick={() => setSearchValue('')}
+                        aria-label={_('Clear search')}
+                        className="rounded-full"
+                    >
+                        <X />
+                    </InputGroupButton>
+                </InputGroupAddon>}
+            </InputGroup>
+            {/* Filters live behind this button — no filter row on the page.
+                The active-filter badges below the tabs stay as the persistent
+                trace of what's on; the dot here just says "something is".
+                Desktop anchors a popover to the button; mobile gets a bottom
+                drawer — a floating panel is fiddly under a thumb. */}
+            {isMobile ? (
+                <Drawer>
+                    <DrawerTrigger asChild>{filterButton}</DrawerTrigger>
+                    <DrawerContent className="max-h-[85dvh]">
+                        <DrawerTitle className="px-4 pb-3 pt-1 text-left text-2xl-semibold text-ink-gray-9">
+                            {_('Filters')}
+                        </DrawerTitle>
+                        {/* Not the desktop combobox stack: drill-in rows for the
+                            searchable lists, inline chips for the bounded ones. */}
+                        <SearchFiltersSheet
+                            filters={filters}
+                            channels={channels}
+                            dmChannels={dmChannels}
+                            onChannelChange={setChannelFilter}
+                            onUserChange={setUserFilter}
+                            onFileTypeChange={setFileTypeFilter}
+                            onProviderChange={setProviderFilter}
+                            showFileTypeFilter={activeTab === 'files'}
+                            showProviderFilter={activeTab === 'links'}
+                        />
+                    </DrawerContent>
+                </Drawer>
+            ) : (
+                <Popover>
+                    <PopoverTrigger asChild>{filterButton}</PopoverTrigger>
+                    <PopoverContent align="end" className="w-72 p-3">
+                        {filtersPanel}
+                    </PopoverContent>
+                </Popover>
             )}
         </div>
     )
@@ -208,37 +295,12 @@ export default function Search() {
                             spacing is identical across pages. */}
                         <div className="mx-auto w-full p-2 pb-0 space-y-3">
                             {searchInput}
-                            {/* Wrapper is the space-y child; it absorbs the inner row's -my-1 so the
-                                gaps stay 12px (the -my would otherwise shrink them). The inner row is
-                                tabs + filters: one row (nowrap) that scrolls horizontally at odd/narrow
-                                resolutions (the list pane is only 45% wide). py-1 -my-1 gives the filter
-                                button's floating count badge clip room (overflow-x-auto forces overflow-y
-                                to clip) while netting the row's box to zero — row height is unchanged. */}
-                            <div>
-                                <div className="flex flex-col gap-3 md:flex-row md:items-center md:py-1 md:-my-1 md:flex-nowrap md:overflow-x-auto md:min-w-0">
-                                    <SearchTabsBar activeTab={activeTab} setActiveTab={onTabChange} fullWidth={isMobile} />
-                                    {/* min-w-0: the browser over-estimates this wrapper's automatic
-                                        minimum by a few px, which forced a tiny horizontal scroll when
-                                        the clear-X appears. With it the selects flex down to their
-                                        min-w floors first; past the floors content overflows into the
-                                        row's scroll — the floors still hold, so the fallback stays. */}
-                                    <div className="md:ml-auto md:min-w-0">
-                                        <SearchFiltersBar
-                                            filters={filters}
-                                            channels={channels}
-                                            dmChannels={dmChannels}
-                                            onChannelChange={setChannelFilter}
-                                            onUserChange={setUserFilter}
-                                            isMobile={isMobile}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
+                            <SearchTabsBar activeTab={activeTab} setActiveTab={onTabChange} />
                             <SearchActiveBadges
                                 filters={filters}
                                 channels={channels}
                                 dmChannels={dmChannels}
-                                users={users ?? []}
+                                users={users}
                             />
                         </div>
                     </div>
@@ -258,7 +320,9 @@ export default function Search() {
                         </div>
                     )}
 
-                    <div className="flex-1 min-h-0 px-3 md:px-0 pb-2">
+                    {/* No horizontal gutter on mobile — result rows own their
+                        padding, so lists run flush to the screen edges. */}
+                    <div className="flex-1 min-h-0 pb-2">
                         <div className="mx-auto w-full h-full">
                             {hasActiveSearch && (
                                 <>

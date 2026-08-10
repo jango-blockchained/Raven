@@ -20,8 +20,13 @@ import type { WorkspaceFormData } from "./WorkspaceDetailView"
  * Logo display + upload/remove controls; writes the file URL into the form's `logo`
  * field (persisted on Save). Tapping the logo opens an Upload / Remove menu — the
  * same interaction the Profile panel's avatar uses.
+ *
+ * `disabled` renders the bare avatar with NO trigger. An ancestor `fieldset[disabled]`
+ * is not enough: it suppresses `click`, but Radix's DropdownMenuTrigger opens on
+ * `pointerdown`, which still fires — and the menu content is portalled outside the
+ * fieldset, so its items would be fully live.
  */
-const WorkspaceLogoField = () => {
+const WorkspaceLogoField = ({ disabled = false }: { disabled?: boolean }) => {
     const { control, watch } = useFormContext<WorkspaceFormData>()
     const name = watch("name")
     const { field: { value, onChange } } = useController({ control, name: "logo" })
@@ -35,6 +40,8 @@ const WorkspaceLogoField = () => {
             </AvatarFallback>
         </Avatar>
     )
+
+    if (disabled) return avatar
 
     return (
         <>

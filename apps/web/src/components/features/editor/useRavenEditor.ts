@@ -128,7 +128,13 @@ export const useRavenEditor = ({ submitRef, linkRef, filesRef, cancelReplyRef, e
             }),
         )
     }
-    if (!isMobile) extensions.push(EmojiSuggestion)
+    // Emoji `:` autocomplete on both platforms, tuned per platform: mobile
+    // needs 2 typed letters before the popup shows and never reacts to text
+    // smileys — its main job there is inline CUSTOM emojis (no keyboard can
+    // type those). Desktop keeps the eager behavior.
+    extensions.push(
+        isMobile ? EmojiSuggestion.configure({ minQueryLength: 2, emoticons: false }) : EmojiSuggestion,
+    )
 
     const editor = useEditor({
         extensions,

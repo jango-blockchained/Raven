@@ -203,7 +203,15 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
 28. **A floating date pill** that appears while you scroll and fades when you
     stop, replacing a pile of sticky date headers.
 29. **Haptic ticks** at gesture commit points — small, but it's half of why
-    gestures feel native.
+    gestures feel native. The set keeps growing as gestures do: the newest is
+    the image viewer's zoom settling back to fit — pinch out, the image snaps
+    to 1x, the chrome fades back in, and the tick lands in the same instant,
+    so all three read as one physical event. The recurring implementation
+    detail: the tick must fire on the *transition* into the boundary, never on
+    mount — an effect that watches "am I at fit" also runs when the image
+    simply opens, and a guard on the previous value is what keeps opening a
+    photo from buzzing. (Android only, like all our haptics — iOS Safari has
+    no Vibration API.)
 30. **The service worker that broke image caching — and then fixed it.** A
     surprise from Safari: once a page is controlled by a service worker,
     requests the worker doesn't answer get *worse* HTTP caching — Safari
@@ -375,6 +383,208 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
     an existing scroll position owes the user a decision about where that
     scroll should land, and "wherever it happened to be" is almost never the
     answer.
+39. **The icon that wouldn't line up with wrapping text.** The mention warning
+    banner above the composer — the amber strip that says "Jane is on leave
+    today" or "The following people aren't in this channel: …" with a little
+    palm/info icon in front — is an icon next to text that *wraps* on mobile.
+    Every obvious alignment is wrong in one direction. `items-center` centers
+    the icon against the whole text block: perfect for one line, but the
+    moment the sentence wraps to three lines the icon drifts to the vertical
+    middle of the paragraph. `items-start` pins it to the top instead — and
+    now it sits visibly *above* the text, because text doesn't start at the
+    top of its line box: there's half-leading (the line-height's breathing
+    room) above the glyphs, and the icon doesn't know about it. The fix uses
+    a CSS unit built for exactly this: `lh`, "one line-height of this
+    element". Keep the row `items-start`, wrap the icon in a flex box that is
+    exactly one line tall (`h-lh`), and center the icon *inside that box*.
+    The icon lands on the first line's optical center — the same place
+    `items-center` would put it for a single line — and stays there no
+    matter how many lines the text wraps to. Bonus: it's measured from the
+    live line-height, so if the type token ever changes size, the alignment
+    follows for free, with no magic 1-pixel margin to rediscover. This one
+    is pure quality, and it generalizes: every icon-beside-wrapping-text row
+    in the app (error banners, empty states, list bullets) is the same three
+    classes.
+40. **The drop zone that flickered — but only in Safari.** Drag a file over
+    the chat and an overlay invites you to drop it. In Chrome: rock solid.
+    In Safari: the overlay strobed on and off as you moved the file across
+    the messages. The code looked correct — show on `dragover`, hide on
+    `dragleave`, but only when `relatedTarget` (the element the drag moved
+    *to*) is outside the pane, the standard way to ignore all the
+    enter/leave noise from crossing child elements. The catch: WebKit never
+    fills in `relatedTarget` on drag events — a years-old bug — so in
+    Safari that check read every hop between two message rows as "the drag
+    left the pane". Hide; the very next `dragover` shows it again;
+    hide/show at drag-event frequency. The fix drops `relatedTarget`
+    entirely for a depth counter: every element the drag crosses fires a
+    dragenter/dragleave *pair* that bubbles up, so increment on enter,
+    decrement on leave, and hide only at zero — child crossings cancel out
+    arithmetically, no browser field required. Two lessons: when a DOM
+    event field is optional, some browser somewhere leaves it empty, and a
+    heuristic built on it will fail only there — and "works in Chrome" is
+    the start of cross-browser testing, not the end. Count things you
+    control instead of trusting fields you don't.
+41. **The back-swipe that navigated underneath an open photo.** Open an image
+    in the full-screen viewer on Android and swipe from the screen edge: the
+    *page* went back — channel to channel list — while the photo stayed open
+    on top, now floating over the wrong screen. The cause is structural: the
+    viewer is a global overlay driven by app state, not a route, so it isn't
+    in the browser's history — and Android's edge-swipe is an OS gesture the
+    web cannot intercept, block, or even see coming. The only thing that
+    gesture does is press Back, which means history is the only language you
+    can answer it in. So the viewer now speaks it: opening pushes a *sentinel*
+    history entry (same URL — the router just re-renders in place), the back
+    gesture pops the sentinel, and a popstate listener closes the viewer.
+    Page stays put. One subtlety earns its comment: closing through the UI
+    instead — the ×, Escape, swipe-down — must *consume* the sentinel with a
+    silent `history.back()`, or the next real back gesture would need two
+    presses to do anything, which feels exactly as broken as the original
+    bug. Bonus: the same fix makes the browser Back button close the viewer
+    on desktop and iOS — the standard lightbox contract — for free. The
+    lesson generalizes to every state-driven overlay: if it covers the
+    screen, the system back gesture belongs to it, and the only way to claim
+    that gesture is to put yourself in history.
+    A hard-won addendum, found weeks later as a mystery regression: the
+    sentinel entry must *carry the router's own state forward* —
+    `pushState({ ...history.state, ourFlag: true })`, never a fresh object.
+    React Router keeps its position counter (`idx`) inside `history.state`,
+    and a sentinel that replaces the state wholesale erases it. That stays
+    invisible until some overlay *navigates from* the sentinel entry — pick
+    a workspace from the switcher, jump via the command menu — at which
+    point the router computes the next entry's counter from a missing one,
+    writes `null`, and every later "is there in-app history to pop to?"
+    check silently fails: mobile back chevrons stopped popping and started
+    jumping to their fallback routes, and the cold-start stack repair
+    synthesized wrong entries under warm pages. The failure was three
+    screens and one workspace switch away from the line that caused it.
+    Spreading the existing state costs nothing and is schema-agnostic —
+    whatever the router stores, it keeps.
+42. **Tap the photo, the chrome gets out of the way.** The full-screen image
+    viewer now works like iOS Photos on mobile: tap the picture and the
+    header and filmstrip fade away for distraction-free viewing; tap again
+    and they return. Two design decisions carry it. First, the chrome is an
+    *overlay* — absolutely positioned over the media area, not rows above
+    and below it — so hiding it is an opacity fade, never a relayout of the
+    bars themselves. (How the *photo* responds to the toggle turned out to
+    deserve a redesign of its own — that story is the next item.)
+    Second, the tap had to negotiate with its neighbors: a single tap waits a
+    ~250ms beat so a second tap can turn the pair into a double-tap zoom
+    instead, and a click whose pointer travelled is the tail of a pan, not a
+    tap at all. The gotcha inside that negotiation: you cannot build the
+    double-tap on the browser's `dblclick` event — touch double-taps don't
+    fire it everywhere (Chrome's device emulation never does; each tap
+    arrives as an ordinary click), so the pairing is done by hand from two
+    clean taps landing close together in time and place. Same family as the
+    Safari `relatedTarget` lesson a few items up: an event you don't get on
+    every platform is not a foundation, it's a convenience. And because the
+    header holds real actions (download, share, close), the chrome starts
+    visible on every open, hiding is only ever something the user did, and
+    paging to a video or file — attachments that need their buttons — brings
+    it back automatically.
+43. **Contained like iOS: the photo lives between the bars, not under them.**
+    The chrome-as-overlay from the last item had a flaw you only see with a
+    tall screenshot: the image ran the full screen height, straight under the
+    header and filmstrip, and the bars became unreadable over its content.
+    Watching what iOS Photos actually does revealed a sharper model. A *wide*
+    photo takes the full width and does not move at all when the chrome
+    toggles — it never intersected the bars to begin with. A *tall* photo is
+    held to the space between the bars while they show, and expands to the
+    full screen (with a very subtle bounce) when they hide. The first attempt
+    copied the obvious mechanic — pad the media area by the bar heights — and
+    was wrong in a way worth remembering: the header and filmstrip are
+    different heights, so the padded box's center is not the screen's center,
+    and every image sat visibly off-center and *shifted* on each toggle. The
+    model that works keeps the photo centered on the true screen always and
+    instead shrinks the media box's *height*, symmetrically, by the taller
+    bar plus a small gutter on both ends. Symmetry is the entire trick: the
+    center never moves, so wide images stay pixel-still through the toggle,
+    tall ones expand in place — and a bottom band is reserved even when
+    there's no filmstrip, for free, because the taller bar (the header) sets
+    the reserve on both sides. The bounce is one overshoot cubic-bezier on
+    the height transition; no animation library. Two refinements rode along.
+    The tap grammar became state-aware: while the chrome shows, tapping the
+    dark area around the photo closes the viewer and tapping the photo hides
+    the chrome; while it's hidden, the whole screen is "the photo" and a tap
+    anywhere just brings the chrome back. And a mystery worth its lesson:
+    tall images played an uninvited *opening* animation — because the bars
+    were measured after first paint (and reset to zero while the closed
+    dialog had them unmounted), every open started at full height and slid
+    down to contained once the real numbers arrived. Measure in a layout
+    effect, before paint, and keep the last known measurement while the bars
+    are away — a CSS transition turns any late measurement into an animation
+    you didn't ask for. The mobile zoom pill is gone too: pinch and
+    double-tap cover zooming, iOS shows no zoom UI, and on a phone the pill
+    was permanent noise floating over the photo (desktop keeps it, hover-
+    revealed, where precise stepping and the % readout earn their place).
+44. **Two PWAs, one origin: an invalid scope silently claims the whole site.**
+    Frappe sites often host several installable apps on one domain — Raven at
+    `/raven`, Frappe HR at `/hrms`. Users installed both on Android and then
+    reported two baffling symptoms: tapping the Raven app sometimes opened HR,
+    and Raven's push notifications showed HR's icon and name. The cause was a
+    single line in HR's manifest: `"scope": "/assets/hrms/frontend/"` — the
+    build tool had derived the scope from its asset directory. Per the spec, a
+    scope that doesn't contain `start_url` is *invalid and silently ignored*,
+    and the fallback is the directory of `start_url` — for `/hrms`, that's
+    `/`. So HR's installed app quietly claimed the entire origin. Android's
+    WebAPK model attributes everything by scope: links under `/raven` fell
+    inside HR's effective `/` and could launch HR's app, and — the part
+    nobody guesses — **notifications follow scope too**: Chrome badges a web
+    notification with whichever installed app's scope contains the service
+    worker's scope, so Raven's SW at `/raven/` presented as HR. Three
+    lessons. First, on a shared origin every manifest needs an explicit,
+    *valid*, mutually exclusive scope — and scope matching is a raw
+    path-prefix string comparison, so use a trailing slash (`/raven/`, not
+    `/raven`, which would also claim `/ravenanything`). Second, set an
+    explicit `id` and then never change it — it's the app's permanent
+    identity, and editing it orphans existing installs (we hardened our scope
+    but deliberately left `id` untouched). Third, manifest fixes don't
+    propagate on your schedule: Chrome re-mints WebAPKs lazily, so the
+    deterministic cure for affected users is uninstall + reinstall — and
+    `chrome://webapks` on the device shows every installed app's true scope,
+    which turns this whole class of bug from a mystery into a one-line read.
+45. **The iOS status bar colors itself by looking at your pixels — and no meta
+    tag overrides its eyes.** Our toasts appear at the top of the screen on
+    mobile, and every time one arrived on iOS, the system status bar briefly
+    flipped its look. First theory: the toast *slides in* from off-screen,
+    passing under the status bar — so we rebuilt the entry as a fade-in-place
+    that never crosses the top edge. No change. The real mechanism: in an
+    installed app with `viewport-fit=cover`, the status bar strip isn't
+    painted from your `theme-color` — it's effectively transparent, showing
+    the page's actual rendered pixels, and iOS continuously re-derives the
+    bar's appearance by *sampling the content near the top of the viewport*.
+    `theme-color` seeds the base (we declare it, media-queried per scheme,
+    and update it from the theme provider), but live sampling adjusts on top
+    of it. A near-black card materializing near the top changes the sampled
+    result — presence triggers the flip, not motion, so no animation can
+    prevent it. We reverted to the default slide-in and accepted the blink.
+    The only genuine fix is an opaque "shim" strip pinned above everything at
+    `height: env(safe-area-inset-top)`, so the sampled pixels never change —
+    rejected deliberately: it taxes every full-bleed surface (the photo
+    viewer *wants* to render under the status bar) with a coupling they must
+    all remember. The lesson is a sharper version of an old one: on iOS, the
+    chrome around your app is a mirror, not a setting. You influence it by
+    what you draw, and some flickers are the honest cost of drawing near it.
+46. **Bands across a white photo while panning — the GPU showing you its
+    tiles.** Zoom into an image in the viewer on a phone and drag it around:
+    on busy photos everything looks fine, but on a flat white image, faint
+    bands crawl across the picture as you pan. The mechanism is rasterization,
+    not layout: the image moves via `transform: translate(...) scale(...)`,
+    but nothing promoted it to its own compositor layer — so instead of
+    sliding a cached texture, mobile WebKit *re-rasterizes the scaled image
+    every frame, tile by tile*, mid-gesture. Adjacent tiles get sampled at
+    fractionally different offsets, and the seams between them differ by a
+    hair of brightness. A photo's texture hides that hair; a flat white
+    surface is a precision instrument for displaying it. (Desktop GPUs
+    re-raster fast enough that you never catch the tiles mid-update — which
+    is why the bug report says "on mobile".) The fix is one property:
+    `will-change: transform` promotes the image to a compositor layer, and
+    panning becomes a pure texture transform with nothing to re-rasterize.
+    The trade-off to know about: during a pinch the browser samples the
+    cached texture, so the image can look slightly soft mid-gesture and
+    sharpens on release — the same behavior as native photo viewers. The
+    general lesson: content that animates via transforms every frame should
+    live on its own layer, and flat, bright test images are worth keeping
+    around — they reveal compositor artifacts that real photos camouflage.
 
 ## What's still on the list
 
@@ -390,3 +600,7 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
   channels and threads have shipped.
 - **Rendering optimizations** for very busy channels (only re-drawing rows that
   changed).
+- **A hero transition for the photo viewer**: the picture growing from the
+  tapped thumbnail into the lightbox and shrinking back on close, iOS-style,
+  via the View Transitions API (today's fade stays as the fallback for
+  browsers without it).

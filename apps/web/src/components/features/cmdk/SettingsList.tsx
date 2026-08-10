@@ -1,5 +1,4 @@
 import { CommandGroup, CommandItem } from '@components/ui/command'
-import { useNavigate } from 'react-router-dom'
 import { useSetAtom } from 'jotai'
 import { commandMenuOpenAtom } from './atoms'
 import { useMemo } from 'react'
@@ -12,6 +11,7 @@ import {
     Hash,
     Smile,
 } from 'lucide-react'
+import { settingsDialogOpenTab } from '../settings/settingsDialogAtom'
 
 const ITEMS = [
     { value: 'profile', label: 'Profile', icon: User },
@@ -23,8 +23,8 @@ const ITEMS = [
 ] as const
 
 const SettingsList = ({ text }: { text: string }) => {
-    const navigate = useNavigate()
     const setOpen = useSetAtom(commandMenuOpenAtom)
+    const setSettingsDrawerOpenTab = useSetAtom(settingsDialogOpenTab)
 
     const filteredItems = useMemo(() => {
         if (!text) return ITEMS
@@ -47,7 +47,7 @@ const SettingsList = ({ text }: { text: string }) => {
                         value={`settings-${item.value}`}
                         keywords={[item.label, 'settings']}
                         onSelect={() => {
-                            navigate(`/settings/${item.value}`)
+                            setSettingsDrawerOpenTab(item.value)
                             setOpen(false)
                         }}
                         className='cursor-pointer text-base'
