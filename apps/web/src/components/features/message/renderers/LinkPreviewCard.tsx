@@ -121,6 +121,11 @@ const FrappePreviewBody = ({ preview }: { preview: LinkPreviewData }) => {
  *            Phase 4's image proxy will probe dimensions server-side).
  */
 const imagePlacement = (preview: LinkPreviewData): "banner" | "thumb" => {
+    // A tweet's image IS the shared content — a thumb wastes it. Always
+    // full width under the text; portrait shots crop the way X's own
+    // timeline crops them.
+    if (preview.provider === "X") return "banner"
+
     const ratio =
         preview.image_width > 0 && preview.image_height > 0
             ? preview.image_width / preview.image_height
@@ -152,10 +157,17 @@ const BannerImage = ({ preview, onError }: { preview: LinkPreviewData; onError: 
         loading="lazy"
         decoding="async"
         onError={onError}
-        // Height follows the stored aspect, capped — both known before
-        // the image loads, so the card never jumps.
-        style={{ aspectRatio: `${preview.image_width} / ${preview.image_height}` }}
-        className="max-h-56 w-full rounded-md object-cover"
+        // Height follows the stored aspect, capped — known before the
+        // image loads, so the card never jumps. X pages often omit the
+        // og:image dimensions: those get a fixed 16:9 (what X's own
+        // timeline crops to) instead of shifting on load.
+        style={{
+            aspectRatio:
+                preview.image_width > 0 && preview.image_height > 0
+                    ? `${preview.image_width} / ${preview.image_height}`
+                    : "16 / 9",
+        }}
+        className="max-h-56 w-full rounded object-cover"
     />
 )
 
@@ -172,7 +184,7 @@ const PreviewBody = ({ preview }: { preview: LinkPreviewData }) => {
 
     return (
         <div className="flex w-full flex-col gap-2 p-3">
-            <div className="flex w-full items-start gap-3">
+            <div className="flex w-full items-center gap-3">
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <div className="flex items-center gap-1.5 pb-0.5">
                         {brand && <BrandIcon brand={brand} className="size-3.5 shrink-0" />}
@@ -224,7 +236,7 @@ export const MessageLinkPreviewCard = ({ href }: { href: string }) => {
                     // No padding here — each body pads itself, so the Frappe
                     // branch can bleed its image to the card's edges.
                     // overflow-hidden clips a bled image to the corners.
-                    className="my-0.5 block w-full max-w-lg overflow-hidden rounded-md border border-outline-gray-2 transition-colors hover:border-outline-gray-3 dark:bg-surface-elevation-2"
+                    className="my-0.5 block w-full max-w-lg overflow-hidden rounded-md border bg-surface-base border-outline-gray-2 transition-colors hover:border-outline-gray-3 dark:bg-surface-elevation-2"
                 >
                     <CardBody preview={preview} />
                 </a>

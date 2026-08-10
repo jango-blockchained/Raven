@@ -446,11 +446,17 @@ def search_links(
 	mentions_me: int | None = None,
 	saved: int | None = None,
 	has_reactions: int | None = None,
+	providers: str | None = None,
 	start_after: int = 0,
 	limit: int = 20,
 ):
 	"""
-	Search through Raven Link Previews joined with linked Raven Message.
+	Search through message links, with their stored previews when the
+	pipeline has one. Based on the Raven Message Links child table, so a
+	link is searchable the moment its message is saved — including links
+	that never get preview docs (meeting links, Raven's own links).
+	`providers` is a JSON list of provider names (the child rows carry the
+	provider, precomputed at message save).
 	"""
 
 	user = frappe.session.user
@@ -464,11 +470,14 @@ def search_links(
 	thread_root = frappe.qb.DocType("Raven Message").as_("thread_root")
 
 	query = (
-		frappe.qb.from_(link_preview)
-		.inner_join(msg_link)
-		.on((msg_link.url == link_preview.name) & (msg_link.parenttype == "Raven Message"))
+		frappe.qb.from_(msg_link)
+		# The join contract: child rows store the normalized url, preview
+		# docs are keyed by it. (The old join matched the raw url against
+		# the preview doc's hash NAME, which never matched Layer-2 docs.)
+		.left_join(link_preview)
+		.on(link_preview.url == msg_link.normalized_url)
 		.inner_join(message)
-		.on(message.name == msg_link.parent)
+		.on((message.name == msg_link.parent) & (msg_link.parenttype == "Raven Message"))
 		.inner_join(channel)
 		.on(channel.name == message.channel_id)
 		.left_join(channel_member)
@@ -485,7 +494,9 @@ def search_links(
 			channel.is_thread,
 			channel.type.as_("channel_type"),
 			thread_root.channel_id.as_("parent_channel_id"),
-			link_preview.name.as_("url"),
+			# The raw link, exactly as written in the message.
+			msg_link.url.as_("url"),
+			msg_link.provider,
 			link_preview.title,
 			link_preview.description,
 			link_preview.image,
@@ -502,7 +513,14 @@ def search_links(
 			(link_preview.title.like(like))
 			| (link_preview.description.like(like))
 			| (link_preview.site_name.like(like))
+			# Links without a fetched preview are still findable by URL.
+			| (msg_link.url.like(like))
 		)
+
+	if providers:
+		provider_list = json.loads(providers) if isinstance(providers, str) else providers
+		if provider_list:
+			query = query.where(msg_link.provider.isin(provider_list))
 
 	if channel_id:
 		query = query.where(message.channel_id == channel_id)
@@ -569,9 +587,8 @@ def search_links(
 
 	results = query.run(as_dict=True)
 
-	# Rows with no title are previews that were never fetched. This used to
-	# enqueue a fetch from here, but that fetcher is gone (see
-	# raven/links.py). The Layer 2 pipeline will own fetching, with proper
-	# status and retry tracking, and will fill these rows.
+	# Rows with no title are links whose preview has not been fetched (or
+	# never will be — meeting links, Raven's own links). The client shows
+	# the raw URL for those.
 
 	return results

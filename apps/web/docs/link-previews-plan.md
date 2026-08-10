@@ -124,9 +124,15 @@ document cards.
   click-to-play facade, fed from the store. Reserved from first paint — text
   pops in, height never changes (the provider chain promises deterministic
   heights to the scroll engine).
-- **Provider filter in Links search**: add a multi-value `link_providers`
-  metadata field to the sqlite FTS index (`|youtube|reddit|` style, same trick
-  as `mentions`), filterable server-side; filter UI built on `common/filters`.
+- **Provider filter in Links search** ✅ (Aug 2026) — built on
+  `search_links` (a live DB query over the child table), NOT the sqlite FTS
+  as originally sketched: the Links tab never used the FTS, and the child
+  rows already carry the provider. The rework also fixed a broken join
+  (raw url against the preview doc's hash NAME) and re-based the query on
+  `Raven Message Links` with a LEFT join to previews — every link is now
+  searchable the moment its message saves, previewed or not. Filter UI:
+  `ProviderFilter` (grouped multi-select with brand glyphs) on the links
+  tab, URL param `link_provider`, active badge included.
 - ~~Hide-preview ✕~~ **DROPPED (Aug 2026)**: v2's per-message hide was
   wrong-shaped — it hid the preview for ALL users when one person clicked ✕.
   v3 replaces it with a **per-user display preference**: previews on hover

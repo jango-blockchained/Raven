@@ -34,7 +34,9 @@ def execute():
 			update_modified=False,
 		)
 
-	for row in frappe.get_all("Raven Link Preview", fields=["name", "url", "provider", "status"]):
+	for row in frappe.get_all(
+		"Raven Link Preview", fields=["name", "url", "provider", "status", "image"]
+	):
 		normalized = normalize_url(row.url)
 		provider = detect_provider(normalized) or "Other"
 
@@ -50,6 +52,12 @@ def execute():
 			values["status"] = "Pending"
 			values["fetch_attempts"] = 0
 			values["fetch_error"] = ""
+
+		# X rows fetched before the strategy learned to scrape images have
+		# text but no image. Refetch them once the link is shared again.
+		if provider == "X" and row.status == "Fetched" and not row.image:
+			values["status"] = "Pending"
+			values["fetch_attempts"] = 0
 
 		if (
 			normalized

@@ -472,7 +472,7 @@ const formatMeetingNumber = (n: string) => {
  * A meeting can't be embedded, so the preview is a join card; `detail` is the
  * human identity shown on it — the formatted meeting number or the room name.
  */
-const matchZoom = (href: string): { href: string; detail: string } | null => {
+export const matchZoom = (href: string): { href: string; detail: string } | null => {
     try {
         const url = new URL(href)
         if (!/(^|\.)zoom\.us$/.test(url.hostname)) return null
@@ -488,7 +488,7 @@ const matchZoom = (href: string): { href: string; detail: string } | null => {
 }
 
 /** meet.google.com/xxx-yyyy-zzz — the code IS the meeting's human identity. */
-const matchGoogleMeet = (href: string): { href: string; detail: string } | null => {
+export const matchGoogleMeet = (href: string): { href: string; detail: string } | null => {
     try {
         const url = new URL(href)
         if (url.hostname !== "meet.google.com") return null
@@ -526,7 +526,7 @@ const getFrappeMeetHosts = (): string[] => {
 }
 
 /** <configured-host>/meet/<meeting-id> → join card, like Google Meet. */
-const matchFrappeMeet = (href: string): { href: string; detail: string } | null => {
+export const matchFrappeMeet = (href: string): { href: string; detail: string } | null => {
     try {
         const url = new URL(href)
         if (!getFrappeMeetHosts().includes(url.host)) return null

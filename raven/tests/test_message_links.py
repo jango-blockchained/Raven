@@ -198,6 +198,27 @@ class TestMessageLinkRows(IntegrationTestCase):
 		self.assertEqual(results[raw_tracked]["url"], preview.url)
 		self.assertIsNone(results["https://nowhere.example/x"])
 
+	def test_search_links_filters_by_provider(self):
+		from raven.api.search import search_links
+
+		self.make_message(
+			'<p><a href="https://github.com/frappe/frappe">repo</a>'
+			' <a href="https://vimeo.com/999">video</a></p>'
+		)
+
+		# Unfiltered: both links of the message come back, even though
+		# neither has a fetched preview yet.
+		urls = [row.url for row in search_links(channel_id=self.channel.name)]
+		self.assertIn("https://github.com/frappe/frappe", urls)
+		self.assertIn("https://vimeo.com/999", urls)
+
+		# Provider filter narrows to the matching child rows.
+		filtered = [
+			row.url for row in search_links(channel_id=self.channel.name, providers='["GitHub"]')
+		]
+		self.assertIn("https://github.com/frappe/frappe", filtered)
+		self.assertNotIn("https://vimeo.com/999", filtered)
+
 	def test_process_message_links_upserts_preview_shells(self):
 		# Two raw spellings of the same video should share one preview doc.
 		message = self.make_message(

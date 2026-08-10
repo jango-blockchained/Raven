@@ -54,11 +54,19 @@ class FetchedResponse:
 
 
 def safe_fetch(
-	url: str, *, allowed_content_types: tuple[str, ...], max_bytes: int = MAX_BODY_BYTES
+	url: str,
+	*,
+	allowed_content_types: tuple[str, ...],
+	max_bytes: int = MAX_BODY_BYTES,
+	user_agent: str | None = None,
 ) -> FetchedResponse:
 	"""
 	GET a URL with all the guards above. Returns the final response, or
 	raises BlockedURLError (never retry) / LinkFetchError (may retry).
+
+	user_agent overrides the default UA for hosts that gate their meta
+	tags on the client (see link_fetcher's X strategy). The security
+	guards do not change with the UA.
 	"""
 	for _hop in range(MAX_REDIRECTS + 1):
 		parts = urlsplit(url)
@@ -77,7 +85,7 @@ def safe_fetch(
 		# answers bots with markdown) — a plain */* invites formats we
 		# would only reject afterwards.
 		accept = ", ".join(allowed_content_types) + ", */*;q=0.1"
-		response = _send_once(url, ip, accept)
+		response = _send_once(url, ip, accept, user_agent or USER_AGENT)
 		try:
 			if response.status_code in REDIRECT_STATUSES:
 				location = response.headers.get("Location")
@@ -156,7 +164,9 @@ class _PinnedAdapter(HTTPAdapter):
 		super().init_poolmanager(connections, maxsize, block, **pool_kwargs)
 
 
-def _send_once(url: str, ip: str, accept: str = "*/*") -> requests.Response:
+def _send_once(
+	url: str, ip: str, accept: str = "*/*", user_agent: str = USER_AGENT
+) -> requests.Response:
 	"""One request to one already-validated IP. Never follows redirects."""
 	parts = urlsplit(url)
 
@@ -180,7 +190,7 @@ def _send_once(url: str, ip: str, accept: str = "*/*") -> requests.Response:
 	try:
 		return session.get(
 			ip_url,
-			headers={"Host": host_header, "User-Agent": USER_AGENT, "Accept": accept},
+			headers={"Host": host_header, "User-Agent": user_agent, "Accept": accept},
 			timeout=(CONNECT_TIMEOUT, READ_TIMEOUT),
 			stream=True,
 			allow_redirects=False,

@@ -115,6 +115,9 @@ def _apply(preview, data: dict):
 
 def fetch_preview_data(url: str, provider: str) -> dict:
 	"""Route to the right strategy. Raises LinkFetchError / BlockedURLError."""
+	if provider == "X":
+		return fetch_x(url)
+
 	endpoint = OEMBED_ENDPOINTS.get(provider)
 	if endpoint:
 		return fetch_oembed(endpoint, url)
@@ -153,6 +156,40 @@ def fetch_oembed(endpoint: str, url: str) -> dict:
 		"image_width": payload.get("thumbnail_width"),
 		"image_height": payload.get("thumbnail_height"),
 	}
+
+
+# X only serves meta tags to clients that look like link-preview
+# crawlers — the exact UA family v2 used, and what iMessage and Slack
+# present as. Used ONLY by the X strategy below.
+PREVIEW_BOT_USER_AGENT = (
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/601.2.4 "
+	"(KHTML, like Gecko) Version/9.0.1 Safari/601.2.4 "
+	"facebookexternalhit/1.1 Facebot Twitterbot/1.0"
+)
+
+
+def fetch_x(url: str) -> dict:
+	"""
+	Two calls for X. The official oEmbed gives the reliable part — author
+	and tweet text — but carries NO image fields at all (it hands out
+	embed HTML, not metadata). The tweet PAGE carries og:image, gated on a
+	preview-crawler UA. The scrape is best effort: when X stops honoring
+	the UA, the card keeps its text and simply has no image.
+	"""
+	data = fetch_oembed(OEMBED_ENDPOINTS["X"], url)
+
+	try:
+		page = safe_fetch(url, allowed_content_types=HTML_TYPES, user_agent=PREVIEW_BOT_USER_AGENT)
+		scraped = parse_open_graph(page.body, page.url)
+	except LinkFetchError:
+		return data
+
+	if scraped.get("image"):
+		data["image"] = scraped["image"]
+		data["image_width"] = scraped.get("image_width")
+		data["image_height"] = scraped.get("image_height")
+
+	return data
 
 
 def fetch_wikipedia_summary(url: str) -> dict | None:

@@ -26,6 +26,8 @@ export const BRAND = {
     figma: { file: "Figma.svg", color: null },
     frappeMeet: { file: "frappemeet.svg", color: null },
     frappe: { file: "frappe.svg", color: null },
+    // The app's own tile (black square, white bird) — used for Raven links.
+    raven: { file: "raven.svg", color: null },
     x: { file: "x.svg", color: "var(--ink-gray-9)" },
     github: { file: "github.svg", color: "var(--ink-gray-9)" },
     hackerNews: { file: "ycombinator.svg", color: "#FF6600" },

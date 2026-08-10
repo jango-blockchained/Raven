@@ -7,7 +7,9 @@ from frappe.tests import IntegrationTestCase
 import raven.safe_fetch as safe_fetch_module
 from raven.link_fetcher import (
 	MAX_FETCH_ATTEMPTS,
+	PREVIEW_BOT_USER_AGENT,
 	fetch_hacker_news,
+	fetch_x,
 	fill_preview,
 	parse_markdown_preview,
 	parse_open_graph,
@@ -313,6 +315,56 @@ class TestHackerNews(IntegrationTestCase):
 			self.assertIsNone(fetch_hacker_news("https://news.ycombinator.com/user?id=pg"))
 			self.assertIsNone(fetch_hacker_news("https://news.ycombinator.com/item?id=abc"))
 		fetch.assert_not_called()
+
+
+class TestXStrategy(IntegrationTestCase):
+	def oembed_response(self):
+		import json as json_module
+
+		payload = {
+			"author_name": "Nikhil",
+			"html": "<blockquote>hello world</blockquote>",
+			"provider_name": "X",
+		}
+		return SimpleNamespace(
+			url="https://publish.twitter.com/oembed",
+			content_type="application/json",
+			body=json_module.dumps(payload).encode(),
+		)
+
+	def test_merges_oembed_text_with_scraped_image(self):
+		page = SimpleNamespace(
+			url="https://x.com/nikhil/status/1",
+			content_type="text/html",
+			body=(
+				b'<meta property="og:image" content="https://pbs.twimg.com/img.jpg"/>'
+				b'<meta property="og:image:width" content="1200"/>'
+				b'<meta property="og:image:height" content="675"/>'
+			),
+		)
+		with patch("raven.link_fetcher.safe_fetch", side_effect=[self.oembed_response(), page]) as fetch:
+			data = fetch_x("https://x.com/nikhil/status/1")
+
+		# Text from oEmbed, image from the page scrape.
+		self.assertEqual(data["title"], "Nikhil")
+		self.assertEqual(data["description"], "hello world")
+		self.assertEqual(data["image"], "https://pbs.twimg.com/img.jpg")
+		self.assertEqual(data["image_width"], 1200)
+		# The scrape presents as a preview crawler — X gates its meta
+		# tags on that.
+		self.assertEqual(fetch.call_args_list[1].kwargs.get("user_agent"), PREVIEW_BOT_USER_AGENT)
+
+	def test_image_scrape_is_best_effort(self):
+		# The scrape failing must not cost the tweet its text.
+		with patch(
+			"raven.link_fetcher.safe_fetch",
+			side_effect=[self.oembed_response(), LinkFetchError("wall")],
+		):
+			data = fetch_x("https://x.com/nikhil/status/1")
+
+		self.assertEqual(data["title"], "Nikhil")
+		self.assertEqual(data["description"], "hello world")
+		self.assertEqual(data["image"], "")
 
 
 class TestFillPreview(IntegrationTestCase):
