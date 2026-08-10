@@ -7,6 +7,9 @@ import {
     ContextMenuGroup,
     ContextMenuItem,
     ContextMenuSeparator,
+    ContextMenuSub,
+    ContextMenuSubContent,
+    ContextMenuSubTrigger,
     ContextMenuTrigger,
 } from "@components/ui/context-menu"
 import { Button } from "@components/ui/button"
@@ -453,7 +456,7 @@ export const MessageActionMenu = ({
             event.preventDefault()
             return
         }
-        action.onSelect()
+        action.onSelect?.()
     }
 
     /**
@@ -485,12 +488,22 @@ export const MessageActionMenu = ({
         }
     }
 
-    /** The mobile sheet shows either the action list or the full emoji picker. */
+    /** The mobile sheet shows either the action list or the full emoji picker.
+     *  Submenu actions don't push a subview here — they run onSelect, which opens
+     *  their own bottom sheet (see useMessageActions' read-receipts action). */
     const [sheetView, setSheetView] = useState<"actions" | "picker">("actions")
-    const closeSheet = () => {
-        setTarget(null)
+    // Closing ONLY dismisses the sheet — the view it was showing stays until the next open.
+    // Resetting on the way out (directly, or off vaul's onAnimationEnd, which fires before
+    // the sheet has finished sliding down) swaps the panel back to the action list
+    // mid-animation, flashing the actions as the sheet leaves.
+    const closeSheet = () => setTarget(null)
+    // So the reset happens on the way IN instead: every long-press starts at the action
+    // list. Keyed on the target's id — closing nulls it, so re-opening the SAME message
+    // still re-runs this.
+    useEffect(() => {
+        if (!target) return
         setSheetView("actions")
-    }
+    }, [target?.name])
 
     // The open sheet owns the system back gesture (atom-driven overlay above
     // the routes — back would otherwise navigate the page underneath it).
@@ -553,16 +566,28 @@ export const MessageActionMenu = ({
                     <Fragment key={index}>
                         {index > 0 && <ContextMenuSeparator />}
                         <ContextMenuGroup>
-                            {group.map((action) => (
-                                <ContextMenuItem
-                                    key={action.id}
-                                    variant={action.danger ? "destructive" : "default"}
-                                    onSelect={(event) => selectAction(action, event)}
-                                >
-                                    <action.icon />
-                                    <span>{action.label}</span>
-                                </ContextMenuItem>
-                            ))}
+                            {group.map((action) =>
+                                action.submenu ? (
+                                    // Nested panel (read receipts): Radix mounts the content only
+                                    // once opened, so anything inside fetches on open.
+                                    <ContextMenuSub key={action.id}>
+                                        <ContextMenuSubTrigger>
+                                            <action.icon />
+                                            <span>{action.label}</span>
+                                        </ContextMenuSubTrigger>
+                                        <ContextMenuSubContent>{action.submenu()}</ContextMenuSubContent>
+                                    </ContextMenuSub>
+                                ) : (
+                                    <ContextMenuItem
+                                        key={action.id}
+                                        variant={action.danger ? "destructive" : "default"}
+                                        onSelect={(event) => selectAction(action, event)}
+                                    >
+                                        <action.icon />
+                                        <span>{action.label}</span>
+                                    </ContextMenuItem>
+                                ),
+                            )}
                         </ContextMenuGroup>
                     </Fragment>
                 ))}
@@ -676,7 +701,7 @@ const SheetActionRow = ({ action, onDone }: { action: MessageAction; onDone: () 
         theme={action.danger ? "red" : "gray"}
         className={cn("w-full justify-start gap-3", action.danger ? "active:bg-surface-red-2" : "active:bg-surface-gray-2")}
         onClick={() => {
-            action.onSelect()
+            action.onSelect?.()
             onDone()
         }}
     >
