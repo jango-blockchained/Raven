@@ -160,7 +160,7 @@ export function SearchFiltersSheet({
             </DrillIn>
 
             {showFileTypeFilter && (
-                <ChipSection title={_('File type')}>
+                <ChipSection title={_('Type')}>
                     {FILE_TYPE_OPTIONS.map((option) => {
                         const Icon = option.icon
                         const selected = fileTypes.includes(option.id)
@@ -351,8 +351,17 @@ const DrillIn = ({
                     {/* The rows come from the shared filter lists, sized for a
                         desktop menu (30px). A thumb needs more: 44px rows and
                         roomier headings, applied here so the desktop combobox
-                        keeps its density. */}
-                    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-4 [&_[cmdk-item]]:h-10 [&_[cmdk-group-heading]]:text-sm-medium [&_[cmdk-group-heading]]:flex [&_[cmdk-group-heading]]:h-9 [&_[cmdk-group-heading]]:items-center [&_[cmdk-group-heading]]:py-0">
+                        keeps its density. Heading type is the menu-label look
+                        (13px medium gray-4), pinned in full since CommandGroup's
+                        default is now the command PALETTE's (body-size regular
+                        gray-5). Same recipe as FilterCombobox: real utilities,
+                        never espresso's .text-sm-medium (a @layer components
+                        class — behind a [&_…] variant it compiles to nothing,
+                        which is exactly how the old override here was a silent
+                        no-op), and routed through [cmdk-group] so they beat the
+                        base heading utilities on specificity instead of tying
+                        and leaving the winner to Tailwind's generated order. */}
+                    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-4 [&_[cmdk-item]]:h-10 [&_[cmdk-group]_[cmdk-group-heading]]:text-sm [&_[cmdk-group]_[cmdk-group-heading]]:font-medium [&_[cmdk-group]_[cmdk-group-heading]]:text-ink-gray-4 [&_[cmdk-group]_[cmdk-group-heading]]:flex [&_[cmdk-group]_[cmdk-group-heading]]:h-9 [&_[cmdk-group]_[cmdk-group-heading]]:items-center [&_[cmdk-group]_[cmdk-group-heading]]:py-0">
                         <CommandList className="max-h-none overflow-visible">
                             <CommandEmpty>{emptyLabel}</CommandEmpty>
                             {children(search, () => closeRef.current?.click())}
