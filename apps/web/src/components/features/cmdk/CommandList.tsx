@@ -32,7 +32,7 @@ const QuickActions = ({ text }: { text: string }) => {
         ...AVAILABILITY_OPTIONS.map((option) => ({
             value: `set-status-${option.value}`,
             label: _('Set status to {0}', [option.label]),
-            icon: <span className={cn('size-2 rounded-full', getStatusIndicatorColor(option.value))} />,
+            icon: <div className='size-4 flex items-center justify-center'><span className={cn('size-2 rounded-full', getStatusIndicatorColor(option.value))} /></div>,
             keywords: ['status', 'availability', option.value, ...(option.value === 'Do not disturb' ? ['dnd'] : [])],
             action: () => setAvailability(option.value),
         })),
