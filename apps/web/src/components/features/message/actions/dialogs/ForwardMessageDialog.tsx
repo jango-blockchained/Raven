@@ -2,14 +2,8 @@ import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useFrappePostCall } from "frappe-react-sdk"
 import { toast } from "sonner"
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@components/ui/dialog"
+import { DialogFooter } from "@components/ui/dialog"
+import { ResponsiveDialog, ResponsiveDialogHeader } from "./ResponsiveDialog"
 import { Button } from "@components/ui/button"
 import { CommandGroup } from "@components/ui/command"
 import { FilterCombobox, FilterComboboxItem } from "@components/common/filters/FilterCombobox"
@@ -290,24 +284,24 @@ export const ForwardMessageDialog = ({
     }
 
     return (
-        <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>{_("Forward message")}</DialogTitle>
-                    <DialogDescription>{_("Choose where to forward this message.")}</DialogDescription>
-                </DialogHeader>
+        // Desktop dialog, mobile bottom sheet — the same shell as the attach and
+        // run-action dialogs.
+        <ResponsiveDialog open={open} onClose={onClose}>
+            <ResponsiveDialogHeader
+                title={_("Forward message")}
+                description={_("Choose where to forward this message.")}
+            />
 
-                <RecipientCombobox value={recipient} onChange={setRecipient} />
+            <RecipientCombobox value={recipient} onChange={setRecipient} />
 
-                <DialogFooter className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:justify-end">
-                    <Button variant="outline" size="md" onClick={onClose} disabled={sending}>
-                        {_("Cancel")}
-                    </Button>
-                    <Button variant="solid" size="md" onClick={onSend} disabled={!recipient || sending}>
-                        {sending ? _("Sending") : _("Send")}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+            <DialogFooter className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:justify-end">
+                <Button variant="outline" size="md" onClick={onClose} disabled={sending}>
+                    {_("Cancel")}
+                </Button>
+                <Button variant="solid" size="md" onClick={onSend} disabled={!recipient || sending}>
+                    {sending ? _("Sending") : _("Send")}
+                </Button>
+            </DialogFooter>
+        </ResponsiveDialog>
     )
 }
