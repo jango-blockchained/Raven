@@ -1,20 +1,25 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useFrappePostCall } from "frappe-react-sdk"
 import { toast } from "sonner"
+import { CheckIcon, SearchIcon } from "lucide-react"
+import { Virtuoso, type VirtuosoHandle } from "react-virtuoso"
 import { DialogFooter } from "@components/ui/dialog"
-import { ResponsiveDialog, ResponsiveDialogHeader } from "./ResponsiveDialog"
 import { Button } from "@components/ui/button"
-import { CommandGroup } from "@components/ui/command"
-import { FilterCombobox, FilterComboboxItem } from "@components/common/filters/FilterCombobox"
+import { Input } from "@components/ui/input"
+import { InputGroup, InputGroupAddon } from "@components/ui/input-group"
+import { scoreFilterRow } from "@components/common/filters/filterScore"
 import { ChannelOption, getChannelLabel } from "@components/common/filters/ChannelFilter"
 import { UserOption, getAmbiguousNames } from "@components/common/filters/UserFilter"
-import { useChannels } from "@stores/channels/useChannelList"
+import { ResponsiveDialog, ResponsiveDialogHeader } from "./ResponsiveDialog"
+import { useChannels, useDMChannels } from "@stores/channels/useChannelList"
 import { useUsers } from "@hooks/useUsers"
 import { useWorkspaces } from "@hooks/useWorkspaces"
 import { useCreateDM } from "@hooks/useCreateDM"
+import { useIsMobile } from "@hooks/use-mobile"
 import { errorResponseToast } from "@components/ui/error-banner"
 import { buildForwardPayload } from "./forwardPayload"
+import { cn } from "@lib/utils"
 import _ from "@lib/translate"
 import type { Message } from "@raven/types/common/Message"
 import type { ChannelListItem } from "@raven/types/common/ChannelListItem"
@@ -22,57 +27,84 @@ import type { UserData } from "@db"
 
 /**
  * Where a forward is going. A person is NOT pre-resolved to their DM channel: the DM may
- * not exist yet, and creating one just because a row was highlighted would litter the
- * sidebar with empty conversations. Resolution happens on Send.
+ * not exist yet, and creating one just because a row was selected would litter the
+ * sidebar with empty conversations. Resolution happens on Forward.
  */
 type Recipient =
     | { kind: "channel"; channel: ChannelListItem }
     | { kind: "user"; user: UserData }
 
+/** One virtualized row: a group heading (browse mode only) or a selectable recipient. */
+type Row =
+    | { kind: "heading"; label: string }
+    | { kind: "recipient"; recipient: Recipient; secondary?: string }
+
 /**
- * cmdk needs one unique value per row, and this list mixes two doctypes, so each id is
- * namespaced with a sigil. The sigil must stay non-alphabetic: scoreFilterRow falls back
- * to `value.includes(needle)` so ids/emails stay searchable, and an alphabetic prefix
- * like "channel:" or "user:" would itself match early keystrokes ("a", "ch", "us"...),
- * keeping the whole list alive instead of narrowing it. `@` costs nothing extra for
- * users since it's already inherent to every email.
+ * Stable identity for a recipient across the two doctypes this list mixes. The sigils
+ * only have to be unique — nothing scores them (search matches labels, below).
  */
 const recipientValue = (recipient: Recipient): string =>
     recipient.kind === "channel" ? `#${recipient.channel.name}` : `@${recipient.user.name}`
 
 /**
- * Single-recipient picker for the forward dialog. Structurally ChannelFilter: same shell,
- * same two tiers (channels by workspace, then Direct Messages), same rows, same
- * flatten-on-search rule — so a row here reads exactly like a row there.
+ * The recipient list: search on top, channels grouped by workspace, then Direct
+ * Messages — every enabled colleague, not just existing DMs (the Forward resolves a
+ * person to their DM channel, creating it if needed).
  *
- * The one difference is who fills the Direct Messages group. ChannelFilter lists DM
- * CHANNELS, which shows only people you have already messaged; this lists USERS, so
- * every colleague is reachable. It costs nothing downstream: onSend resolves a person to
- * their DM channel anyway (creating it if needed), which is the same id a DM-channel row
- * would have carried.
+ * NOT cmdk. cmdk filters by scoring the rows it has MOUNTED and reordering them in the
+ * DOM, so every candidate must render up front — the exact thing a virtualized list
+ * exists to avoid. The list is plain data instead: filtering and ranking happen here
+ * with the same scorer the filter comboboxes use (identical ranking behavior), and
+ * Virtuoso renders only the visible slice.
  */
-const RecipientCombobox = ({
-    value,
-    onChange,
+const RecipientList = ({
+    selected,
+    onSelect,
+    sourceChannelID,
 }: {
-    value: Recipient | null
-    onChange: (recipient: Recipient) => void
+    selected: Recipient | null
+    onSelect: (recipient: Recipient) => void
+    /** The channel the message lives in — hidden from the list: forwarding a message
+     *  to where it already is helps nobody. For a DM source, the PERSON is hidden
+     *  (their row is that DM's stand-in here). */
+    sourceChannelID?: string
 }) => {
     const { channels: allChannels } = useChannels()
+    const { dmChannels } = useDMChannels()
     const users = useUsers()
     const { workspaces } = useWorkspaces()
+    const isMobile = useIsMobile()
+    const [search, setSearch] = useState("")
+    const virtuosoRef = useRef<VirtuosoHandle>(null)
 
-    // Diverges from ChannelFilter here on purpose. ChannelFilter is a search filter —
-    // browsing an archived channel's history is legitimate — but this is a destination
-    // picker, and archived/non-member channels can't actually receive a post: archived
-    // is blocked client-side only (there is no server check), so leaving it unfiltered
-    // would let a forward succeed into a channel the product says is read-only. Mirrors
-    // useCanInteractInChannel's exact condition (@stores/channels/useChannelList) rather
-    // than inventing a new predicate; duplicated instead of reused because that hook is
-    // useSyncExternalStore-shaped for one channel id, not a list filter.
+    // A new search re-ranks the whole list, but Virtuoso keeps the old scroll offset —
+    // so after scrolling deep and typing, the BEST match sat above the fold. Jump back
+    // to the top whenever the query changes (same fix as the command palette).
+    useEffect(() => {
+        virtuosoRef.current?.scrollTo({ top: 0 })
+    }, [search])
+
+    // Only channels that can actually RECEIVE a post — archived is blocked client-side
+    // only, so an unfiltered list would let a forward succeed into a channel the product
+    // says is read-only (mirrors useCanInteractInChannel's exact condition) — and never
+    // the channel the message is already in.
     const channels = useMemo(
-        () => allChannels.filter((channel) => !channel.is_archived && (channel.type === "Open" || Boolean(channel.member_id))),
-        [allChannels],
+        () =>
+            allChannels.filter(
+                (channel) =>
+                    channel.name !== sourceChannelID &&
+                    !channel.is_archived &&
+                    (channel.type === "Open" || Boolean(channel.member_id)),
+            ),
+        [allChannels, sourceChannelID],
+    )
+
+    // A DM source has no row in `channels` — its stand-in here is the PEER's user row,
+    // so that's what gets hidden. (A thread source matches neither list and hides
+    // nothing: forwarding a thread reply to the parent channel is legitimate.)
+    const sourcePeer = useMemo(
+        () => dmChannels.find((dm) => dm.name === sourceChannelID)?.peer_user_id,
+        [dmChannels, sourceChannelID],
     )
 
     const workspaceNames = useMemo(
@@ -80,145 +112,177 @@ const RecipientCombobox = ({
         [workspaces],
     )
 
-    const channelsByWorkspace = useMemo(() => {
-        const groups = new Map<string, ChannelListItem[]>()
-        for (const channel of channels) {
-            const key = channel.workspace ?? ""
-            const list = groups.get(key)
-            if (list) list.push(channel)
-            else groups.set(key, [channel])
-        }
-        return Array.from(groups.entries())
-    }, [channels])
-
     // Bots stay — a bot DM is a real destination. Deactivated accounts go: forwarding
     // into a dead account's DM helps nobody.
-    const people = useMemo(() => users.filter((user) => user.enabled), [users])
+    const people = useMemo(
+        () => users.filter((user) => user.enabled && user.name !== sourcePeer),
+        [users, sourcePeer],
+    )
     const ambiguousNames = useMemo(() => getAmbiguousNames(people), [people])
 
-    const selectedValue = value ? recipientValue(value) : null
+    const rows = useMemo<Row[]>(() => {
+        const needle = search.trim()
+
+        // Browsing: grouped by workspace, then Direct Messages — headings are rows too,
+        // so one flat array feeds the virtualizer.
+        if (!needle) {
+            const out: Row[] = []
+            const groups = new Map<string, ChannelListItem[]>()
+            for (const channel of channels) {
+                const key = channel.workspace ?? ""
+                const list = groups.get(key)
+                if (list) list.push(channel)
+                else groups.set(key, [channel])
+            }
+            for (const [workspaceID, workspaceChannels] of groups) {
+                out.push({ kind: "heading", label: workspaceNames.get(workspaceID) ?? workspaceID })
+                for (const channel of workspaceChannels) out.push({ kind: "recipient", recipient: { kind: "channel", channel } })
+            }
+            if (people.length > 0) {
+                out.push({ kind: "heading", label: _("Direct Messages") })
+                for (const user of people) out.push({ kind: "recipient", recipient: { kind: "user", user } })
+            }
+            return out
+        }
+
+        // Searching: one flat ranking across both kinds (same scorer as the filter
+        // comboboxes, so "general" here ranks like "general" there), no headings —
+        // channel rows carry their workspace (two channels can share a name across
+        // workspaces), and person rows carry their id only when another account shares
+        // the same full name. The avatar already says "person"; a "Direct Message" tag
+        // would just repeat it.
+        const scored: { row: Row; score: number }[] = []
+        for (const channel of channels) {
+            const score = scoreFilterRow(channel.name, needle, [getChannelLabel(channel)])
+            if (score > 0) {
+                scored.push({
+                    score,
+                    row: {
+                        kind: "recipient",
+                        recipient: { kind: "channel", channel },
+                        secondary: channel.workspace ? (workspaceNames.get(channel.workspace) ?? channel.workspace) : undefined,
+                    },
+                })
+            }
+        }
+        for (const user of people) {
+            const name = user.full_name ?? user.name
+            const score = scoreFilterRow(user.name, needle, [name])
+            if (score > 0) {
+                scored.push({
+                    score,
+                    row: {
+                        kind: "recipient",
+                        recipient: { kind: "user", user },
+                        secondary: ambiguousNames.has(name) ? user.name : undefined,
+                    },
+                })
+            }
+        }
+        return scored.sort((a, b) => b.score - a.score).map((entry) => entry.row)
+    }, [search, channels, people, workspaceNames, ambiguousNames])
+
+    const selectedValue = selected ? recipientValue(selected) : null
 
     return (
-        <FilterCombobox
-            // Inside a modal dialog — see FilterCombobox's `modal` prop. Without it the
-            // dialog's scroll lock swallows this list's wheel events entirely.
-            modal
-            triggerClassName="w-full"
-            emptyLabel={_("No channels or people found.")}
-            trigger={
-                value ? (
-                    value.kind === "channel" ? (
-                        <ChannelOption channel={value.channel} compact />
+        <div className="flex min-h-0 flex-col gap-3">
+            {/* The standard InputGroup search — same anatomy as AddChannelMembers.
+                Desktop autofocus; mobile skips it so the keyboard doesn't bury the
+                list (same rule as every picker). */}
+            <InputGroup size="md" variant="outline" className="shrink-0">
+                <InputGroupAddon>
+                    <SearchIcon className="pointer-events-none h-4 w-4 text-ink-gray-4" />
+                </InputGroupAddon>
+                <Input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder={_("Search channels and people")}
+                    autoFocus={!isMobile}
+                />
+            </InputGroup>
+
+            {/* Virtualized: a directory-sized org makes channels + every user a long
+                list, and only the visible slice needs to exist. The height goes through
+                `style`, NOT a class: Virtuoso puts height:100% inline on its root, which
+                beats any class — and 100% of this content-sized dialog is zero, so an
+                h-96 utility renders an empty list. Capped for short phones. */}
+            <Virtuoso
+                ref={virtuosoRef}
+                data={rows}
+                style={{ height: "min(24rem, 55dvh)" }}
+                computeItemKey={(_index, row) =>
+                    row.kind === "heading" ? `heading:${row.label}` : recipientValue(row.recipient)
+                }
+                itemContent={(_index, row) =>
+                    row.kind === "heading" ? (
+                        <p className="flex items-end px-2 py-1 text-sm-medium text-ink-gray-4">{row.label}</p>
                     ) : (
-                        <UserOption user={value.user} compact />
+                        <RecipientRow
+                            row={row}
+                            selected={selectedValue === recipientValue(row.recipient)}
+                            onSelect={onSelect}
+                        />
                     )
-                ) : (
-                    <span className="min-w-0 flex-1 truncate text-left leading-snug text-ink-gray-4">
-                        {_("Select a channel or person")}
-                    </span>
-                )
-            }
+                }
+                components={{
+                    EmptyPlaceholder: () => (
+                        <p className="flex h-24 items-center justify-center text-base text-ink-gray-4">
+                            {_("No channels or people found.")}
+                        </p>
+                    ),
+                }}
+            />
+        </div>
+    )
+}
+
+const RecipientRow = ({
+    row,
+    selected,
+    onSelect,
+}: {
+    row: Extract<Row, { kind: "recipient" }>
+    selected: boolean
+    onSelect: (recipient: Recipient) => void
+}) => {
+    const { recipient, secondary } = row
+    return (
+        // The filter comboboxes' row geometry (taller on mobile for touch), with the
+        // trailing check marking the selection the Forward button will act on.
+        <button
+            type="button"
+            onClick={() => onSelect(recipient)}
+            aria-pressed={selected}
+            className={cn(
+                "flex w-full cursor-pointer items-center gap-2 rounded px-2 text-lg py-2 md:text-base",
+                selected ? "bg-surface-gray-2" : "hover:bg-surface-gray-1",
+            )}
         >
-            {(close, search) => {
-                const channelItem = (channel: ChannelListItem, workspaceName?: string) => {
-                    const recipient: Recipient = { kind: "channel", channel }
-                    const rowValue = recipientValue(recipient)
-                    return (
-                        <FilterComboboxItem
-                            key={channel.name}
-                            value={rowValue}
-                            keywords={[getChannelLabel(channel)]}
-                            selected={selectedValue === rowValue}
-                            onSelect={() => {
-                                onChange(recipient)
-                                close()
-                            }}
-                        >
-                            <ChannelOption channel={channel} workspaceName={workspaceName} />
-                        </FilterComboboxItem>
-                    )
-                }
-
-                // `secondary` is the same right-hand slot ChannelFilter puts the workspace
-                // name in. A duplicate full name takes priority over the group label,
-                // because two identical rows are unusable while a missing "Direct Message"
-                // tag is merely less tidy.
-                const userItem = (user: UserData, groupLabel?: string) => {
-                    const recipient: Recipient = { kind: "user", user }
-                    const rowValue = recipientValue(recipient)
-                    const name = user.full_name ?? user.name
-                    return (
-                        <FilterComboboxItem
-                            key={user.name}
-                            value={rowValue}
-                            keywords={[name]}
-                            selected={selectedValue === rowValue}
-                            onSelect={() => {
-                                onChange(recipient)
-                                close()
-                            }}
-                        >
-                            <UserOption user={user} secondary={ambiguousNames.has(name) ? user.name : groupLabel} />
-                        </FilterComboboxItem>
-                    )
-                }
-
-                // Searching flattens everything into one group. cmdk ranks items within a
-                // group but leaves group order alone, so grouped results let a weak match
-                // in an early group outrank an exact one later — the same reason
-                // ChannelFilter flattens. Each row then carries the heading it lost.
-                if (search) {
-                    return (
-                        <CommandGroup>
-                            {channels.map((channel) =>
-                                channelItem(
-                                    channel,
-                                    channel.workspace
-                                        ? (workspaceNames.get(channel.workspace) ?? channel.workspace)
-                                        : undefined,
-                                ),
-                            )}
-                            {people.map((user) => userItem(user, _("Direct Message")))}
-                        </CommandGroup>
-                    )
-                }
-
-                return (
-                    <>
-                        {channelsByWorkspace.map(([workspaceID, workspaceChannels]) => (
-                            <CommandGroup key={workspaceID} heading={workspaceNames.get(workspaceID) ?? workspaceID}>
-                                {/* Arrow, not a bare reference: map would pass the index as
-                                    the workspace name. */}
-                                {workspaceChannels.map((channel) => channelItem(channel))}
-                            </CommandGroup>
-                        ))}
-                        {people.length > 0 && (
-                            <CommandGroup heading={_("Direct Messages")}>
-                                {people.map((user) => userItem(user))}
-                            </CommandGroup>
-                        )}
-                    </>
-                )
-            }}
-        </FilterCombobox>
+            {recipient.kind === "channel" ? (
+                <ChannelOption channel={recipient.channel} workspaceName={secondary} />
+            ) : (
+                <UserOption user={recipient.user} secondary={secondary} />
+            )}
+            {selected && <CheckIcon className="size-4 shrink-0 text-ink-gray-7" />}
+        </button>
     )
 }
 
 /**
- * Forward a message to ONE channel or person.
- *
- * The recipient is resolved to a channel id BEFORE the API call — creating the DM if it
- * doesn't exist — rather than handing the backend a `type: "User"` receiver. The backend
- * supports that and creates the DM itself, but it returns only "messages forwarded", so
- * the client would have no id to offer a "View" link to.
+ * Forward a message to ONE channel or person: pick a row, then Forward. The recipient
+ * is resolved to a channel id BEFORE the API call — a person becomes their DM channel,
+ * created if needed — rather than handing the backend a `type: "User"` receiver. The
+ * backend supports that and creates the DM itself, but it returns only "messages
+ * forwarded", so the client would have no id to offer a "View" link to.
  *
  * Nothing is applied to the destination's message store: you're almost never looking at
- * the channel you forwarded into, and where you are, the `message_created` realtime event
- * delivers the copy on the same path as any other incoming message.
+ * the channel you forwarded into, and where you are, the `message_created` realtime
+ * event delivers the copy on the same path as any other incoming message.
  *
  * Mounted once by MessageActionDialogs and driven by messageDialogAtom; stays mounted
  * (open toggles) so it animates closed, with `message` held from the last target so the
- * body doesn't flash empty mid-animation.
+ * body doesn't flash empty mid-animation. The LIST resets itself: the shell unmounts
+ * its content when closed, so every open starts with a fresh search and scroll.
  */
 export const ForwardMessageDialog = ({
     open,
@@ -236,8 +300,8 @@ export const ForwardMessageDialog = ({
     const [recipient, setRecipient] = useState<Recipient | null>(null)
     const [sending, setSending] = useState(false)
 
-    // Clear the picked recipient whenever the target changes. The dialog stays mounted for
-    // the open/close animation, so this can't live in useState initialisation — without it
+    // Clear the picked recipient whenever the dialog (re)opens. It stays mounted for
+    // the close animation, so this can't live in useState initialisation — without it
     // the next forward opens pre-filled with the last one's destination.
     useEffect(() => {
         if (!open) return
@@ -245,7 +309,7 @@ export const ForwardMessageDialog = ({
         setSending(false)
     }, [open, message?.name])
 
-    const onSend = async () => {
+    const onForward = async () => {
         if (!message || !recipient || sending) return
         setSending(true)
 
@@ -255,8 +319,8 @@ export const ForwardMessageDialog = ({
                 ? recipient.channel.name
                 : await createDM(recipient.user.name, { navigate: false })
 
-        // createDM already toasted its own failure; keep the dialog open so Send can be
-        // retried with the recipient still picked.
+        // createDM already toasted its own failure; keep the dialog open so Forward can
+        // be retried with the recipient still picked.
         if (!destination) {
             setSending(false)
             return
@@ -292,14 +356,40 @@ export const ForwardMessageDialog = ({
                 description={_("Choose where to forward this message.")}
             />
 
-            <RecipientCombobox value={recipient} onChange={setRecipient} />
+            <RecipientList selected={recipient} onSelect={setRecipient} sourceChannelID={message?.channel_id} />
 
-            <DialogFooter className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:justify-end">
+            {/* Mobile: stacked, primary on TOP — the thumb finds Forward first and
+                Cancel can't be fat-fingered on the way to it. DOM keeps Cancel first
+                for the desktop row (Cancel left of Forward), so the mobile order flips
+                via order-first. */}
+            <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                 <Button variant="outline" size="md" onClick={onClose} disabled={sending}>
                     {_("Cancel")}
                 </Button>
-                <Button variant="solid" size="md" onClick={onSend} disabled={!recipient || sending}>
-                    {sending ? _("Sending") : _("Send")}
+                {/* The button names the destination — "Forward to #general", "Forward to
+                    Sarah" — so the confirmation reads as the whole sentence of what's
+                    about to happen. First name only for people: the row above already
+                    showed the full name, and the button has limited width.
+                    min-w-0 + truncate so a long channel name shortens instead of
+                    stretching the footer. */}
+                <Button
+                    variant="solid"
+                    size="md"
+                    onClick={onForward}
+                    disabled={!recipient}
+                    loading={sending}
+                    loadingText={_("Forwarding")}
+                    className="min-w-0 max-sm:order-first"
+                >
+                    <span className="truncate">
+                        {recipient
+                            ? _("Forward to {0}", [
+                                recipient.kind === "channel"
+                                    ? `#${recipient.channel.channel_name ?? recipient.channel.name}`
+                                    : recipient.user.first_name || recipient.user.full_name || recipient.user.name,
+                            ])
+                            : _("Forward")}
+                    </span>
                 </Button>
             </DialogFooter>
         </ResponsiveDialog>
