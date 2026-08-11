@@ -177,8 +177,8 @@ export function ProviderFilter({ value, onValueChange, placeholder, iconTrigger,
                     className={cn("min-w-(--radix-popover-trigger-width) max-h-80 overflow-y-auto p-1 shadow-2xl", FILTER_DROPDOWN_WIDTH)}
                 >
                     {PROVIDER_CATEGORIES.map((category) => (
-                        <div key={category.label}>
-                            <div className="px-2 pt-2 pb-1 text-xs font-medium text-ink-gray-4">
+                        <div key={category.label} className='gap-0.5 flex flex-col'>
+                            <div className="px-2 pt-2 text-xs-medium pb-0.5 text-ink-gray-4">
                                 {_(category.label)}
                             </div>
                             {category.options.map((option) => {
