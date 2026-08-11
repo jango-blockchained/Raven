@@ -5,6 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@components/ui/popover'
 import { FILTER_DROPDOWN_WIDTH, FILTER_ITEM_STYLES, FILTER_TRIGGER_STYLES, PAGE_GUTTER } from './FilterCombobox';
 import { BRAND, BrandIcon, type BrandSpec } from '@components/features/message/renderers/BrandIcons';
 import { useCallback, useState } from 'react';
+import { useIsMobile } from '@hooks/use-mobile';
 import { cn } from '@lib/utils';
 import _ from '@lib/translate';
 
@@ -116,6 +117,7 @@ export function ProviderFilter({ value, onValueChange, placeholder, iconTrigger,
     const selected = value
     const checkedCount = selected.length
     const [open, setOpen] = useState(false)
+    const isMobile = useIsMobile()
 
     const toggleProvider = useCallback((id: string) => {
         onValueChange(selected.includes(id)
@@ -131,7 +133,13 @@ export function ProviderFilter({ value, onValueChange, placeholder, iconTrigger,
 
     return (
         <div className={cn("flex shrink-0", className)}>
-            <Popover open={open} onOpenChange={setOpen}>
+            {/* modal on MOBILE only: in the channel drawer's Links tab this popover
+                floats over a modal vaul sheet, whose scroll lock preventDefaults
+                touchmove everywhere outside the sheet — including this portalled
+                list, which therefore never scrolled. A modal popover layers its own
+                scroll lock whose allowed region IS the list. Desktop stays
+                non-modal so the page behind keeps scrolling. */}
+            <Popover open={open} onOpenChange={setOpen} modal={isMobile}>
                 <PopoverTrigger asChild>
                     {iconTrigger ? (
                         <Button

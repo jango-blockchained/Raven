@@ -2,14 +2,8 @@ import { useContext, useEffect, useMemo, useState } from "react"
 import { FormProvider, useForm, useWatch } from "react-hook-form"
 import { FrappeConfig, FrappeContext, useFrappePostCall, type FrappeError } from "frappe-react-sdk"
 import { toast } from "sonner"
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@components/ui/dialog"
+import { DialogFooter } from "@components/ui/dialog"
+import { ResponsiveDialog, ResponsiveDialogHeader } from "./ResponsiveDialog"
 import { Button } from "@components/ui/button"
 import { Checkbox } from "@components/ui/checkbox"
 import { LinkFormField } from "@components/ui/form-elements"
@@ -144,24 +138,21 @@ export const AttachToDocumentDialog = ({
     }
 
     return (
-        <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-            <DialogContent>
-                <FormProvider {...methods}>
-                    {/* min-w-0: DialogContent is a GRID, and a grid item defaults to
-                        min-width:auto — it refuses to shrink below its own min-content. The
-                        widest thing in here is the file card (a long filename) and the doctype
-                        trigger, so on a narrow phone the form held itself wider than the dialog
-                        and the surplus became a horizontal scroll (DialogContent's
-                        overflow-y-auto promotes overflow-x to auto, so it scrolls rather than
-                        clips). Letting the item shrink is what lets the truncation inside it
-                        actually do its job. */}
-                    <form onSubmit={handleSubmit(onSubmit)} className="flex min-w-0 flex-col gap-4">
-                        <DialogHeader>
-                            <DialogTitle>{isBatch ? _("Attach files to document") : _("Attach file to document")}</DialogTitle>
-                            <DialogDescription>
-                                {_("The file stays on this message and is also attached to the document you pick.")}
-                            </DialogDescription>
-                        </DialogHeader>
+        <ResponsiveDialog open={open} onClose={onClose}>
+            <FormProvider {...methods}>
+                {/* min-w-0: DialogContent is a GRID, and a grid item defaults to
+                    min-width:auto — it refuses to shrink below its own min-content. The
+                    widest thing in here is the file card (a long filename) and the doctype
+                    trigger, so on a narrow phone the form held itself wider than the dialog
+                    and the surplus became a horizontal scroll (DialogContent's
+                    overflow-y-auto promotes overflow-x to auto, so it scrolls rather than
+                    clips). Letting the item shrink is what lets the truncation inside it
+                    actually do its job. */}
+                <form onSubmit={handleSubmit(onSubmit)} className="flex min-w-0 flex-col gap-4">
+                    <ResponsiveDialogHeader
+                        title={isBatch ? _("Attach files to document") : _("Attach file to document")}
+                        description={_("The file stays on this message and is also attached to the document you pick.")}
+                    />
 
                         {message &&
                             members.length > 0 &&
@@ -224,8 +215,7 @@ export const AttachToDocumentDialog = ({
                             </Button>
                         </DialogFooter>
                     </form>
-                </FormProvider>
-            </DialogContent>
-        </Dialog>
+            </FormProvider>
+        </ResponsiveDialog>
     )
 }

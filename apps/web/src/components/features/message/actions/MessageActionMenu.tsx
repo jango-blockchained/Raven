@@ -13,7 +13,7 @@ import {
     ContextMenuTrigger,
 } from "@components/ui/context-menu"
 import { Button } from "@components/ui/button"
-import { Drawer, DrawerContent, DrawerTitle } from "@components/ui/drawer"
+import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@components/ui/drawer"
 import { channelMessagesStore } from "@stores/messages/store"
 import { messageActionTargetAtom, messagePressTargetAtom, replyToMessageAtom } from "@utils/channelAtoms"
 import { useIsMobile } from "@hooks/use-mobile"
@@ -658,6 +658,7 @@ export const MessageActionMenu = ({
                         onCloseAutoFocus={(event) => event.preventDefault()}
                     >
                         <DrawerTitle className="sr-only">{_("Message actions")}</DrawerTitle>
+                        <DrawerDescription className="sr-only">{_("Actions for this message")}</DrawerDescription>
                         {sheetView === "picker" && menuMessage ? (
                             // Full emoji picker takes over the sheet edge-to-edge (same panel
                             // as the desktop popover); picking closes the whole sheet.

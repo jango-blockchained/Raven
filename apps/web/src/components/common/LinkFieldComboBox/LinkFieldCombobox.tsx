@@ -1,10 +1,11 @@
 import { useDocType } from "@hooks/useDocType";
 import { getSystemDefault, slug } from "@lib/frappe";
 import { Filter, useFrappeGetCall } from "frappe-react-sdk"
-import { useMemo, useState } from "react";
+import { memo, useMemo, useRef, useState } from "react";
 import { canCreateDocument } from "@lib/permissions";
 import { useDebounceValue } from "usehooks-ts";
 import { Popover, PopoverContent, PopoverTrigger } from "@components/ui/popover";
+import { DrawerClose, DrawerContent, DrawerDescription, DrawerNested, DrawerTitle, DrawerTrigger } from "@components/ui/drawer";
 import { FormControl } from "@components/ui/form"
 import { ChevronDownIcon, ExternalLink } from "lucide-react";
 import { Button } from "@components/ui/button";
@@ -12,6 +13,7 @@ import { cn } from "@lib/utils";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@components/ui/command";
 import { FilterComboboxItem, FILTER_ITEM_STYLES, FILTER_TRIGGER_STYLES, PAGE_GUTTER } from "@components/common/filters/FilterCombobox";
 import { useIsMobile } from "@hooks/use-mobile";
+import { useNoDragWhileScrolled } from "@hooks/useNoDragWhileScrolled";
 import _ from "@lib/translate";
 import ErrorBanner from "@components/ui/error-banner";
 import MarkdownRenderer from "@components/ui/markdown";
@@ -30,6 +32,25 @@ export interface ResultItem {
  * row plus its own breathing room, rounded to a clean 4px step.
  */
 const LINK_ITEM_STYLES = cn(FILTER_ITEM_STYLES, "h-auto my-0.5")
+
+/**
+ * A row's text: two MarkdownRenderer passes per row, across up to 50 rows —
+ * memoized so re-renders that don't change the result set (the cmdk highlight
+ * moving, open/close state, parent form re-renders) skip re-parsing markdown.
+ * SWR hands back the same result array between such renders, so the default
+ * shallow compare on `item` is what makes the memo actually hit; a new search
+ * result is a new object and re-renders as it must.
+ */
+const LinkItemContent = memo(({ item }: { item: ResultItem }) => (
+    <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
+        <span className="truncate text-base-medium text-ink-gray-7"><MarkdownRenderer content={item.label || item.value} /></span>
+        {item.description && item.description !== (item.label || item.value) && (
+            <span className="truncate text-p-xs text-ink-gray-4">
+                <MarkdownRenderer content={item.description} />
+            </span>
+        )}
+    </div>
+))
 
 export interface LinkFieldComboboxProps {
     /** DocType to be fetched */
@@ -146,6 +167,10 @@ const LinkFieldCombobox = ({
     const userCanCreate = useMemo(() => canCreateDocument(doctype), [doctype])
 
     const [open, setOpen] = useState(false)
+    /** The mobile drawer's hidden close button — see onSelect. */
+    const closeRef = useRef<HTMLButtonElement>(null)
+    /** The mobile drawer's list wrapper — carries data-vaul-no-drag only while scrolled. */
+    const noDragProps = useNoDragWhileScrolled()
     const isMobile = useIsMobile()
 
     const [searchInput, setSearchInput] = useDebounceValue('', 400)
@@ -231,7 +256,13 @@ const LinkFieldCombobox = ({
 
     const onSelect = (selectedValue: string) => {
         onChange?.(selectedValue)
-        setOpen(false)
+        // Mobile picks close the DRAWER — and a programmatic setOpen(false) on a
+        // nested vaul drawer skips closeDrawer(), leaving the parent sheet (the
+        // attach/run-action dialogs host this field) scaled back. Clicking the
+        // hidden DrawerClose routes through vaul's own close path instead — the
+        // same fix as the search filter drill-ins.
+        if (isMobile) closeRef.current?.click()
+        else setOpen(false)
     }
 
     const items = filterFn ? data?.message?.slice(0, 50).filter((item) => filterFn(item, searchInput)) : data?.message
@@ -246,65 +277,143 @@ const LinkFieldCombobox = ({
             onSelect={() => onSelect(item.value)}
             className={LINK_ITEM_STYLES}
         >
-            <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
-                <span className="truncate text-base-medium text-ink-gray-7"><MarkdownRenderer content={item.label || item.value} /></span>
-                {item.description && item.description !== (item.label || item.value) && (
-                    <span className="truncate text-p-xs text-ink-gray-4">
-                        <MarkdownRenderer content={item.description} />
-                    </span>
-                )}
-            </div>
+            <LinkItemContent item={item} />
         </FilterComboboxItem>
     )
+
+    // The trigger is identical for both shells (popover on desktop, drawer on
+    // mobile), so it's built once and handed to whichever *Trigger wraps it.
+    const trigger = useInForm ? (
+        <FormControl>
+            <Button
+                variant="subtle"
+                size="sm"
+                role="combobox"
+                tabIndex={0}
+                disabled={disabled}
+                aria-expanded={open}
+                // FILTER_TRIGGER_STYLES sizes the trigger to fit its row (w-fit) — this
+                // one is a form field instead, so w-full overrides just the width half
+                // of that pairing. `group` scopes the hover-revealed external link
+                // below. subtle's own bg is already gray-2, so read-only dims the label
+                // rather than swapping in a background that would look identical to the
+                // normal state.
+                className={cn(FILTER_TRIGGER_STYLES, "group w-full", readOnly && "text-ink-gray-5", buttonClassName)}>
+                <span className={cn("min-w-0 flex-1 truncate text-left", !linkTitle && "text-ink-gray-4")}>
+                    {linkTitle || placeholder}
+                </span>
+
+                <div className="flex items-center gap-1">
+                    {/* Only once a document is actually selected — a bare chevron already
+                        says "open this picker", so the external-link affordance stays
+                        hidden until there's somewhere else for it to go. */}
+                    {value && documentLink && (
+                        <a href={documentLink} target="_blank" className="hidden group-hover:block">
+                            <ExternalLink className="size-4 shrink-0 text-ink-gray-5" />
+                        </a>
+                    )}
+                    <ChevronDownIcon className="size-4 shrink-0 text-ink-gray-4" />
+                </div>
+            </Button>
+        </FormControl>
+    ) : (
+        <Button
+            variant="subtle"
+            size="sm"
+            role="combobox"
+            disabled={disabled}
+            aria-expanded={open}
+            className={cn(FILTER_TRIGGER_STYLES, "w-full", readOnly && "text-ink-gray-5", buttonClassName)}>
+            <span className={cn("min-w-0 flex-1 truncate text-left", !value && "text-ink-gray-4")}>
+                {value || placeholder}
+            </span>
+
+            <ChevronDownIcon className="size-4 shrink-0 text-ink-gray-4" />
+        </Button>
+    )
+
+    // Search field + result list, shared by both shells. The list's sizing is the
+    // one thing that differs: the popover caps its own height (the list just fills
+    // it), while the drawer hands the list a flex slot to scroll inside.
+    const picker = (listClassName: string) => (
+        <>
+            {error && <ErrorBanner error={error} />}
+            {/* bg-transparent: Command defaults to elevation-1, which would paint over
+                the popover's elevation-2. */}
+            <Command shouldFilter={false} className="min-h-0 flex-1 bg-transparent">
+                {/* Espresso's Input pairs a size with a type step; the plain variant plus
+                    text-base keeps the taller box on mobile for touch. See FilterCombobox. */}
+                <CommandInput
+                    variant="plain"
+                    placeholder={placeholder}
+                    onValueChange={setSearchInput}
+                    className="text-base"
+                />
+                <CommandList className={listClassName}>
+                    <CommandEmpty>{isLoading ? _("Loading...") : _("No results found.")}</CommandEmpty>
+                    {!searchInput && suggestedItems && suggestedItems.length > 0 && (
+                        <CommandGroup heading={_("Recent")}>
+                            {suggestedItems.map((item) => renderItem(item, "recent-"))}
+                        </CommandGroup>
+                    )}
+                    <CommandGroup>
+                        {items?.map((result) => renderItem(result))}
+                        {userCanCreate && (
+                            <CommandItem asChild className={cn(LINK_ITEM_STYLES, "justify-between")}>
+                                {/* No equivalent endpoint exists for "create a new document" the
+                                    way document_link.get resolves an existing one, so this still
+                                    hand-builds a /app/ URL — wrong for a doctype whose app lives
+                                    elsewhere (e.g. Frappe CRM). Left as-is until such an endpoint
+                                    exists. */}
+                                <a href={`/app/${slug(doctype)}/new-${slug(doctype)}-1`} target="_blank">
+                                    {_("Create New {0}", [doctype])}
+                                    <ExternalLink />
+                                </a>
+                            </CommandItem>
+                        )}
+                    </CommandGroup>
+                </CommandList>
+            </Command>
+        </>
+    )
+
+    // Mobile: a nested bottom sheet, the drill-in pattern the search filters use —
+    // a popover floating over a sheet fights the keyboard and the sheet's edges.
+    // DrawerNested stacks properly when a parent drawer hosts this field (the
+    // attach/run-action dialogs) and degrades to a plain drawer when none does.
+    // Fixed height so the sheet doesn't jump as the list filters down.
+    if (isMobile) {
+        return (
+            <DrawerNested open={open} onOpenChange={onOpenChange}>
+                {/* No disabled/readOnly handling here — the trigger button carries
+                    `disabled` itself, and readOnly is enforced in onOpenChange (same
+                    as the popover), keeping the read-only look distinct from disabled. */}
+                <DrawerTrigger asChild>{trigger}</DrawerTrigger>
+                <DrawerContent
+                    className="h-[85dvh]"
+                    // Radix focuses the search field on open — the keyboard would cover
+                    // the list it's meant to filter. Same rule as the popover below.
+                    onOpenAutoFocus={(event) => event.preventDefault()}
+                >
+                    <DrawerTitle className="px-4 pb-2 pt-1 text-left">{placeholder}</DrawerTitle>
+                    <DrawerDescription className="sr-only">{_("Search and pick a document")}</DrawerDescription>
+                    {/* Programmatic closes go through this (see onSelect): vaul unscales
+                        the PARENT sheet only on its own close path. */}
+                    <DrawerClose ref={closeRef} className="hidden" />
+                    {/* Positional no-drag (see useNoDragWhileScrolled): swipes scroll the
+                        list while it's scrolled, and pull the sheet closed from the top. */}
+                    <div {...noDragProps} className="flex min-h-0 flex-1 flex-col pb-4">
+                        {picker("max-h-none min-h-0 flex-1")}
+                    </div>
+                </DrawerContent>
+            </DrawerNested>
+        )
+    }
 
     return (
         <Popover open={open} onOpenChange={onOpenChange} modal={true}>
             <PopoverTrigger asChild>
-                {useInForm ? <FormControl>
-                    <Button
-                        variant="subtle"
-                        size="sm"
-                        role="combobox"
-                        tabIndex={0}
-                        disabled={disabled}
-                        aria-expanded={open}
-                        // FILTER_TRIGGER_STYLES sizes the trigger to fit its row (w-fit) — this
-                        // one is a form field instead, so w-full overrides just the width half
-                        // of that pairing. `group` scopes the hover-revealed external link
-                        // below. subtle's own bg is already gray-2, so read-only dims the label
-                        // rather than swapping in a background that would look identical to the
-                        // normal state.
-                        className={cn(FILTER_TRIGGER_STYLES, "group w-full", readOnly && "text-ink-gray-5", buttonClassName)}>
-                        <span className={cn("min-w-0 flex-1 truncate text-left", !linkTitle && "text-ink-gray-4")}>
-                            {linkTitle || placeholder}
-                        </span>
-
-                        <div className="flex items-center gap-1">
-                            {/* Only once a document is actually selected — a bare chevron already
-                                says "open this picker", so the external-link affordance stays
-                                hidden until there's somewhere else for it to go. */}
-                            {value && documentLink && (
-                                <a href={documentLink} target="_blank" className="hidden group-hover:block">
-                                    <ExternalLink className="size-4 shrink-0 text-ink-gray-5" />
-                                </a>
-                            )}
-                            <ChevronDownIcon className="size-4 shrink-0 text-ink-gray-4" />
-                        </div>
-                    </Button>
-                </FormControl>
-                    : <Button
-                        variant="subtle"
-                        size="sm"
-                        role="combobox"
-                        disabled={disabled}
-                        aria-expanded={open}
-                        className={cn(FILTER_TRIGGER_STYLES, "w-full", readOnly && "text-ink-gray-5", buttonClassName)}>
-                        <span className={cn("min-w-0 flex-1 truncate text-left", !value && "text-ink-gray-4")}>
-                            {value || placeholder}
-                        </span>
-
-                        <ChevronDownIcon className="size-4 shrink-0 text-ink-gray-4" />
-                    </Button>}
+                {trigger}
             </PopoverTrigger>
             <PopoverContent
                 side="bottom"
@@ -312,16 +421,14 @@ const LinkFieldCombobox = ({
                 // Same reasoning as FilterCombobox: keeps the popover off the screen edge
                 // when the field sits near it, e.g. in a narrow dialog.
                 collisionPadding={PAGE_GUTTER}
-                // Never flip above the trigger. Flipping is what made the close visibly
-                // glitch: the exit animation plays while Radix re-measures, so a popover
-                // that had opened upward snapped back down as it faded. Staying on one
-                // side removes the reposition entirely — and the height cap below is what
-                // makes staying below viable, since the list shrinks to the room available
-                // instead of demanding more than it has.
-                avoidCollisions={false}
-                // Radix focuses the search field on open, which throws up the on-screen
-                // keyboard on mobile and buries the list it's meant to filter.
-                onOpenAutoFocus={(event) => { if (isMobile) event.preventDefault() }}
+                // Collision avoidance ON (the default): the field can sit LOW on the
+                // screen — the docname picker in the attach/run-action bottom sheets —
+                // and there the height cap alone squeezed the always-below list into a
+                // sliver. Flipping above is the only usable answer. This used to be
+                // disabled over a close glitch (Radix re-measuring mid-exit snapped a
+                // flipped popover back down as it faded); the search reset that caused
+                // the mid-exit re-render is debounced past the exit animation now, so
+                // the content holds still while it fades.
                 // min-w matches the field's own width (like a native select); shadow-2xl
                 // matches DropdownMenuContent's elevation. The max-h pair caps the popover
                 // at whatever Radix measures below the trigger, never more than 18rem —
@@ -331,46 +438,10 @@ const LinkFieldCombobox = ({
                     "max-h-[min(18rem,var(--radix-popover-content-available-height))]",
                 )}
             >
-                {error && <ErrorBanner error={error} />}
-                {/* bg-transparent: Command defaults to elevation-1, which would paint over
-                    the popover's elevation-2. */}
-                <Command shouldFilter={false} className="min-h-0 flex-1 bg-transparent">
-                    {/* Espresso's Input pairs a size with a type step; the plain variant plus
-                        text-base keeps the taller box on mobile for touch. See FilterCombobox. */}
-                    <CommandInput
-                        variant="plain"
-                        placeholder={placeholder}
-                        onValueChange={setSearchInput}
-                        className="text-base"
-                    />
-                    {/* max-h-none hands height control to the popover's cap above — cmdk's own
-                        300px default would otherwise let the list outgrow the space Radix
-                        measured, which is what forces a flip in the first place. */}
-                    <CommandList className="max-h-none">
-                        <CommandEmpty>{isLoading ? _("Loading...") : _("No results found.")}</CommandEmpty>
-                        {!searchInput && suggestedItems && suggestedItems.length > 0 && (
-                            <CommandGroup heading={_("Recent")}>
-                                {suggestedItems.map((item) => renderItem(item, "recent-"))}
-                            </CommandGroup>
-                        )}
-                        <CommandGroup>
-                            {items?.map((result) => renderItem(result))}
-                            {userCanCreate && (
-                                <CommandItem asChild className={cn(LINK_ITEM_STYLES, "justify-between")}>
-                                    {/* No equivalent endpoint exists for "create a new document" the
-                                        way document_link.get resolves an existing one, so this still
-                                        hand-builds a /app/ URL — wrong for a doctype whose app lives
-                                        elsewhere (e.g. Frappe CRM). Left as-is until such an endpoint
-                                        exists. */}
-                                    <a href={`/app/${slug(doctype)}/new-${slug(doctype)}-1`} target="_blank">
-                                        {_("Create New {0}", [doctype])}
-                                        <ExternalLink />
-                                    </a>
-                                </CommandItem>
-                            )}
-                        </CommandGroup>
-                    </CommandList>
-                </Command>
+                {/* max-h-none hands height control to the popover's cap above — cmdk's own
+                    300px default would otherwise let the list outgrow the space Radix
+                    measured, which is what forces a flip in the first place. */}
+                {picker("max-h-none")}
             </PopoverContent>
 
         </Popover>

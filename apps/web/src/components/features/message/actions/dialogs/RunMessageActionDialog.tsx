@@ -2,14 +2,8 @@ import { FormProvider, useForm } from "react-hook-form"
 import { useFrappeGetCall, useFrappeGetDoc, useFrappePostCall, type FrappeError } from "frappe-react-sdk"
 import { toast } from "sonner"
 import { LoaderCircle } from "lucide-react"
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@components/ui/dialog"
+import { DialogFooter } from "@components/ui/dialog"
+import { ResponsiveDialog, ResponsiveDialogHeader } from "./ResponsiveDialog"
 import { Button } from "@components/ui/button"
 import { SelectItem } from "@components/ui/select"
 import {
@@ -35,7 +29,8 @@ export type RunMessageActionTarget = { message: Message; actionID: string }
  *
  * Mounted once by MessageActionDialogs and driven by messageDialogAtom; stays
  * mounted (open toggles) so it animates closed, with `target` held from the last
- * dialog value so the body doesn't flash empty mid-animation.
+ * dialog value so the body doesn't flash empty mid-animation. Desktop dialog,
+ * mobile bottom sheet (ResponsiveDialog).
  */
 export const RunMessageActionDialog = ({
     open,
@@ -46,20 +41,18 @@ export const RunMessageActionDialog = ({
     target: RunMessageActionTarget | null
     onClose: () => void
 }) => (
-    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-        <DialogContent>
-            {target && (
-                // Keyed per target: a fresh mount per action+message means the form
-                // initializes straight from the resolved defaults — no reset() that
-                // could stomp typed input (v2's bug).
-                <RunMessageActionContent
-                    key={`${target.actionID}:${target.message.name}`}
-                    target={target}
-                    onClose={onClose}
-                />
-            )}
-        </DialogContent>
-    </Dialog>
+    <ResponsiveDialog open={open} onClose={onClose}>
+        {target && (
+            // Keyed per target: a fresh mount per action+message means the form
+            // initializes straight from the resolved defaults — no reset() that
+            // could stomp typed input (v2's bug).
+            <RunMessageActionContent
+                key={`${target.actionID}:${target.message.name}`}
+                target={target}
+                onClose={onClose}
+            />
+        )}
+    </ResponsiveDialog>
 )
 
 const RunMessageActionContent = ({ target, onClose }: { target: RunMessageActionTarget; onClose: () => void }) => {
@@ -80,10 +73,7 @@ const RunMessageActionContent = ({ target, onClose }: { target: RunMessageAction
     if (error) {
         return (
             <>
-                <DialogHeader>
-                    <DialogTitle>{_("Run action")}</DialogTitle>
-                    <DialogDescription className="sr-only">{_("Could not load this action.")}</DialogDescription>
-                </DialogHeader>
+                <ResponsiveDialogHeader title={_("Run action")} description={_("Could not load this action.")} hideDescription />
                 <ErrorBanner error={error} />
             </>
         )
@@ -94,10 +84,7 @@ const RunMessageActionContent = ({ target, onClose }: { target: RunMessageAction
     if (!action || !defaults) {
         return (
             <>
-                <DialogHeader>
-                    <DialogTitle>{_("Run action")}</DialogTitle>
-                    <DialogDescription className="sr-only">{_("Loading action details")}</DialogDescription>
-                </DialogHeader>
+                <ResponsiveDialogHeader title={_("Run action")} description={_("Loading action details")} hideDescription />
                 <div className="flex justify-center py-8">
                     <LoaderCircle className="animate-spin text-ink-gray-5" />
                 </div>
@@ -149,10 +136,7 @@ const RunMessageActionForm = ({
             {/* min-w-0: DialogContent is a grid; without it a wide field would hold the
                 form wider than the dialog on a narrow phone (see AttachToDocumentDialog). */}
             <form onSubmit={methods.handleSubmit(onSubmit)} className="flex min-w-0 flex-col gap-4">
-                <DialogHeader>
-                    <DialogTitle>{action.title}</DialogTitle>
-                    <DialogDescription>{action.description || action.action}</DialogDescription>
-                </DialogHeader>
+                <ResponsiveDialogHeader title={action.title} description={action.description || action.action} />
 
                 {(action.fields ?? []).map((field) => (
                     <MessageActionField key={field.fieldname} field={field} />
