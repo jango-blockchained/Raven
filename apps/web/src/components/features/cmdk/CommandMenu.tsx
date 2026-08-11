@@ -45,12 +45,26 @@ const PALETTE_OVERRIDES = [
 const CommandMenu = () => {
     const [open, setOpen] = useAtom(commandMenuOpenAtom)
     const isMobile = useIsMobile()
+    const navigate = useNavigate()
 
     useHotkeys('mod+k', () => setOpen((open) => !open), {
         preventDefault: true,
         enableOnFormTags: true,
         enableOnContentEditable: true,
     })
+
+    // ⌘G opens the search page from anywhere (the browser's find-next default
+    // is preventable, unlike ⌘T/⌘W). When the palette is OPEN, its own ⌘G
+    // handler (in CommandPalette) navigates instead, carrying the typed query
+    // — this one stands down so a single press doesn't navigate twice.
+    useHotkeys('mod+g', () => {
+        if (open) return
+        navigate('/search')
+    }, {
+        preventDefault: true,
+        enableOnFormTags: true,
+        enableOnContentEditable: true,
+    }, [open, navigate])
 
     // MOBILE only: the open palette drawer owns the system back gesture
     // (atom-driven overlay above the routes). Every selection closes AND
@@ -119,6 +133,29 @@ const CommandPalette = ({ inDrawer = false }: { inDrawer?: boolean }) => {
     const customFilter = (value: string, search: string, keywords?: string[]) =>
         keywords?.length ? defaultFilter(keywords.join(' '), search) : defaultFilter(value, search)
 
+    // The primary "Search for {0}" row's navigation, shared with ⌘G below: the
+    // typed query plus the current channel/DM scope go to the search page.
+    const goToSearchPage = () => {
+        const params = new URLSearchParams()
+        if (text) params.set('q', text)
+        // Scope only to a VALIDATED channel (the store lookup succeeded),
+        // never to a raw URL segment.
+        if (channel || dmChannel) params.set('channel', channelID)
+        else if (isDMRoute) params.set('is_dm', '1')
+        const qs = params.toString()
+        navigate(qs ? `/search?${qs}` : '/search')
+        setOpen(false)
+    }
+
+    // ⌘G with the palette open: the keyboard mirror of the primary search row —
+    // whatever is typed goes with you to the search page, same scope rules. The
+    // global ⌘G in CommandMenu stands down while the palette is open.
+    useHotkeys('mod+g', goToSearchPage, {
+        preventDefault: true,
+        enableOnFormTags: true,
+        enableOnContentEditable: true,
+    }, [text, channelID, channel, dmChannel, isDMRoute])
+
     return (
         <Command
             label="Global Command Menu"
@@ -141,13 +178,29 @@ const CommandPalette = ({ inDrawer = false }: { inDrawer?: boolean }) => {
                 placeholder={isMobile ? _("Search") : _("Search or type a command")}
             />
             <CommandList ref={listRef} className={inDrawer ? "flex-1 overflow-auto max-h-none pb-6" : "max-h-105"}>
-                <UserList text={text} />
-                <ChannelList text={text} />
-                {/* Desktop-only, like Settings/Commands: mobile already has the
-                    long-press workspace drawer and the footer tabs for these. */}
-                {!isMobile && <NavigationList />}
-                {!isMobile && <SettingsList text={text} />}
-                {!isMobile && <QuickActions text={text} />}
+                {/* cmdk ranks items WITHIN a group but never across groups — grouped
+                    results always put every user above a better channel match just
+                    because the Users section rendered first. So while searching, the
+                    lists render their rows BARE (no headings — each row's avatar/#/
+                    glyph already says what it is) inside ONE unheaded group: a single
+                    ranking pool cmdk sorts globally by score. Browsing (no query)
+                    keeps the labeled sections. The scoped Search rows below live in
+                    their own near-zero-scoring group, so the group-level sort keeps
+                    them pinned after the results either way. */}
+                {(() => {
+                    const lists = (
+                        <>
+                            <UserList text={text} />
+                            <ChannelList text={text} />
+                            {/* Desktop-only, like Settings/Commands: mobile already has the
+                                long-press workspace drawer and the footer tabs for these. */}
+                            {!isMobile && <NavigationList text={text} />}
+                            {!isMobile && <SettingsList text={text} />}
+                            {!isMobile && <QuickActions text={text} />}
+                        </>
+                    )
+                    return text ? <CommandGroup>{lists}</CommandGroup> : lists
+                })()}
                 <CommandGroup forceMount>
                     <CommandItem
                         // Fixed value + forceMount: this is the always-available fallback action.
@@ -158,17 +211,7 @@ const CommandPalette = ({ inDrawer = false }: { inDrawer?: boolean }) => {
                         // else matches).
                         value="raven-global-search"
                         forceMount
-                        onSelect={() => {
-                            const params = new URLSearchParams()
-                            if (text) params.set('q', text)
-                            // Scope only to a VALIDATED channel (the store lookup
-                            // succeeded), never to a raw URL segment.
-                            if (channel || dmChannel) params.set('channel', channelID)
-                            else if (isDMRoute) params.set('is_dm', '1')
-                            const qs = params.toString()
-                            navigate(qs ? `/search?${qs}` : '/search')
-                            setOpen(false)
-                        }}
+                        onSelect={goToSearchPage}
                         className='cursor-pointer min-w-0'
                     >
                         <TextSearch className="shrink-0" />
@@ -267,10 +310,16 @@ const CommandFooter = () => {
                     <span className="ml-1">{_("to close")}</span>
                 </span>
             </div>
-            <span className="flex items-center gap-1">
-                <Kbd aria-hidden className={cn(FOOTER_KBD, "px-1")}><KeyboardMetaKeyIcon /><span className="text-sm">K</span></Kbd>
-                <span className="ml-1">{_("to open")}</span>
-            </span>
+            <div className="flex items-center gap-4">
+                <span className="flex items-center gap-1">
+                    <Kbd aria-hidden className={cn(FOOTER_KBD, "px-1")}><KeyboardMetaKeyIcon /><span className="text-xs">G</span></Kbd>
+                    <span className="ml-1">{_("to search")}</span>
+                </span>
+                <span className="flex items-center gap-1">
+                    <Kbd aria-hidden className={cn(FOOTER_KBD, "px-1")}><KeyboardMetaKeyIcon /><span className="text-xs">K</span></Kbd>
+                    <span className="ml-1">{_("to open")}</span>
+                </span>
+            </div>
         </div>
     )
 }

@@ -49,25 +49,27 @@ const QuickActions = ({ text }: { text: string }) => {
 
     if (!filteredItems.length) return null
 
-    return (
-        <CommandGroup heading={_("Commands")}>
-            {filteredItems.map(item => (
-                <CommandItem
-                    key={item.value}
-                    value={item.value}
-                    keywords={[item.label, ...item.keywords]}
-                    onSelect={() => {
-                        item.action()
-                        setOpen(false)
-                    }}
-                    className='cursor-pointer'
-                >
-                    {item.icon}
-                    {item.label}
-                </CommandItem>
-            ))}
-        </CommandGroup>
-    )
+    const rows = filteredItems.map(item => (
+        <CommandItem
+            key={item.value}
+            value={item.value}
+            keywords={[item.label, ...item.keywords]}
+            onSelect={() => {
+                item.action()
+                setOpen(false)
+            }}
+            className='cursor-pointer'
+        >
+            {item.icon}
+            {item.label}
+        </CommandItem>
+    ))
+
+    // While searching, rows go bare into the palette's single ranking group
+    // (see CommandPalette). Browsing keeps the labeled section.
+    if (text) return <>{rows}</>
+
+    return <CommandGroup heading={_("Commands")}>{rows}</CommandGroup>
 }
 
 export default QuickActions

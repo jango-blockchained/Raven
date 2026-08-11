@@ -66,18 +66,21 @@ const UserList = ({ text }: { text: string }) => {
     if (text && !filteredUsers.length) return null
     // filteredUsers need to be mapped to dmChannels and then render DMChannelItem or UserItem based on whether dm_channel exists or not. In UserItem, we will do api call on click to create dm_channel and then navigate to that dm_channel
 
-    return (
-        <CommandGroup heading={_("Users")}>
-            {mappedUsers.map(({ user, channel }) => {
-                if (!user) return null
-                return channel ? (
-                    <DMChannelItem key={channel.name} user={user} channel={channel} />
-                ) : (
-                    <UserItem key={user.name} user={user} />
-                )
-            })}
-        </CommandGroup>
-    )
+    const rows = mappedUsers.map(({ user, channel }) => {
+        if (!user) return null
+        return channel ? (
+            <DMChannelItem key={channel.name} user={user} channel={channel} />
+        ) : (
+            <UserItem key={user.name} user={user} />
+        )
+    })
+
+    // While searching, rows go bare into the palette's single ranking group
+    // (see CommandPalette) so people compete with channels and commands on
+    // score, not on section order. Browsing keeps the labeled section.
+    if (text) return <>{rows}</>
+
+    return <CommandGroup heading={_("Users")}>{rows}</CommandGroup>
 }
 
 const DMChannelItem = ({ user, channel }: { user: UserData; channel: DMChannelListItem }) => {
