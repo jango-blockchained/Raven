@@ -210,6 +210,7 @@ export const MessageHoverToolbar = ({
                                 <DropdownMenuGroup>
                                     {group.map((action) =>
                                         action.children ? (
+                                            // Nested ACTION ROWS (custom actions).
                                             <DropdownMenuSub key={action.id}>
                                                 <DropdownMenuSubTrigger>
                                                     {action.icon && <action.icon />}
@@ -226,6 +227,16 @@ export const MessageHoverToolbar = ({
                                                         </DropdownMenuItem>
                                                     ))}
                                                 </DropdownMenuSubContent>
+                                            </DropdownMenuSub>
+                                        ) : action.submenu ? (
+                                            // Nested PANEL content (read receipts) — same content the
+                                            // context menu nests, mounted only once the submenu opens.
+                                            <DropdownMenuSub key={action.id}>
+                                                <DropdownMenuSubTrigger>
+                                                    {action.icon && <action.icon />}
+                                                    <span>{action.label}</span>
+                                                </DropdownMenuSubTrigger>
+                                                <DropdownMenuSubContent>{action.submenu()}</DropdownMenuSubContent>
                                             </DropdownMenuSub>
                                         ) : (
                                             <DropdownMenuItem

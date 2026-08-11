@@ -14,6 +14,7 @@ import { FilterComboboxItem, FILTER_ITEM_STYLES, FILTER_TRIGGER_STYLES, PAGE_GUT
 import { useIsMobile } from "@hooks/use-mobile";
 import _ from "@lib/translate";
 import ErrorBanner from "@components/ui/error-banner";
+import MarkdownRenderer from "@components/ui/markdown";
 
 export interface ResultItem {
     value: string,
@@ -28,7 +29,7 @@ export interface ResultItem {
  * and the "Create New" row — on one consistent grid instead: roughly double a one-line
  * row plus its own breathing room, rounded to a clean 4px step.
  */
-const LINK_ITEM_STYLES = cn(FILTER_ITEM_STYLES, "h-14")
+const LINK_ITEM_STYLES = cn(FILTER_ITEM_STYLES, "h-auto my-0.5")
 
 export interface LinkFieldComboboxProps {
     /** DocType to be fetched */
@@ -173,11 +174,7 @@ const LinkFieldCombobox = ({
         doctype,
         docname: value,
         with_site_url: false,
-    }, value ? `document_link::${doctype}::${value}` : null, {
-        revalidateIfStale: false,
-        revalidateOnFocus: false,
-        revalidateOnReconnect: false,
-    })
+    }, value ? `document_link::${doctype}::${value}` : null)
     const documentLink = documentLinkData?.message
 
     const { data, error, isLoading } = useFrappeGetCall<{ message: ResultItem[] }>(searchAPIPath, {
@@ -250,10 +247,10 @@ const LinkFieldCombobox = ({
             className={LINK_ITEM_STYLES}
         >
             <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
-                <span className="truncate">{item.label || item.value}</span>
-                {item.description && (
-                    <span className="truncate text-sm leading-snug text-ink-gray-4">
-                        {item.description}
+                <span className="truncate text-base-medium text-ink-gray-7"><MarkdownRenderer content={item.label || item.value} /></span>
+                {item.description && item.description !== (item.label || item.value) && (
+                    <span className="truncate text-p-xs text-ink-gray-4">
+                        <MarkdownRenderer content={item.description} />
                     </span>
                 )}
             </div>

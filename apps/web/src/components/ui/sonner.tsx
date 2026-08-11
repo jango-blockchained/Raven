@@ -1,4 +1,5 @@
 import { Toaster as Sonner, type ToasterProps } from "sonner"
+import { Spinner } from "@components/ui/spinner"
 import { useTheme } from "@components/theme-provider"
 import { useIsMobile } from "@hooks/use-mobile"
 
@@ -6,9 +7,12 @@ import { useIsMobile } from "@hooks/use-mobile"
  * Mirrors frappe-ui's ToastProvider.vue verbatim (their CURRENT toast — the
  * reka-ui Toast.vue still in that repo is the old component; don't align to
  * it). Same recipe: `unstyled` sonner with their exact class map. No custom
- * icons on either side — the filled glyphs are sonner's own defaults, sized
- * and colored through the `icon` class and tinted per type (error red,
+ * TYPE icons on either side — the filled glyphs are sonner's own defaults,
+ * sized and colored through the `icon` class and tinted per type (error red,
  * warning amber; success and info stay neutral ink-base, matching them).
+ * LOADING is the one deliberate departure: sonner's default 12-bar loader is
+ * unsalvageable in unstyled mode, so loading toasts use our Espresso Spinner
+ * (the icon class sizes it like every other glyph).
  *
  * Unstyled mode needs three small CSS patches (see "sonner (unstyled)" in
  * index.css), ported from their provider's <style> block.
@@ -30,6 +34,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
             closeButton
             expand={false}
             visibleToasts={3}
+            icons={{ loading: <Spinner /> }}
             toastOptions={{
                 unstyled: true,
                 classNames: {

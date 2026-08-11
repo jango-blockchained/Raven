@@ -6,6 +6,7 @@ import { DeleteMessageDialog } from "./dialogs/DeleteMessageDialog"
 import { ReactionsDialog } from "./dialogs/ReactionsDialog"
 import { AttachToDocumentDialog } from "./dialogs/AttachToDocumentDialog"
 import { RunMessageActionDialog, type RunMessageActionTarget } from "./dialogs/RunMessageActionDialog"
+import { ReadReceiptsDialog } from "./dialogs/ReadReceiptsDialog"
 import _ from "@lib/translate"
 import type { Message } from "@raven/types/common/Message"
 
@@ -32,6 +33,8 @@ export const MessageActionDialogs = () => {
     if (dialog?.type === "attach-document") lastAttachRef.current = dialog.message
     const lastCustomActionRef = useRef<RunMessageActionTarget | null>(null)
     if (dialog?.type === "custom-action") lastCustomActionRef.current = { message: dialog.message, actionID: dialog.actionID }
+    const lastReadReceiptsRef = useRef<Message | null>(null)
+    if (dialog?.type === "read-receipts") lastReadReceiptsRef.current = dialog.message
 
     return (
         <>
@@ -56,6 +59,12 @@ export const MessageActionDialogs = () => {
             <RunMessageActionDialog
                 open={dialog?.type === "custom-action"}
                 target={dialog?.type === "custom-action" ? { message: dialog.message, actionID: dialog.actionID } : lastCustomActionRef.current}
+                onClose={close}
+            />
+
+            <ReadReceiptsDialog
+                open={dialog?.type === "read-receipts"}
+                message={dialog?.type === "read-receipts" ? dialog.message : lastReadReceiptsRef.current}
                 onClose={close}
             />
 

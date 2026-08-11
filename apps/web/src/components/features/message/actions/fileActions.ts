@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { Download, Link2, LucideIcon, Paperclip } from "lucide-react"
 import { toast } from "sonner"
 import _ from "@lib/translate"
@@ -13,10 +14,19 @@ export type MessageAction = {
     label: string
     /** Absent on custom-action children — admin-defined entries render label-only. */
     icon?: LucideIcon
-    /** Absent on a parent entry — those carry `children` instead. */
+    /** Absent on a parent entry — those carry `children` or `submenu` instead. */
     onSelect?: () => void
-    /** Renders as a submenu (desktop) / drawer sub-view (mobile). */
+    /** Nested ACTION ROWS: a submenu on desktop, a pushed drawer sub-view on
+     *  mobile (the custom-actions list). */
     children?: MessageAction[]
+    /**
+     * Nested PANEL CONTENT (read receipts): a real submenu in the desktop
+     * context menu / hover dropdown — hosts supply their own wrapper, this is
+     * just the panel's content. The mobile sheet ignores it and runs onSelect,
+     * so actions carrying `submenu` must also say what a tap does on a phone
+     * (usually: open the same content as its own bottom sheet).
+     */
+    submenu?: () => ReactNode
     /** Renders in the destructive style (delete). */
     danger?: boolean
 }

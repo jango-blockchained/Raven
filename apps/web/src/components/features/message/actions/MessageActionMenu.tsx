@@ -516,12 +516,22 @@ export const MessageActionMenu = ({
         }
     }
 
-    /** The mobile sheet shows either the action list or the full emoji picker. */
+    /** The mobile sheet shows the action list, the full emoji picker, or the pushed
+     *  custom-actions sub-view. `submenu` actions (read receipts) don't push a view
+     *  here — they run onSelect, which opens their own bottom sheet. */
     const [sheetView, setSheetView] = useState<"actions" | "picker" | "custom">("actions")
-    const closeSheet = () => {
-        setTarget(null)
+    // Closing ONLY dismisses the sheet — the view it was showing stays until the next open.
+    // Resetting on the way out (directly, or off vaul's onAnimationEnd, which fires before
+    // the sheet has finished sliding down) swaps the panel back to the action list
+    // mid-animation, flashing the actions as the sheet leaves.
+    const closeSheet = () => setTarget(null)
+    // So the reset happens on the way IN instead: every long-press starts at the action
+    // list. Keyed on the target's id — closing nulls it, so re-opening the SAME message
+    // still re-runs this.
+    useEffect(() => {
+        if (!target) return
         setSheetView("actions")
-    }
+    }, [target?.name])
 
     // The open sheet owns the system back gesture (atom-driven overlay above
     // the routes — back would otherwise navigate the page underneath it).
@@ -586,6 +596,7 @@ export const MessageActionMenu = ({
                         <ContextMenuGroup>
                             {group.map((action) =>
                                 action.children ? (
+                                    // Nested ACTION ROWS (custom actions).
                                     <ContextMenuSub key={action.id}>
                                         <ContextMenuSubTrigger>
                                             {action.icon && <action.icon />}
@@ -602,6 +613,16 @@ export const MessageActionMenu = ({
                                                 </ContextMenuItem>
                                             ))}
                                         </ContextMenuSubContent>
+                                    </ContextMenuSub>
+                                ) : action.submenu ? (
+                                    // Nested PANEL content (read receipts): Radix mounts the content
+                                    // only once opened, so anything inside fetches on open.
+                                    <ContextMenuSub key={action.id}>
+                                        <ContextMenuSubTrigger>
+                                            {action.icon && <action.icon />}
+                                            <span>{action.label}</span>
+                                        </ContextMenuSubTrigger>
+                                        <ContextMenuSubContent>{action.submenu()}</ContextMenuSubContent>
                                     </ContextMenuSub>
                                 ) : (
                                     <ContextMenuItem
