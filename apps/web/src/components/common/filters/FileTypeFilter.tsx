@@ -122,7 +122,7 @@ export function FileTypeFilter({ value, onValueChange, placeholder, triggerClass
                     // the same "row 1 looks pre-chosen" problem FilterCombobox avoids. Nothing
                     // here needs focus on open; Tab still walks the rows.
                     onOpenAutoFocus={(event) => event.preventDefault()}
-                    className={cn("min-w-(--radix-popover-trigger-width) p-1 shadow-2xl", FILTER_DROPDOWN_WIDTH)}
+                    className={cn("min-w-(--radix-popover-trigger-width) p-1 shadow-2xl flex flex-col gap-0.5", FILTER_DROPDOWN_WIDTH)}
                 >
                     {FILE_TYPE_OPTIONS.map((fileType) => {
                         const IconComponent = fileType.icon
