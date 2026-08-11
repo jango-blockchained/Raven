@@ -3,7 +3,7 @@ import mimetypes
 
 import frappe
 from frappe.search.sqlite_search import SQLiteSearch
-from pypika import JoinType, Order
+from pypika import Case, JoinType, Order
 
 from raven.api.document_link import get_preview_data
 from raven.api.raven_channel import get_channel_list
@@ -271,6 +271,25 @@ def sqlite_search(query: str | None = None, filters: str | None = None, limit: i
 	return results[:limit]
 
 
+def channel_access_condition(perm_channel, perm_member, workspace_member, user):
+	"""
+	The access rule get_channel_list applies, as a WHERE condition for
+	direct-DB search queries. DMs need channel membership. Everything else
+	needs WORKSPACE membership — an Open channel is open to its workspace,
+	not the whole site — plus channel membership when the channel is
+	Private.
+
+	Callers must LEFT join perm_member and workspace_member against the
+	channel this condition checks. For thread messages that is the
+	thread's PARENT channel — thread channels carry no workspace of their
+	own.
+	"""
+	return ((perm_channel.is_direct_message == 1) & (perm_member.user_id == user)) | (
+		(workspace_member.user == user)
+		& ((perm_channel.type != "Private") | (perm_member.user_id == user))
+	)
+
+
 @frappe.whitelist()
 def rebuild_search_index():
 	search = RavenSearch()
@@ -297,6 +316,12 @@ def get_search_result(
 	channel = frappe.qb.DocType("Raven Channel")
 	message = frappe.qb.DocType("Raven Message")
 	file_doc = frappe.qb.DocType("File")
+	workspace_member = frappe.qb.DocType("Raven Workspace Member")
+	# For thread messages, access is decided by the thread's PARENT
+	# channel — resolved via the root message (its name IS the thread
+	# channel's name).
+	thread_root = frappe.qb.DocType("Raven Message").as_("thread_root")
+	perm_channel = frappe.qb.DocType("Raven Channel").as_("perm_channel")
 
 	# File extension mappings
 	file_extensions = {
@@ -351,11 +376,28 @@ def get_search_result(
 		)
 		.join(channel, JoinType.left)
 		.on(message.channel_id == channel.name)
+		.join(thread_root, JoinType.left)
+		.on(thread_root.name == channel.name)
+		.join(perm_channel, JoinType.left)
+		.on(
+			perm_channel.name
+			== Case().when(channel.is_thread == 1, thread_root.channel_id).else_(channel.name)
+		)
 		.join(channel_member, JoinType.left)
-		.on(channel_member.channel_id == message.channel_id)
+		.on(
+			(channel_member.channel_id == perm_channel.name)
+			& (channel_member.user_id == frappe.session.user)
+		)
+		.join(workspace_member, JoinType.left)
+		.on(
+			(workspace_member.workspace == perm_channel.workspace)
+			& (workspace_member.user == frappe.session.user)
+		)
 		.join(file_doc, JoinType.left)
 		.on(message.name == file_doc.attached_to_name)
-		.where(channel_member.user_id == frappe.session.user)
+		.where(
+			channel_access_condition(perm_channel, channel_member, workspace_member, frappe.session.user)
+		)
 	)
 
 	if filter_type == "File":
@@ -377,10 +419,24 @@ def get_search_result(
 				channel.is_archived,
 			)
 			.join(channel_member, JoinType.left)
-			.on(channel_member.channel_id == channel.name)
+			.on(
+				(channel_member.channel_id == channel.name) & (channel_member.user_id == frappe.session.user)
+			)
+			.join(workspace_member, JoinType.left)
+			.on(
+				(workspace_member.workspace == channel.workspace)
+				& (workspace_member.user == frappe.session.user)
+			)
 			.where(channel.is_direct_message == 0)
-			# .where(doctype.is_thread == 0)
-			.where((channel.type != "Private") | (channel_member.user_id == frappe.session.user))
+			# Thread channels carry no workspace and are not browsable channels.
+			.where(channel.is_thread == 0)
+			# Same rule as get_channel_list: a channel's name is only
+			# visible to its workspace's members (its own members, when
+			# private) — a Public channel of ANOTHER workspace leaked here.
+			.where(
+				(workspace_member.user == frappe.session.user)
+				& ((channel.type != "Private") | (channel_member.user_id == frappe.session.user))
+			)
 			.distinct()
 		)
 
@@ -466,8 +522,13 @@ def search_links(
 	message = frappe.qb.DocType("Raven Message")
 	channel = frappe.qb.DocType("Raven Channel")
 	channel_member = frappe.qb.DocType("Raven Channel Member")
+	workspace_member = frappe.qb.DocType("Raven Workspace Member")
 	# For thread messages, the parent channel of the THREAD CHANNEL is resolved via the Raven Message whose name == thread channel name.
 	thread_root = frappe.qb.DocType("Raven Message").as_("thread_root")
+	# The channel that DECIDES access: the thread's parent for thread
+	# messages (thread channels carry no workspace), the channel itself
+	# otherwise.
+	perm_channel = frappe.qb.DocType("Raven Channel").as_("perm_channel")
 
 	query = (
 		frappe.qb.from_(msg_link)
@@ -480,10 +541,17 @@ def search_links(
 		.on((message.name == msg_link.parent) & (msg_link.parenttype == "Raven Message"))
 		.inner_join(channel)
 		.on(channel.name == message.channel_id)
-		.left_join(channel_member)
-		.on((channel_member.channel_id == message.channel_id) & (channel_member.user_id == user))
 		.left_join(thread_root)
 		.on(thread_root.name == channel.name)
+		.left_join(perm_channel)
+		.on(
+			perm_channel.name
+			== Case().when(channel.is_thread == 1, thread_root.channel_id).else_(channel.name)
+		)
+		.left_join(channel_member)
+		.on((channel_member.channel_id == perm_channel.name) & (channel_member.user_id == user))
+		.left_join(workspace_member)
+		.on((workspace_member.workspace == perm_channel.workspace) & (workspace_member.user == user))
 		.select(
 			message.name.as_("id"),
 			message.channel_id,
@@ -502,8 +570,9 @@ def search_links(
 			link_preview.image,
 			link_preview.site_name,
 		)
-		# Permission: open channel OR user is member
-		.where((channel.type == "Open") | (channel_member.user_id == user))
+		# Same rule as get_channel_list. The old "Open OR member" clause
+		# leaked Open channels of workspaces the user is not a member of.
+		.where(channel_access_condition(perm_channel, channel_member, workspace_member, user))
 		.distinct()
 	)
 
@@ -527,8 +596,6 @@ def search_links(
 
 	if parent_channel_id:
 		# If message is in a thread channel use thread_root.channel_id, else message.channel_id
-		from pypika import Case
-
 		resolved_parent = (
 			Case().when(channel.is_thread == 1, thread_root.channel_id).else_(message.channel_id)
 		)

@@ -1,4 +1,4 @@
-import { useContext, useMemo } from "react"
+import { useContext, useMemo, type ReactNode } from "react"
 import { getDefaultStore, useSetAtom } from "jotai"
 import { useNavigate } from "react-router-dom"
 import { FrappeConfig, FrappeContext, useFrappeGetCall, type FrappeError } from "frappe-react-sdk"
@@ -11,6 +11,7 @@ import {
     LucideIcon,
     MessageSquareText,
     Edit3Icon,
+    Eye,
     Pin,
     PinOff,
     Reply,
@@ -21,6 +22,7 @@ import {
 import { editingMessageAtom, messageDialogAtom, replyToMessageAtom } from "@utils/channelAtoms"
 import { focusComposer } from "@components/features/ChatInput/composerFocus"
 import { resolveEditTarget } from "./editTarget"
+import { ReadReceiptsList } from "./ReadReceiptsList"
 import { channelMessagesStore } from "@stores/messages/store"
 import { parsePinnedIds } from "@stores/messages/selectors"
 import { channelStore } from "@stores/channels/store"
@@ -36,7 +38,16 @@ export type MessageAction = {
     id: string
     label: string
     icon: LucideIcon
-    onSelect: () => void
+    /** Fired on select. The mobile action sheet always runs this, so actions that
+     *  carry a `submenu` for desktop must also say what a tap does on a phone
+     *  (usually: open the same content as its own bottom sheet). */
+    onSelect?: () => void
+    /**
+     * Renders a nested panel off the item in the DESKTOP menus (context menu /
+     * hover dropdown). Hosts supply their own wrapper, so this is just the
+     * panel's content. The mobile sheet ignores it and runs onSelect.
+     */
+    submenu?: () => ReactNode
     /** Renders in the destructive style (delete). */
     danger?: boolean
 }
@@ -303,6 +314,20 @@ export const useMessageActions = (
                 onSelect: () => setDialog({ type: "reactions", message }),
             })
         }
+        // Who has read it — sits with the other "view what happened to this message"
+        // actions, right under View reactions. Open to everyone in the channel, and
+        // NOT gated on canInteract — it reads state, it doesn't mutate the channel,
+        // so it stays available in archived channels. Desktop menus fly the list out
+        // as a nested submenu (a glance, no dialog needed); the mobile action sheet
+        // runs onSelect instead, opening it as its own bottom sheet — the same flow
+        // as View reactions.
+        organize.push({
+            id: "read-receipts",
+            label: _("Read by"),
+            icon: Eye,
+            onSelect: () => setDialog({ type: "read-receipts", message }),
+            submenu: () => <ReadReceiptsList message={message} />,
+        })
 
         // Owner-only, destructive last
         const owner: MessageAction[] = []

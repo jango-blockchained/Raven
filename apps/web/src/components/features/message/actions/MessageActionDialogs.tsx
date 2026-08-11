@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { messageDialogAtom } from "@utils/channelAtoms"
 import { DeleteMessageDialog } from "./dialogs/DeleteMessageDialog"
 import { ReactionsDialog } from "./dialogs/ReactionsDialog"
+import { ReadReceiptsDialog } from "./dialogs/ReadReceiptsDialog"
 import _ from "@lib/translate"
 import type { Message } from "@raven/types/common/Message"
 
@@ -26,6 +27,8 @@ export const MessageActionDialogs = () => {
     if (dialog?.type === "delete") lastDeleteRef.current = dialog.message
     const lastReactionsRef = useRef<Message | null>(null)
     if (dialog?.type === "reactions") lastReactionsRef.current = dialog.message
+    const lastReadReceiptsRef = useRef<Message | null>(null)
+    if (dialog?.type === "read-receipts") lastReadReceiptsRef.current = dialog.message
 
     return (
         <>
@@ -38,6 +41,12 @@ export const MessageActionDialogs = () => {
             <ReactionsDialog
                 open={dialog?.type === "reactions"}
                 message={dialog?.type === "reactions" ? dialog.message : lastReactionsRef.current}
+                onClose={close}
+            />
+
+            <ReadReceiptsDialog
+                open={dialog?.type === "read-receipts"}
+                message={dialog?.type === "read-receipts" ? dialog.message : lastReadReceiptsRef.current}
                 onClose={close}
             />
 
