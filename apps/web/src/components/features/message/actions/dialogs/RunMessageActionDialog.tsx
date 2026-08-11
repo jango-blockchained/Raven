@@ -165,7 +165,7 @@ const RunMessageActionForm = ({
                         {_("Cancel")}
                     </Button>
                     <Button type="submit" size="md" disabled={loading}>
-                        {loading ? _("Running...") : _("Run")}
+                        {loading ? _("Submitting...") : _("Submit")}
                     </Button>
                 </DialogFooter>
             </form>
