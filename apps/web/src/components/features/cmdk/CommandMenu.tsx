@@ -1,5 +1,5 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@components/ui/dialog'
-import { Drawer, DrawerContent } from '@components/ui/drawer'
+import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from '@components/ui/drawer'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@components/ui/command'
 import _ from '@lib/translate'
 import { defaultFilter } from 'cmdk'
@@ -77,6 +77,8 @@ const CommandMenu = () => {
         return (
             <Drawer open={open} onOpenChange={setOpen}>
                 <DrawerContent className="h-[90vh] flex flex-col">
+                <DrawerTitle className="sr-only">{_("Command menu")}</DrawerTitle>
+                    <DrawerDescription className="sr-only">{_("Search or type a command")}</DrawerDescription>
                     <div className="flex-1 overflow-hidden flex flex-col min-h-0">
                         <CommandPalette inDrawer />
                     </div>

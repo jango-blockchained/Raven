@@ -188,7 +188,7 @@ const PreviewBody = ({ preview }: { preview: LinkPreviewData }) => {
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <div className="flex items-center gap-1.5 pb-0.5">
                         {brand && <BrandIcon brand={brand} className="size-3.5 shrink-0" />}
-                        <span className="truncate text-xs text-ink-gray-5">{preview.site_name}</span>
+                        <span className="truncate text-xs leading-snug text-ink-gray-5">{preview.site_name}</span>
                     </div>
                     <div className="line-clamp-1 text-p-base-medium text-ink-gray-9">{preview.title}</div>
                     {preview.description && (

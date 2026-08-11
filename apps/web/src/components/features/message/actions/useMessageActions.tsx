@@ -1,4 +1,4 @@
-import { useContext, useMemo, type ReactNode } from "react"
+import { useContext, useMemo } from "react"
 import { getDefaultStore, useSetAtom } from "jotai"
 import { useNavigate } from "react-router-dom"
 import { FrappeConfig, FrappeContext, useFrappeGetCall, type FrappeError } from "frappe-react-sdk"
@@ -8,7 +8,6 @@ import {
     BookmarkMinus,
     Copy,
     Link,
-    LucideIcon,
     MessageSquareText,
     Edit3Icon,
     Eye,
@@ -18,10 +17,12 @@ import {
     SmilePlus,
     Trash2,
     ListXIcon,
+    ZapIcon,
 } from "lucide-react"
 import { editingMessageAtom, messageDialogAtom, replyToMessageAtom } from "@utils/channelAtoms"
 import { focusComposer } from "@components/features/ChatInput/composerFocus"
 import { resolveEditTarget } from "./editTarget"
+import { buildFileActions, type MessageAction } from "./fileActions"
 import { ReadReceiptsList } from "./ReadReceiptsList"
 import { channelMessagesStore } from "@stores/messages/store"
 import { parsePinnedIds } from "@stores/messages/selectors"
@@ -33,24 +34,9 @@ import type { Message } from "@raven/types/common/Message"
 import { useUserCookieData } from "@hooks/useUserCookieData"
 import { errorResponseToast } from "@components/ui/error-banner"
 import type { PollData } from "../renderers/PollMessageContent"
+import { useEnabledMessageActions } from "@hooks/useEnabledMessageActions"
 
-export type MessageAction = {
-    id: string
-    label: string
-    icon: LucideIcon
-    /** Fired on select. The mobile action sheet always runs this, so actions that
-     *  carry a `submenu` for desktop must also say what a tap does on a phone
-     *  (usually: open the same content as its own bottom sheet). */
-    onSelect?: () => void
-    /**
-     * Renders a nested panel off the item in the DESKTOP menus (context menu /
-     * hover dropdown). Hosts supply their own wrapper, so this is just the
-     * panel's content. The mobile sheet ignores it and runs onSelect.
-     */
-    submenu?: () => ReactNode
-    /** Renders in the destructive style (delete). */
-    danger?: boolean
-}
+export type { MessageAction }
 
 /** Strips rich-text markup so "Copy" puts plain text on the clipboard. */
 const toPlainText = (html: string): string => {
@@ -95,15 +81,14 @@ const selectionWithinMessage = (messageID: string): string => {
 }
 
 /**
- * Builds the action groups for a message — the single source of truth rendered
- * by the desktop context menu, the mobile bottom sheet, and (later) the hover
- * toolbar. Groups map to visual sections separated by dividers.
+ * Builds the action groups for a message — the single source of truth rendered by the
+ * desktop context menu, the mobile bottom sheet, and the hover toolbar's overflow menu.
+ * Groups map to visual sections separated by dividers.
  *
- * Mutating actions (edit/delete/pin/save/reactions) follow the optimistic
- * contract when implemented: (1) apply to the channel message store
- * synchronously via its action methods, (2) fire the API call, (3) on failure,
- * resync the channel window and toast. The store's idempotent, monotonic
- * upserts make resync a safe universal rollback.
+ * Mutating actions (edit/delete/pin/save/reactions) all follow one optimistic contract:
+ * (1) apply to the channel message store synchronously via its action methods, (2) fire
+ * the API call, (3) on failure, put back what was applied and toast. The store's
+ * idempotent, monotonic upserts make a window resync a safe universal rollback.
  */
 export const useMessageActions = (
     message: Message | null,
@@ -113,6 +98,17 @@ export const useMessageActions = (
          *  not-archived — which, unlike the channel store, also knows THREAD
          *  membership. Defaults to true for callers without a gate. */
         canInteract?: boolean
+        /** Whether to build the FILE actions (copy file link / download / download all /
+         *  attach to document). Defaults to true.
+         *
+         *  Set false while they can't be seen. Building them resolves the message's batch
+         *  via `channelMessagesStore.batchMembers`, which scans the channel's whole loaded
+         *  window — cheap once, wasteful on a hover-driven path. The hover toolbar renders
+         *  only reply/create-thread/edit as buttons and shows the rest solely inside its
+         *  ellipsis dropdown, so it passes its open state here and pays the scan when the
+         *  dropdown actually opens. The context menu, which only ever targets a message on
+         *  right-click or long-press, leaves this alone. */
+        includeFileActions?: boolean
     },
 ): {
     /** Action groups (visual sections) — menus/sheets/toolbar all render from these. */
@@ -123,6 +119,7 @@ export const useMessageActions = (
     isOwner: boolean
 } => {
     const canInteract = options?.canInteract ?? true
+    const includeFileActions = options?.includeFileActions ?? true
     const { name: currentUser } = useUserCookieData()
     const setDialog = useSetAtom(messageDialogAtom)
     const navigate = useNavigate()
@@ -141,6 +138,7 @@ export const useMessageActions = (
         isPoll && message ? ["poll", message.name] : null,
         { dedupingInterval: 10000 },
     )
+    const enabledActions = useEnabledMessageActions()
 
     return useMemo(() => {
         if (!message) return { groups: [], isOwner: false }
@@ -205,7 +203,7 @@ export const useMessageActions = (
             })
         }
 
-        // Clipboard & files
+        // Clipboard: copy text, copy message link
         const clipboard: MessageAction[] = []
         if (message.text || message.content) {
             clipboard.push({
@@ -240,12 +238,36 @@ export const useMessageActions = (
                 // channel in the URL at all).
                 const base = import.meta.env.VITE_BASE_NAME ? `/${import.meta.env.VITE_BASE_NAME}` : ""
                 const url = `${window.location.origin}${base}/message/${encodeURIComponent(message.name)}`
-                navigator.clipboard.writeText(url)
-                toast.success(_("Link copied"))
+                navigator.clipboard
+                    .writeText(url)
+                    .then(() => toast.success(_("Link copied")))
+                    .catch(() => toast.error(_("Could not copy link")))
             },
         })
-        // No per-file Download here: it's ambiguous for a batch (which file?), and the
-        // attachment preview / lightbox already offers an unambiguous per-file download.
+
+        // File actions (copy file link, download, download all, attach to document)
+        // render as their own group — a divider above them on every surface — so
+        // they're built separately and kept out of the clipboard group above.
+        const fileActions = includeFileActions ? buildFileActions(message, { setDialog }) : []
+
+        // Custom actions (admin-defined "Raven Message Action" docs): one parent
+        // entry whose children render as a submenu / drawer sub-view. Absent
+        // entirely on sites with none — the common case. Not gated on canInteract:
+        // running an action only needs read access to the message (the server
+        // enforces exactly that).
+        const customActions: MessageAction[] = []
+        if (enabledActions.length > 0) {
+            customActions.push({
+                id: "custom-actions",
+                label: _("Actions"),
+                icon: ZapIcon,
+                children: enabledActions.map((action) => ({
+                    id: `custom-action-${action.name}`,
+                    label: action.action_name,
+                    onSelect: () => setDialog({ type: "custom-action", message, actionID: action.name }),
+                })),
+            })
+        }
 
         // Organize: pin, save, reactions.
         // Pinned state lives on the CHANNEL (pinned_messages_string, newline-separated
@@ -375,6 +397,6 @@ export const useMessageActions = (
             })
         }
 
-        return { groups: [respond, pollActions, clipboard, organize, owner].filter((group) => group.length > 0), isOwner }
-    }, [message, currentUser, setDialog, navigate, call, pinnedString, canInteract, isPoll, pollData, mutatePoll])
+        return { groups: [respond, pollActions, clipboard, fileActions, customActions, organize, owner].filter((group) => group.length > 0), isOwner }
+    }, [message, currentUser, setDialog, navigate, call, pinnedString, canInteract, isPoll, pollData, mutatePoll, includeFileActions, enabledActions])
 }

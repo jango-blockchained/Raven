@@ -4,7 +4,7 @@ import { useDebounceValue } from 'usehooks-ts'
 import { useEscHotkey } from '@hooks/useEscHotkey'
 import { ListFilter, Search as SearchIcon, X } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@components/ui/popover'
-import { Drawer, DrawerContent, DrawerTitle, DrawerTrigger } from '@components/ui/drawer'
+import { Drawer, DrawerContent, DrawerDescription, DrawerTitle, DrawerTrigger } from '@components/ui/drawer'
 
 import SearchTabsBar, { SearchTab } from '@components/features/search/SearchTabsBar'
 import { SearchFiltersBar } from '@components/features/search/SearchFiltersBar'
@@ -247,6 +247,7 @@ export default function Search() {
                         <DrawerTitle className="px-4 pb-3 pt-1 text-left text-2xl-semibold text-ink-gray-9">
                             {_('Filters')}
                         </DrawerTitle>
+<DrawerDescription className="sr-only">{_("Narrow results by person, channel, type or source")}</DrawerDescription>
                         {/* Not the desktop combobox stack: drill-in rows for the
                             searchable lists, inline chips for the bounded ones. */}
                         <SearchFiltersSheet

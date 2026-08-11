@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@components/ui/dialog"
-import { Drawer, DrawerContent, DrawerTitle } from "@components/ui/drawer"
+import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@components/ui/drawer"
 import { useIsMobile } from "@hooks/use-mobile"
+import { useNoDragWhileScrolled } from "@hooks/useNoDragWhileScrolled"
 import { ReadReceiptsList } from "../ReadReceiptsList"
 import type { Message } from "@raven/types/common/Message"
 import _ from "@lib/translate"
@@ -22,6 +23,7 @@ export const ReadReceiptsDialog = ({
     onClose: () => void
 }) => {
     const isMobile = useIsMobile()
+    const noDragProps = useNoDragWhileScrolled()
 
     if (!message) return null
 
@@ -32,9 +34,11 @@ export const ReadReceiptsDialog = ({
                     <DrawerTitle className="px-4 pb-4 pt-1 text-left text-2xl-semibold text-ink-gray-9">
                         {_("Read by")}
                     </DrawerTitle>
-                    {/* data-vaul-no-drag: the readers list scrolls past its cap; without
-                        it vaul claims the swipe as a sheet drag. */}
-                    <div data-vaul-no-drag className="px-1 pb-4">
+<DrawerDescription className="sr-only">{_("Who has read this message")}</DrawerDescription>
+                    {/* Positional no-drag (see useNoDragWhileScrolled): the readers list
+                        scrolls past its cap; while scrolled the swipe belongs to it, and
+                        a pull from the top dismisses the sheet. */}
+                    <div {...noDragProps} className="px-1 pb-4">
                         <ReadReceiptsList message={message} sheet />
                     </div>
                 </DrawerContent>

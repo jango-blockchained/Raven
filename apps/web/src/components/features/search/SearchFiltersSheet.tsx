@@ -4,7 +4,7 @@ import { Command as CommandPrimitive } from 'cmdk'
 import { Command, CommandEmpty, CommandList } from '@components/ui/command'
 import { Input } from '@components/ui/input'
 import { InputGroup, InputGroupAddon } from '@components/ui/input-group'
-import { DrawerClose, DrawerContent, DrawerNested, DrawerTitle, DrawerTrigger } from '@components/ui/drawer'
+import { DrawerClose, DrawerContent, DrawerDescription, DrawerNested, DrawerTitle, DrawerTrigger } from '@components/ui/drawer'
 import { ChannelFilterRows } from '@components/common/filters/ChannelFilter'
 import { UserFilterRows } from '@components/common/filters/UserFilter'
 import { FILE_TYPE_OPTIONS } from '@components/common/filters/FileTypeFilter'
@@ -300,6 +300,7 @@ const DrillIn = ({
                 <DrawerTitle className="px-4 py-2 text-left text-2xl-semibold text-ink-gray-9">
                     {title}
                 </DrawerTitle>
+<DrawerDescription className="sr-only">{_("Search and pick an option to filter results")}</DrawerDescription>
                 {/* Hidden — the close() handed to rows clicks it. See closeRef. */}
                 <DrawerClose ref={closeRef} className="hidden" tabIndex={-1} aria-hidden />
                 <Command
