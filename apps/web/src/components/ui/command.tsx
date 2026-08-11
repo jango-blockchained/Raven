@@ -68,6 +68,13 @@ const COMMAND_INPUT_VARIANTS = {
    *  a boxed field there reads as a second surface. Keeps the search icon, which is what
    *  marks the row as a field at all once the box is gone. */
   plain: "h-9 md:h-8 gap-2 px-3 border-b border-outline-gray-2",
+  /** Full-bleed header WITH the search icon — the command palette. The dialog frame
+   *  is the box, so the field draws no box of its own: icon + hairline below, per
+   *  frappe-ui's docs palette (py-3 + text-base ≈ h-10; mobile keeps a taller touch
+   *  target). The [&_svg] tint is the palette's darker icon (ink-gray-6, a step up
+   *  from the shared gray-4) — styled from here so the icon element stays identical
+   *  across variants. */
+  palette: "h-12 md:h-10 gap-3 px-4.5 border-b border-outline-gray-2 [&_svg]:text-ink-gray-6",
 }
 
 function CommandInput({
@@ -123,7 +130,7 @@ function CommandEmpty({
   return (
     <CommandPrimitive.Empty
       data-slot="command-empty"
-      className="py-6 text-center text-content"
+      className="py-6 text-center text-lg md:text-base"
       {...props}
     />
   )
@@ -137,7 +144,16 @@ function CommandGroup({
     <CommandPrimitive.Group
       data-slot="command-group"
       className={cn(
-        "text-ink-gray-6 [&_[cmdk-group-heading]]:text-ink-gray-4 overflow-hidden p-1 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-base [&_[cmdk-group-heading]]:md:text-sm [&_[cmdk-group-heading]]:font-medium",
+        // Heading = frappe-ui's palette group label (body-size regular, ink-gray-5) at
+        // every breakpoint. The DEFAULT is the palette style, not DropdownMenuLabel's:
+        // giving both styles unprefixed font-size utilities here and in an override
+        // made the winner depend on Tailwind's generated order (the palette's mobile
+        // heading silently lost and rendered 13px). Popovers that want the menu-label
+        // type pin it themselves — see FilterCombobox. NOTE: spell heading type as real
+        // utilities (text-base, font-medium…), never espresso's .text-sm-medium — that's
+        // a plain @layer components class, and behind a [&_…] variant it compiles to
+        // nothing, leaving the 16px UA default.
+        "text-ink-gray-6 [&_[cmdk-group-heading]]:text-ink-gray-5 overflow-hidden p-1 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-base",
         className
       )}
       {...props}
@@ -166,8 +182,8 @@ function CommandItem({
     <CommandPrimitive.Item
       data-slot="command-item"
       className={cn(
-        "py-2.5 md:py-1.5 px-2 flex cursor-pointer text-ink-gray-7 items-center gap-2 rounded text-content relative outline-hidden select-none",
-        "data-[selected=true]:bg-surface-gray-2 [&_svg:not([class*='text-'])]:text-ink-gray-6 data-[disabled=true]:pointer-events-none data-[disabled=true]:cursor-not-allowed data-[disabled=true]:text-ink-gray-4 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "py-2 md:py-1.5 px-2 flex cursor-pointer text-ink-gray-7 items-center gap-2 rounded text-lg md:text-base relative outline-hidden select-none",
+        "data-[selected=true]:bg-surface-gray-2 [&_svg:not([class*='text-'])]:text-ink-gray-6 data-[disabled=true]:pointer-events-none data-[disabled=true]:cursor-not-allowed data-[disabled=true]:text-ink-gray-4 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4.5 md:[&_svg:not([class*='size-'])]:size-4",
         className
       )}
       {...props}

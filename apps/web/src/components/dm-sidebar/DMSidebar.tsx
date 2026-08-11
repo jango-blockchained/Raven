@@ -352,9 +352,14 @@ function DMRowShell({
                 {(lastMessage || unread > 0) && <div className="flex items-center gap-2">
                     {lastMessage && <div
                         className={cn(
-                            // leading-snug: see note on the name above — line-clamp also clips
-                            // descenders at the tight 1.15 line-height on Safari.
-                            "line-clamp-1 text-base md:text-xs leading-snug flex-1 min-w-0",
+                            // truncate, NOT line-clamp-1: line-clamp truncates per WORD —
+                            // a teaser that starts with a long URL is one unbreakable token
+                            // wider than the row, so the clamp dropped the entire word and
+                            // rendered a bare "…". text-overflow truncates per CHARACTER,
+                            // which is what a one-line preview wants.
+                            // leading-snug: the tight 1.15 line-height clips descenders
+                            // (g/y/p) once overflow is hidden — Safari cuts them.
+                            "truncate text-base md:text-xs leading-snug flex-1 min-w-0",
                             unread > 0
                                 ? "font-medium text-ink-gray-8"
                                 : "text-ink-gray-4"

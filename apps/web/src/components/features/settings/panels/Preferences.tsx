@@ -15,6 +15,7 @@ import { useTheme } from "@components/theme-provider"
 import { customEmojiCategoriesAtom } from "@lib/emojiMart"
 import Picker from "@emoji-mart/react"
 import { errorResponseToast } from "@components/ui/error-banner"
+import { LinkSettingsAdminSection } from "./LinkSettingsAdminSection"
 
 const Preferences = () => {
 
@@ -144,6 +145,9 @@ const Preferences = () => {
                         <Separator />
 
                         <QuickEmojis />
+
+                        {/* Renders nothing without the Raven Admin role. */}
+                        <LinkSettingsAdminSection />
                     </div>
 
                 </div>

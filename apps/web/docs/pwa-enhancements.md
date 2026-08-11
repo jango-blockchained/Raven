@@ -516,6 +516,75 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
     double-tap cover zooming, iOS shows no zoom UI, and on a phone the pill
     was permanent noise floating over the photo (desktop keeps it, hover-
     revealed, where precise stepping and the % readout earn their place).
+44. **Two PWAs, one origin: an invalid scope silently claims the whole site.**
+    Frappe sites often host several installable apps on one domain — Raven at
+    `/raven`, Frappe HR at `/hrms`. Users installed both on Android and then
+    reported two baffling symptoms: tapping the Raven app sometimes opened HR,
+    and Raven's push notifications showed HR's icon and name. The cause was a
+    single line in HR's manifest: `"scope": "/assets/hrms/frontend/"` — the
+    build tool had derived the scope from its asset directory. Per the spec, a
+    scope that doesn't contain `start_url` is *invalid and silently ignored*,
+    and the fallback is the directory of `start_url` — for `/hrms`, that's
+    `/`. So HR's installed app quietly claimed the entire origin. Android's
+    WebAPK model attributes everything by scope: links under `/raven` fell
+    inside HR's effective `/` and could launch HR's app, and — the part
+    nobody guesses — **notifications follow scope too**: Chrome badges a web
+    notification with whichever installed app's scope contains the service
+    worker's scope, so Raven's SW at `/raven/` presented as HR. Three
+    lessons. First, on a shared origin every manifest needs an explicit,
+    *valid*, mutually exclusive scope — and scope matching is a raw
+    path-prefix string comparison, so use a trailing slash (`/raven/`, not
+    `/raven`, which would also claim `/ravenanything`). Second, set an
+    explicit `id` and then never change it — it's the app's permanent
+    identity, and editing it orphans existing installs (we hardened our scope
+    but deliberately left `id` untouched). Third, manifest fixes don't
+    propagate on your schedule: Chrome re-mints WebAPKs lazily, so the
+    deterministic cure for affected users is uninstall + reinstall — and
+    `chrome://webapks` on the device shows every installed app's true scope,
+    which turns this whole class of bug from a mystery into a one-line read.
+45. **The iOS status bar colors itself by looking at your pixels — and no meta
+    tag overrides its eyes.** Our toasts appear at the top of the screen on
+    mobile, and every time one arrived on iOS, the system status bar briefly
+    flipped its look. First theory: the toast *slides in* from off-screen,
+    passing under the status bar — so we rebuilt the entry as a fade-in-place
+    that never crosses the top edge. No change. The real mechanism: in an
+    installed app with `viewport-fit=cover`, the status bar strip isn't
+    painted from your `theme-color` — it's effectively transparent, showing
+    the page's actual rendered pixels, and iOS continuously re-derives the
+    bar's appearance by *sampling the content near the top of the viewport*.
+    `theme-color` seeds the base (we declare it, media-queried per scheme,
+    and update it from the theme provider), but live sampling adjusts on top
+    of it. A near-black card materializing near the top changes the sampled
+    result — presence triggers the flip, not motion, so no animation can
+    prevent it. We reverted to the default slide-in and accepted the blink.
+    The only genuine fix is an opaque "shim" strip pinned above everything at
+    `height: env(safe-area-inset-top)`, so the sampled pixels never change —
+    rejected deliberately: it taxes every full-bleed surface (the photo
+    viewer *wants* to render under the status bar) with a coupling they must
+    all remember. The lesson is a sharper version of an old one: on iOS, the
+    chrome around your app is a mirror, not a setting. You influence it by
+    what you draw, and some flickers are the honest cost of drawing near it.
+46. **Bands across a white photo while panning — the GPU showing you its
+    tiles.** Zoom into an image in the viewer on a phone and drag it around:
+    on busy photos everything looks fine, but on a flat white image, faint
+    bands crawl across the picture as you pan. The mechanism is rasterization,
+    not layout: the image moves via `transform: translate(...) scale(...)`,
+    but nothing promoted it to its own compositor layer — so instead of
+    sliding a cached texture, mobile WebKit *re-rasterizes the scaled image
+    every frame, tile by tile*, mid-gesture. Adjacent tiles get sampled at
+    fractionally different offsets, and the seams between them differ by a
+    hair of brightness. A photo's texture hides that hair; a flat white
+    surface is a precision instrument for displaying it. (Desktop GPUs
+    re-raster fast enough that you never catch the tiles mid-update — which
+    is why the bug report says "on mobile".) The fix is one property:
+    `will-change: transform` promotes the image to a compositor layer, and
+    panning becomes a pure texture transform with nothing to re-rasterize.
+    The trade-off to know about: during a pinch the browser samples the
+    cached texture, so the image can look slightly soft mid-gesture and
+    sharpens on release — the same behavior as native photo viewers. The
+    general lesson: content that animates via transforms every frame should
+    live on its own layer, and flat, bright test images are worth keeping
+    around — they reveal compositor artifacts that real photos camouflage.
 
 ## What's still on the list
 
