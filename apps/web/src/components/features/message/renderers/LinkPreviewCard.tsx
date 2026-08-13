@@ -207,13 +207,19 @@ const PreviewBody = ({ preview }: { preview: LinkPreviewData }) => {
  * The under-message card ("Preview Card" mode), rendered by
  * MessageLinkPreview when no provider embed matched.
  *
- * NOT visibility-gated on purpose: the whole window's previews are
- * prefetched when its blocks load (useWindowLinkPreviewPrefetch), so the
- * store usually answers synchronously and the card renders in the SAME
- * commit as its row. That keeps scrolling smooth — a card that mounts
- * late inserts height mid-scroll. The hook's own register covers the
- * rare cache miss. Nothing renders until the server has a fetched
- * preview, so plain links stay plain.
+ * NOT visibility-gated on purpose: the window's previews arrive with the
+ * messages themselves (the get_messages side-car seeds the store before
+ * rows render), so the card paints in the SAME commit as its row. That
+ * keeps scrolling smooth — a card that mounts late inserts height
+ * mid-scroll. The hook's own register covers the rare cache miss.
+ *
+ * Nothing renders until the server has a fetched preview, so plain links
+ * stay plain. A FRESH message's card pops in when its fetch completes —
+ * deliberately, with no loading skeleton: that only happens at the
+ * bottom-anchored live edge where arriving content is expected motion
+ * (Slack and Discord behave the same), and a skeleton there would guess
+ * heights wrong and collapse on failed fetches. See Phase 5 of
+ * docs/link-previews-plan.md for the full decision.
  */
 export const MessageLinkPreviewCard = ({ href }: { href: string }) => {
     const mode = usePreviewMode()

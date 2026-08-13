@@ -280,6 +280,33 @@ class TestMessageLinkRows(IntegrationTestCase):
 		self.assertEqual(results[raw_tracked]["url"], preview.url)
 		self.assertIsNone(results["https://nowhere.example/x"])
 
+	def test_get_messages_ships_the_previews_sidecar(self):
+		from raven.api.chat_stream import get_messages
+
+		# A stored preview for a link that a message shares under a TRACKED
+		# raw spelling — the side-car must key by the raw url the message
+		# carries, resolving through normalization.
+		preview = frappe.new_doc("Raven Link Preview")
+		preview.url = f"https://example.com/{frappe.generate_hash(length=12)}"
+		preview.provider = "Other"
+		preview.status = "Fetched"
+		preview.title = "Sidecar Title"
+		preview.insert(ignore_permissions=True)
+
+		raw_url = preview.url + "?utm_source=share"
+		no_preview_url = f"https://nowhere.example/{frappe.generate_hash(length=12)}"
+		self.make_message(
+			f'<p><a href="{raw_url}">article</a> and <a href="{no_preview_url}">unknown</a></p>'
+		)
+
+		result = get_messages(channel_id=self.channel.name, update_last_visit=False)
+
+		# Keyed by the RAW spelling, exactly as the message ships it.
+		self.assertEqual(result["previews"][raw_url]["title"], "Sidecar Title")
+		# A link with no stored preview is an explicit None — the client
+		# marks it known instead of asking again.
+		self.assertIsNone(result["previews"][no_preview_url])
+
 	def test_search_links_filters_by_provider(self):
 		from raven.api.search import search_links
 
