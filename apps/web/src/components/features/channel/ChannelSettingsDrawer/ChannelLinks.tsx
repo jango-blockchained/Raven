@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Search } from 'lucide-react'
+import { Search, SearchIcon } from 'lucide-react'
 import { useSetAtom } from 'jotai'
 import { LinkResultContent } from '@components/common/LinkResultBlock/LinkResultContent'
 import { ProviderFilter } from '@components/common/filters/ProviderFilter'
@@ -16,6 +16,7 @@ import ErrorBanner from '@components/ui/error-banner'
 import { LinkSearchResult, useLinkSearch } from '@hooks/useLinkSearch'
 import { Input } from '@components/ui/input'
 import { TAB_SCROLLER } from './tabPanel'
+import { InputGroup, InputGroupAddon } from '@components/ui/input-group'
 
 const ChannelLinks = ({ channelID }: { channelID: string }) => {
     const { members } = useChannelMembers(channelID)
@@ -59,14 +60,16 @@ const ChannelLinks = ({ channelID }: { channelID: string }) => {
         <div className="flex flex-1 min-h-0 flex-col gap-2 px-1">
             {/* Search bar + source picker */}
             <div className="flex shrink-0 items-center gap-2">
-                <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-ink-gray-4" />
+                <InputGroup>
+                    <InputGroupAddon>
+                        <SearchIcon />
+                    </InputGroupAddon>
                     <Input
-                        placeholder={_("Search links...")}
+                        inputSize="sm"
+                        placeholder={_("Search...")}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-9 h-8 text-sm"
                     />
-                </div>
+                </InputGroup>
                 {/* Icon trigger: a labeled trigger's width changes with the
                     selection and would squeeze the search box beside it. */}
                 <ProviderFilter

@@ -1,5 +1,5 @@
 import { UserAvatar } from '@components/features/message/UserAvatar'
-import { ArrowDownToLine, LayoutGridIcon, ListIcon, Search } from 'lucide-react'
+import { ArrowDownToLine, LayoutGridIcon, ListIcon, Search, SearchIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useDebounceValue } from 'usehooks-ts'
 import { useSetAtom } from 'jotai'
@@ -16,6 +16,7 @@ import { TabsButton, TabsButtonItem } from '@components/ui/tab-buttons'
 import { attachmentPreviewAtom, getAttachmentKind, type Attachment } from '@utils/attachmentPreview'
 import { getFileExtension } from '@lib/file'
 import { TAB_SCROLLER } from './tabPanel'
+import { InputGroup, InputGroupAddon } from '@components/ui/input-group'
 
 type FilesView = 'list' | 'grid'
 
@@ -35,7 +36,7 @@ const ChannelFiles = ({ channelID }: { channelID: string }) => {
     // the tab re-renders once per settled query. The search hooks no longer
     // debounce internally — this is the one debounce.
     const [searchQuery, setSearchQuery] = useDebounceValue('', 200)
-    const [view, setView] = useState<FilesView>('list')
+    const [view, setView] = useState<FilesView>('grid')
     const { results, isLoading, error } = useSqliteSearch(searchQuery, { channel_id: channelID, message_type: ["File", "Image"] }, 100)
     const { members } = useChannelMembers(channelID)
 
@@ -57,20 +58,22 @@ const ChannelFiles = ({ channelID }: { channelID: string }) => {
         <div className="flex flex-1 min-h-0 flex-col gap-2 px-1">
             {/* Search + view toggle */}
             <div className="flex shrink-0 items-center gap-2">
-                <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-ink-gray-4" />
+                <InputGroup>
+                    <InputGroupAddon>
+                        <SearchIcon />
+                    </InputGroupAddon>
                     <Input
-                        placeholder={_("Search files...")}
+                        inputSize="sm"
+                        placeholder={_("Search...")}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-9 h-8 text-sm"
                     />
-                </div>
-                <TabsButton value={view} onValueChange={(value) => setView(value as FilesView)} aria-label={_("Files view")}>
-                    <TabsButtonItem value="list" iconOnly aria-label={_("List view")} title={_("List view")}>
-                        <ListIcon />
-                    </TabsButtonItem>
+                </InputGroup>
+                <TabsButton value={view} size="md" onValueChange={(value) => setView(value as FilesView)} aria-label={_("Files view")}>
                     <TabsButtonItem value="grid" iconOnly aria-label={_("Grid view")} title={_("Grid view")}>
                         <LayoutGridIcon />
+                    </TabsButtonItem>
+                    <TabsButtonItem value="list" iconOnly aria-label={_("List view")} title={_("List view")}>
+                        <ListIcon />
                     </TabsButtonItem>
                 </TabsButton>
             </div>
