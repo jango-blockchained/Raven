@@ -9,6 +9,10 @@ import _ from '@lib/translate';
 import { ChannelMemberData, loadChannelMembers } from '@hooks/useChannelMembers';
 import { useNoDragWhileScrolled } from '@hooks/useNoDragWhileScrolled';
 import { useCreateDM } from '@hooks/useCreateDM';
+import { useNavigateFromDrawer } from '@hooks/useNavigateFromDrawer';
+import { useIsMobile } from '@hooks/use-mobile';
+import { useSetAtom } from 'jotai';
+import { channelDrawerAtom } from '@utils/channelAtoms';
 import { Virtuoso } from 'react-virtuoso';
 import { useContext } from 'react';
 import { FrappeConfig, FrappeContext, useFrappeDeleteDoc, useFrappeUpdateDoc } from 'frappe-react-sdk';
@@ -87,6 +91,22 @@ const MembersList = ({ filteredMembers, channelID, allowSettingChange }: { filte
     // Same "message this person" behaviour as the mention card / command menu:
     // routes to the existing DM (no request) or creates it first.
     const { createDM } = useCreateDM()
+    // On mobile this list lives in a bottom sheet — close it and let the
+    // navigation wait out its exit animation (see the hook), or the sheet gets
+    // baked into the OS back-swipe screenshot. On desktop the panel stays
+    // open on purpose: panels are furniture there, and navigating away simply
+    // leaves this channel's panel state behind.
+    const isMobile = useIsMobile()
+    const setDrawerType = useSetAtom(channelDrawerAtom(channelID))
+    const navigateFromDrawer = useNavigateFromDrawer(isMobile ? () => setDrawerType('') : undefined)
+
+    // The sheet stays open until the DM resolves — a failure (createDM toasts
+    // it) leaves the user in the member list instead of nowhere. Success
+    // closes and navigates through the hook.
+    const messageMember = (member: ChannelMemberData) =>
+        createDM(member.name, { navigate: false }).then((dmChannelID) => {
+            if (dmChannelID) navigateFromDrawer(`/dm-channel/${encodeURIComponent(dmChannelID)}`)
+        })
 
     const handleRemoveMember = (member: ChannelMemberData) => {
         if (!member.channel_member_name) return
@@ -151,7 +171,7 @@ const MembersList = ({ filteredMembers, channelID, allowSettingChange }: { filte
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => createDM(member.name)}>
+                            <DropdownMenuItem onClick={() => messageMember(member)}>
                                 <MessagesSquareIcon />
                                 {_("Message")}
                             </DropdownMenuItem>

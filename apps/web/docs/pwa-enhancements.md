@@ -277,6 +277,24 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
     like this exists, audit every drawer that navigates — the second offender
     is always somewhere.
 
+    That audit eventually happened in full, and the second offender was five
+    offenders: the command palette (every selection — channels, DMs,
+    new-DM-then-navigate, both search rows), "create thread" in the message
+    action sheet (which navigated whenever the server answered, racing the
+    sheet's close), and the members sheet's "Message" button. The mechanism
+    now lives in one hook — `useNavigateFromDrawer`: close the drawer, wait
+    out its exit animation on mobile, then navigate; instant on desktop. It
+    also accepts a *promise* of a destination, so a server round-trip can run
+    during the close animation instead of after it — the same overlap trick
+    as the prefetch. One judgment call per flow: "create thread" uses the
+    overlap (the action sheet closes on every tap by idiom, so there is
+    nothing to hold open), but the DM flows wait for the server FIRST — the
+    palette or member list stays open with its spinner, and only a
+    successful resolve closes and navigates, so a failure leaves you where
+    you were instead of on the page with nothing but a toast. The two
+    original hand-rolled fixes were folded into it, and the rule is now one
+    sentence: a drawer that navigates, navigates through the hook.
+
     Three lessons: anything visible around the
     instant of navigation can be frozen into the back-swipe; when you're racing
     another process's clock, don't cut it fine — buy margin you can see; and

@@ -1,5 +1,4 @@
 import { useContext, useEffect, useMemo, useReducer } from "react"
-import { useNavigate } from "react-router-dom"
 import { FrappeContext, type FrappeConfig } from "frappe-react-sdk"
 import { prefetchChannel, type FrappeCallClient } from "@stores/messages/loaders"
 import { atom, useAtomValue, useSetAtom } from "jotai"
@@ -12,7 +11,7 @@ import { channelUnreadStore } from "@stores/unread/store"
 import { useWorkspaces, type WorkspaceFields } from "@hooks/useWorkspaces"
 import useCurrentRavenUser from "@raven/lib/hooks/useCurrentRavenUser"
 import { lastChannelAtom, lastWorkspaceAtom } from "@utils/lastVisitedAtoms"
-import { DRAWER_EXIT_MS } from "@utils/drawer"
+import { useNavigateFromDrawer } from "@hooks/useNavigateFromDrawer"
 import { useHistoryBackClose } from "@hooks/useHistoryBackClose"
 import { useNoDragWhileScrolled } from "@hooks/useNoDragWhileScrolled"
 import type { ChannelListItem } from "@raven/types/common/ChannelListItem"
@@ -51,7 +50,6 @@ export const HomeWorkspacesDrawer = ({
     open: boolean
     onOpenChange: (open: boolean) => void
 }) => {
-    const navigate = useNavigate()
 
     // The open drawer owns the system back gesture (atom-driven overlay hosted
     // above the routes — back would otherwise navigate the page underneath it).
@@ -61,23 +59,16 @@ export const HomeWorkspacesDrawer = ({
 
     // Navigation waits for the drawer to FINISH closing, or the drawer gets
     // baked into the OS back-swipe screenshot and haunts the next back gesture
-    // (the full mechanism is documented on DRAWER_EXIT_MS).
+    // (the shared mechanism — see useNavigateFromDrawer).
     //
-    // Only CHANNEL opens pay the wait. A workspace switch navigates instantly:
-    // it lands on the same list page (WorkspaceLayout and this footer stay
-    // mounted across it), so the drawer simply finishes closing over the NEW
-    // workspace's list — no dead-feeling pause. That does leave the drawer in
-    // the back-entry screenshot, but back-swiping between workspace lists is a
-    // rare gesture; back-swiping out of a just-opened channel is constant,
-    // which is why the channel path keeps the wait.
-    const handleNavigate = (to: string, options?: { instant?: boolean }) => {
-        onOpenChange(false)
-        if (options?.instant) {
-            navigate(to)
-            return
-        }
-        window.setTimeout(() => navigate(to), DRAWER_EXIT_MS)
-    }
+    // Only CHANNEL opens pay the wait. A workspace switch navigates instantly
+    // (`instant`): it lands on the same list page (WorkspaceLayout and this
+    // footer stay mounted across it), so the drawer simply finishes closing
+    // over the NEW workspace's list — no dead-feeling pause. That does leave
+    // the drawer in the back-entry screenshot, but back-swiping between
+    // workspace lists is a rare gesture; back-swiping out of a just-opened
+    // channel is constant, which is why the channel path keeps the wait.
+    const handleNavigate = useNavigateFromDrawer(() => onOpenChange(false))
 
     return (
         <Drawer open={open} onOpenChange={onOpenChange}>

@@ -1,7 +1,7 @@
 import { useContext, useMemo } from "react"
 import { getDefaultStore, useSetAtom } from "jotai"
-import { useNavigate } from "react-router-dom"
 import { FrappeConfig, FrappeContext, useFrappeGetCall, type FrappeError } from "frappe-react-sdk"
+import { useNavigateFromDrawer } from "@hooks/useNavigateFromDrawer"
 import { toast } from "sonner"
 import {
     Bookmark,
@@ -124,7 +124,7 @@ export const useMessageActions = (
     const includeFileActions = options?.includeFileActions ?? true
     const { name: currentUser } = useUserCookieData()
     const setDialog = useSetAtom(messageDialogAtom)
-    const navigate = useNavigate()
+    const navigateFromDrawer = useNavigateFromDrawer()
     const { call } = useContext(FrappeContext) as FrappeConfig
     // Pinned state lives on the channel, and pinning doesn't change the message object —
     // so subscribe to the channel's pinned string here. Without this, reopening the menu
@@ -192,15 +192,25 @@ export const useMessageActions = (
                     const target = pathname.startsWith(base)
                         ? `${base}/thread/${threadID}`
                         : `${base}/thread/${threadID}?message_id=${encodeURIComponent(threadID)}`
-                    call.post("raven.api.threads.create_thread", { message_id: threadID })
-                        .then(() => {
-                            // Reflect the new thread on the parent (shows the pill) and seed an
-                            // empty reply count, then open it.
-                            channelMessagesStore.messageEdited(message.channel_id, threadID, { is_thread: 1 })
-                            seedThreadMeta(threadID, 0)
-                            navigate(target)
-                        })
-                        .catch((e) => errorResponseToast(_("Could not create thread"), e))
+                    // On mobile this runs from the action SHEET, which starts closing on
+                    // select — navigating under it would bake it into the OS back-swipe
+                    // screenshot. navigateFromDrawer holds navigation until the sheet is
+                    // gone; the create_thread round-trip runs during that wait. No close
+                    // to pass: the sheet dismisses itself after onSelect.
+                    navigateFromDrawer(
+                        call.post("raven.api.threads.create_thread", { message_id: threadID })
+                            .then(() => {
+                                // Reflect the new thread on the parent (shows the pill) and seed an
+                                // empty reply count, then open it.
+                                channelMessagesStore.messageEdited(message.channel_id, threadID, { is_thread: 1 })
+                                seedThreadMeta(threadID, 0)
+                                return target
+                            })
+                            .catch((e) => {
+                                errorResponseToast(_("Could not create thread"), e)
+                                return null
+                            }),
+                    )
                 },
             })
         }
@@ -416,5 +426,5 @@ export const useMessageActions = (
         }
 
         return { groups: [respond, pollActions, clipboard, fileActions, customActions, organize, owner].filter((group) => group.length > 0), isOwner }
-    }, [message, currentUser, setDialog, navigate, call, pinnedString, canInteract, isPoll, pollData, mutatePoll, includeFileActions, enabledActions])
+    }, [message, currentUser, setDialog, navigateFromDrawer, call, pinnedString, canInteract, isPoll, pollData, mutatePoll, includeFileActions, enabledActions])
 }
