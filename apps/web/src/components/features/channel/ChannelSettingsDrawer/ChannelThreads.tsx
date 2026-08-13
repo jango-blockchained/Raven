@@ -28,7 +28,7 @@ const ChannelThreads = ({ channelID }: { channelID: string }) => {
 
     return (
         // Flex column: the search bar stays pinned; only the list below scrolls.
-        <div className="flex flex-1 min-h-0 flex-col gap-2 px-1">
+        <div className="flex flex-1 min-h-0 flex-col gap-3">
             {/* Search Bar */}
             <InputGroup>
                 <InputGroupAddon>
@@ -44,21 +44,20 @@ const ChannelThreads = ({ channelID }: { channelID: string }) => {
             {/* Threads List — the tab's one scroller (fade + safe-area padding). */}
             <div className={TAB_SCROLLER}>
                 {isLoading || !results ? <MessageListSkeleton /> :
-                    results.length === 0 ? <div className="text-sm text-ink-gray-4 text-center py-8">{searchQuery ? _("No threads found matching your search.") : _("No threads in this channel yet.")}</div> :
+                    results.length === 0 ? <div className="text-p-sm text-ink-gray-4 text-center py-8">{searchQuery ? _("No threads found matching your search.") : _("No threads in this channel yet.")}</div> :
                         <div className="space-y-2 pb-1">
                             {results.map((thread) => {
                                 const member = members.find((m) => m.name === thread.author)
                                 return (
                                     <div
                                         key={thread.id}
-                                        className="group p-3 border border-outline-gray-2/70 rounded-lg hover:bg-surface-gray-2/50 transition-colors cursor-pointer w-full"
+                                        className="group p-3 border border-outline-gray-1 rounded-md hover:bg-surface-gray-1 transition-colors cursor-pointer w-full"
                                         tabIndex={0}
                                         role="button"
                                         aria-label={`Open thread: ${thread.content}`}>
                                         <div className="flex items-start justify-between gap-3 mb-1 min-w-0">
                                             <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                <MessageSquareText className="w-4 h-4 text-ink-gray-4 shrink-0" />
-                                                <h3 className="text-sm font-medium text-ink-gray-8 truncate">
+                                                <h3 className="text-p-sm text-ink-gray-8 truncate">
                                                     <MarkdownRenderer content={thread.content} />
                                                 </h3>
                                             </div>
@@ -75,7 +74,7 @@ const ChannelThreads = ({ channelID }: { channelID: string }) => {
                                             {channel?.last_message_details?.content}
                                         </div> */}
 
-                                        <div className="flex items-center gap-2 text-xs text-ink-gray-4/80 pt-1">
+                                        <div className="flex items-center gap-2 text-xs leading-nug text-ink-gray-5 pt-1">
                                             {member && <><UserAvatar
                                                 user={member}
                                                 size="xs"

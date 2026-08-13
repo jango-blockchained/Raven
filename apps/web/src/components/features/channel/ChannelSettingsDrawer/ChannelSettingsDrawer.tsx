@@ -87,7 +87,7 @@ const ChannelSettingsDrawer = ({ peerUser }: ChannelSettingsDrawerProps) => {
                     capture listener stamps whichever inner element actually scrolled,
                     handing touch drags back to that scroller while it's scrolled — a
                     pull-down from the top still dismisses the sheet. */}
-                <div {...noDragProps} className="flex flex-1 min-h-0 flex-col overflow-x-hidden pt-2">
+                <div {...noDragProps} className="flex flex-1 min-h-0 flex-col overflow-x-hidden pt-1">
                     {!isDM && (
                         <TabsContent value="settings" className={TAB_PANEL}>
                             <ChannelSettingsTab channelID={channelID} />

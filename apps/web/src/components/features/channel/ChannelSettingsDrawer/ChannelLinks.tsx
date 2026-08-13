@@ -57,7 +57,7 @@ const ChannelLinks = ({ channelID }: { channelID: string }) => {
 
     return (
         // Flex column: the filter row stays pinned; only the list below scrolls.
-        <div className="flex flex-1 min-h-0 flex-col gap-2 px-1">
+        <div className="flex flex-1 min-h-0 flex-col gap-3">
             {/* Search bar + source picker */}
             <div className="flex shrink-0 items-center gap-2">
                 <InputGroup>
