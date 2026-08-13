@@ -219,7 +219,7 @@ const DrawerBody = ({ onNavigate }: { onNavigate: (to: string, options?: { insta
                         {sections.map(({ workspace, rows }) => (
                             <section key={workspace.name} className="mb-2">
                                 {showSectionHeaders && (
-                                    <p className="px-2 text-xs-medium text-ink-gray-4">
+                                    <p className="px-2 text-xs-medium pb-px text-ink-gray-4">
                                         {workspace.workspace_name}
                                     </p>
                                 )}
