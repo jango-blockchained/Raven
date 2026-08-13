@@ -238,12 +238,18 @@ form.
   prefixes just to avoid never-resolving skeletons. Decision: fresh cards
   pop in; no placeholder. Statuses still ride the side-car — they cost
   nothing and stay useful.
-- **Slice 3 — exact image boxes.** Populate `image_width`/`image_height` from
-  `og:image:width/height` at fetch time; the card computes its aspect box from
-  stored dims. Unknown dims → a fixed-ratio box that CLIPS (`object-cover`)
-  instead of resizing, so the image swap never changes card height. Phase 4's
-  camo proxy later makes probing reliable for pages that don't declare
-  dimensions.
+- **Slice 3 — exact image boxes.** Layer 2 already harvested declared
+  `og:image:width/height` and oEmbed thumbnail dims — but the sites that
+  matter most don't declare them (frappe.io's blog ships og:image with no
+  dimensions at all). So the fetcher now PROBES: when a page declares an
+  image without its size, it downloads the image through safe_fetch (same
+  SSRF guards — the image URL came out of a hostile page) and measures it
+  with PIL, one best-effort attempt, 2MB cap. A failed probe never fails
+  the preview. For the rare card still without dims, the client clips into
+  a fixed box instead of reflowing: the Frappe banner assumes the standard
+  1200x630 og shape, thumbnails become a fixed square. Either way, an
+  image loading can no longer change a card's shape. Phase 4's camo proxy
+  subsumes the probe later (the proxy downloads images anyway).
 
 **Done when:** a cold channel open paints rows and cards in one commit;
 paginating link-heavy history doesn't move the message being read; a fresh
