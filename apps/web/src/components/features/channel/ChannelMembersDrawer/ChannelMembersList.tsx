@@ -77,11 +77,15 @@ const ChannelMembersList = ({ members, channel, allowSettingChange }: { members:
     )
 }
 
-/** Breathing room under the last member row. Inside the footer because Virtuoso is
- *  its own scroller — wrapper padding would sit outside the scroll. (DrawerContent
- *  pads past the home-indicator safe area on mobile.) Module-level so Virtuoso's
- *  component type stays stable. */
-const MembersListFooter = () => <div className="h-2" aria-hidden="true" />
+/** Breathing room under the last member row, PLUS the home-indicator safe area on
+ *  mobile (the sheet's DrawerContent is pb-0 so the list can scroll to the drawer's
+ *  true edge — container padding would hard-clip rows mid-air). Inside the footer
+ *  because Virtuoso is its own scroller — wrapper padding would sit outside the
+ *  scroll. On desktop env() is 0 and this is the old h-2. Module-level so
+ *  Virtuoso's component type stays stable. */
+const MembersListFooter = () => (
+    <div className="h-[calc(env(safe-area-inset-bottom)+0.5rem)]" aria-hidden="true" />
+)
 const membersListComponents = { Footer: MembersListFooter }
 
 const MembersList = ({ filteredMembers, channelID, allowSettingChange }: { filteredMembers: ChannelMemberData[], channelID: string, allowSettingChange: boolean }) => {
@@ -132,6 +136,9 @@ const MembersList = ({ filteredMembers, channelID, allowSettingChange }: { filte
     return (
         <Virtuoso
             style={{ height: '100%', width: '100%' }}
+            // scroll-fade lands on Virtuoso's own scroller element, softening the
+            // edge where rows scroll past instead of a hard cut.
+            className="scroll-fade"
             data={filteredMembers}
             overscan={200}
             components={membersListComponents}

@@ -59,7 +59,10 @@ const ChannelMembersDrawer = () => {
                 </div>
             </div>
 
-            <div className="flex-1 min-h-0 flex flex-col overflow-x-hidden py-2">
+            {/* pt-2 only — bottom padding here would end the list's scrollport early
+                and hard-clip rows; the list's own footer pads the bottom INSIDE the
+                scroll (see MembersListFooter). */}
+            <div className="flex-1 min-h-0 flex flex-col overflow-x-hidden pt-2">
                 {isLoading ? (
                     <div className="flex items-center justify-center h-full">
                         {/* TODO: Add skeleton loading state */}

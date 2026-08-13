@@ -16,6 +16,7 @@ import { messageTargetAtom, makeMessageTarget } from '@utils/channelAtoms'
 import { parsePinnedIds } from '@stores/messages/selectors'
 import { channelStore } from '@stores/channels/store'
 import _ from '@lib/translate'
+import { TAB_SCROLLER } from './tabPanel'
 
 const ChannelPins = ({ channelID }: { channelID: string }) => {
     const { pins, isLoading, mutate } = usePinnedMessages(channelID)
@@ -60,9 +61,10 @@ const ChannelPins = ({ channelID }: { channelID: string }) => {
             })
     }
 
-    // No scroller of its own — the drawer's shared tab-panel container scrolls.
+    // No filters to pin, so the whole panel is the scroller (fade + safe-area
+    // padding inside the scroll — the drawer wrapper no longer scrolls).
     return (
-        <div>
+        <div className={TAB_SCROLLER}>
             {isLoading || !pins ? <MessageListSkeleton /> :
                 pins.length === 0 ? <div className="text-sm text-ink-gray-4 text-center py-8">{_("No pinned messages in this channel yet.")}</div> :
                     <div className="px-1 space-y-2">

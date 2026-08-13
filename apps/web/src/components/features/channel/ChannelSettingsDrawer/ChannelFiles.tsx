@@ -15,6 +15,7 @@ import { Input } from '@components/ui/input'
 import { TabsButton, TabsButtonItem } from '@components/ui/tab-buttons'
 import { attachmentPreviewAtom, getAttachmentKind, type Attachment } from '@utils/attachmentPreview'
 import { getFileExtension } from '@lib/file'
+import { TAB_SCROLLER } from './tabPanel'
 
 type FilesView = 'list' | 'grid'
 
@@ -52,9 +53,10 @@ const ChannelFiles = ({ channelID }: { channelID: string }) => {
     const openPreview = (index: number) => setPreview({ attachments, index, mode: 'view' })
 
     return (
-        <div className="px-1 space-y-2">
+        // Flex column: the filter row stays pinned; only the list below scrolls.
+        <div className="flex flex-1 min-h-0 flex-col gap-2 px-1">
             {/* Search + view toggle */}
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-ink-gray-4" />
                     <Input
@@ -73,8 +75,8 @@ const ChannelFiles = ({ channelID }: { channelID: string }) => {
                 </TabsButton>
             </div>
             {error && <ErrorBanner error={error} />}
-            {/* Files */}
-            <div>
+            {/* Files — the tab's one scroller (fade + safe-area padding). */}
+            <div className={TAB_SCROLLER}>
                 {isLoading ? <MessageListSkeleton /> :
                     files.length === 0 ? <div className="text-sm text-ink-gray-4 text-center py-8">{searchQuery ? _("No files found matching your search.") : _("No files shared in this channel yet.")}</div> :
                         view === 'grid' ? (

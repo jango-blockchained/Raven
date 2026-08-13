@@ -9,6 +9,7 @@ import { formatRelativeDate } from '@lib/date'
 import MarkdownRenderer from '@components/ui/markdown'
 import ErrorBanner from '@components/ui/error-banner'
 import { Input } from '@components/ui/input'
+import { TAB_SCROLLER } from './tabPanel'
 
 const ChannelThreads = ({ channelID }: { channelID: string }) => {
 
@@ -25,9 +26,10 @@ const ChannelThreads = ({ channelID }: { channelID: string }) => {
 
 
     return (
-        <div className="px-1 space-y-2">
+        // Flex column: the search bar stays pinned; only the list below scrolls.
+        <div className="flex flex-1 min-h-0 flex-col gap-2 px-1">
             {/* Search Bar */}
-            <div className="relative">
+            <div className="relative shrink-0">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-ink-gray-4" />
                 <Input
                     placeholder={_("Search threads...")}
@@ -36,8 +38,8 @@ const ChannelThreads = ({ channelID }: { channelID: string }) => {
                 />
             </div>
             {error && <ErrorBanner error={error} />}
-            {/* Threads List */}
-            <div>
+            {/* Threads List — the tab's one scroller (fade + safe-area padding). */}
+            <div className={TAB_SCROLLER}>
                 {isLoading || !results ? <MessageListSkeleton /> :
                     results.length === 0 ? <div className="text-sm text-ink-gray-4 text-center py-8">{searchQuery ? _("No threads found matching your search.") : _("No threads in this channel yet.")}</div> :
                         <div className="space-y-2 pb-1">

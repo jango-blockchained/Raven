@@ -187,7 +187,12 @@ export function ChatContentView({
                         </DrawerContent>
                     </Drawer>
                     <Drawer open={hasContextDrawer && !pollDrawerData} onOpenChange={(open) => !open && setChannelDrawer('')}>
-                        <DrawerContent className="h-[85dvh]">
+                        {/* pb-0: this sheet hosts LISTS (members, settings tabs). The
+                            default safe-area padding would end the scrollport above the
+                            drawer's bottom edge, hard-clipping rows mid-air — so the
+                            inner scrollers carry the safe-area padding themselves and
+                            fade the cut (scroll-fade) instead. */}
+                        <DrawerContent className="h-[85dvh] pb-0">
                             <DrawerTitle className="sr-only">{_("Channel details")}</DrawerTitle>
                             <DrawerDescription className="sr-only">{_("Channel information and settings")}</DrawerDescription>
                             <ChannelContextDrawer />
