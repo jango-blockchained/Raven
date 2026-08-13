@@ -1,4 +1,5 @@
 import { useContext, useEffect, useMemo, useReducer } from "react"
+import { useNavigate } from "react-router-dom"
 import { FrappeContext, type FrappeConfig } from "frappe-react-sdk"
 import { prefetchChannel, type FrappeCallClient } from "@stores/messages/loaders"
 import { atom, useAtomValue, useSetAtom } from "jotai"
@@ -57,17 +58,14 @@ export const HomeWorkspacesDrawer = ({
     // channel-open navigation below.
     useHistoryBackClose(open, () => onOpenChange(false))
 
-    // Navigation waits for the drawer to FINISH closing, or the drawer gets
-    // baked into the OS back-swipe screenshot and haunts the next back gesture
-    // (the shared mechanism — see useNavigateFromDrawer).
+    // CHANNEL opens pay the drawer-exit wait: navigation waits for the drawer
+    // to FINISH closing, or the drawer gets baked into the OS back-swipe
+    // screenshot and haunts the next back gesture (see useNavigateFromDrawer).
     //
-    // Only CHANNEL opens pay the wait. A workspace switch navigates instantly
-    // (`instant`): it lands on the same list page (WorkspaceLayout and this
-    // footer stay mounted across it), so the drawer simply finishes closing
-    // over the NEW workspace's list — no dead-feeling pause. That does leave
-    // the drawer in the back-entry screenshot, but back-swiping between
-    // workspace lists is a rare gesture; back-swiping out of a just-opened
-    // channel is constant, which is why the channel path keeps the wait.
+    // A WORKSPACE switch does NOT use that hook (see openWorkspace) — it lands
+    // on the same list page under the closing drawer, and routing through the
+    // close-then-navigate hook lost a race with useHistoryBackClose's back()
+    // (workspace switching broke). It navigates directly, then closes.
     const handleNavigate = useNavigateFromDrawer(() => onOpenChange(false))
 
     return (
@@ -81,7 +79,7 @@ export const HomeWorkspacesDrawer = ({
                 </DrawerHeader>
                 {/* Content only mounts while open (vaul unmounts closed drawers),
                     so the store subscription below never runs in the background. */}
-                <DrawerBody onNavigate={handleNavigate} />
+                <DrawerBody onNavigate={handleNavigate} onClose={() => onOpenChange(false)} />
             </DrawerContent>
         </Drawer>
     )
@@ -89,7 +87,11 @@ export const HomeWorkspacesDrawer = ({
 
 type UnreadRow = { channel: ChannelListItem; workspace: WorkspaceFields; count: number }
 
-const DrawerBody = ({ onNavigate }: { onNavigate: (to: string, options?: { instant?: boolean }) => void }) => {
+const DrawerBody = ({ onNavigate, onClose }: {
+    onNavigate: (to: string) => void
+    onClose: () => void
+}) => {
+    const navigate = useNavigate()
     const noDragProps = useNoDragWhileScrolled()
     const { workspaces } = useWorkspaces()
     const { channels } = useChannels()
@@ -140,9 +142,15 @@ const DrawerBody = ({ onNavigate }: { onNavigate: (to: string, options?: { insta
         // list IS the page), so the Channel page's pair-write never fires.
         setLastWorkspace(workspace.name)
         setLastChannel("")
-        // Instant: the switch swaps the list already under the closing drawer
-        // (see handleNavigate) — waiting here would just feel broken.
-        onNavigate(`/${encodeURIComponent(workspace.name)}`, { instant: true })
+        // Navigate FIRST, then close — order matters. navigate() pushes the
+        // workspace entry synchronously, so useHistoryBackClose's cleanup sees
+        // its overlay entry is no longer on top and skips its back(). Closing
+        // first (as useNavigateFromDrawer does) let that async back() fire
+        // AFTER the instant navigate and pop the workspace right back off —
+        // that was the broken switch. The switch just swaps the list under the
+        // closing drawer, so no exit-wait is needed here.
+        navigate(`/${encodeURIComponent(workspace.name)}`)
+        onClose()
     }
 
     const openChannel = (row: UnreadRow) => {

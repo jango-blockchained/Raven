@@ -257,7 +257,9 @@ const AttachmentPreviewContent = ({
                     onClose={close}
                 >
                     {hasMany && (
-                        <span className="px-1 text-xs">
+                        // Hidden on mobile: it crowds the action row and wraps to
+                        // two lines there, and the filmstrip already shows position.
+                        <span className="hidden whitespace-nowrap px-1 text-xs md:inline">
                             {/* "+" = more beyond the loaded set (pages in as you swipe) */}
                             {_("{0} of {1}", [String(index + 1), String(attachments.length) + (display.hasMore ? "+" : "")])}
                         </span>

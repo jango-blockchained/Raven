@@ -16,7 +16,7 @@ import { DRAWER_EXIT_MS } from "@utils/drawer"
  * drawer, wait out its exit animation, then navigate.
  *
  * `close` is called immediately. On mobile, navigation then waits for the
- * exit animation to finish. On desktop navigation is instant — there is no
+ * exit animation to finish. On desktop navigation is immediate — there is no
  * back-swipe screenshot, and dialogs float over the page instead of covering
  * it.
  *
@@ -25,23 +25,24 @@ import { DRAWER_EXIT_MS } from "@utils/drawer"
  * navigation fires when both are done. Resolve to null or undefined to cancel
  * the navigation (the caller shows its own error toast).
  *
- * `instant` skips the mobile wait — only for taps that land on the page
- * already sitting under the drawer, where a pause feels dead (see the
- * workspace-switch case in HomeWorkspacesDrawer).
+ * NOTE: this closes BEFORE it navigates, which on the mobile path only works
+ * because of the exit-animation wait — it lets useHistoryBackClose's back()
+ * settle before the navigate. A caller that needs to navigate WITHOUT the wait
+ * (a switch landing on the page already under the drawer) must navigate first
+ * and close after, not use this hook (see HomeWorkspacesDrawer.openWorkspace).
  */
 export const useNavigateFromDrawer = (close?: () => void) => {
     const navigate = useNavigate()
     const isMobile = useIsMobile()
 
     return useCallback(
-        (to: string | Promise<string | null | undefined>, options?: { instant?: boolean }) => {
+        (to: string | Promise<string | null | undefined>) => {
             close?.()
             // The timer starts NOW, alongside any server round-trip in `to` —
             // a slow request does not stack the wait on top of itself.
-            const wait =
-                isMobile && !options?.instant
-                    ? new Promise((resolve) => window.setTimeout(resolve, DRAWER_EXIT_MS))
-                    : Promise.resolve()
+            const wait = isMobile
+                ? new Promise((resolve) => window.setTimeout(resolve, DRAWER_EXIT_MS))
+                : Promise.resolve()
             Promise.all([Promise.resolve(to), wait]).then(([path]) => {
                 if (path) navigate(path)
             })

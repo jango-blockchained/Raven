@@ -65,7 +65,7 @@ const ChannelList = ({ text }: { text: string }) => {
                         {_("Archived")}
                     </Badge>
                 ) : null}
-                <div className="flex items-center gap-1 text-xs font-normal text-ink-gray-4">
+                <div className="flex items-center gap-1 font-normal text-xs text-ink-gray-4">
                     <span>{channel.workspace}</span>
                 </div>
             </div>
