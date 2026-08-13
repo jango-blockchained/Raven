@@ -1,5 +1,5 @@
 import { UserAvatar } from '@components/features/message/UserAvatar'
-import { ArrowDownToLine, LayoutGridIcon, ListIcon, Search, SearchIcon } from 'lucide-react'
+import { ArrowDownToLine, LayoutGridIcon, ListIcon, SearchIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useDebounceValue } from 'usehooks-ts'
 import { useSetAtom } from 'jotai'
@@ -8,7 +8,7 @@ import { useSqliteSearch, type SearchResult } from '@hooks/useSqliteSearch'
 import { useChannelMembers, type ChannelMemberData } from '@hooks/useChannelMembers'
 import { formatRelativeDate } from '@lib/date'
 import { formatFileSize } from '@utils/fileUtils'
-import { MessageListSkeleton } from '@components/features/dm-channel/DirectMessagePageSkeleton'
+import { Skeleton } from '@components/ui/skeleton'
 import _ from '@lib/translate'
 import ErrorBanner from '@components/ui/error-banner'
 import { Input } from '@components/ui/input'
@@ -17,6 +17,7 @@ import { attachmentPreviewAtom, getAttachmentKind, type Attachment } from '@util
 import { getFileExtension } from '@lib/file'
 import { TAB_SCROLLER } from './tabPanel'
 import { InputGroup, InputGroupAddon } from '@components/ui/input-group'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@components/ui/tooltip'
 
 type FilesView = 'list' | 'grid'
 
@@ -80,10 +81,10 @@ const ChannelFiles = ({ channelID }: { channelID: string }) => {
             {error && <ErrorBanner error={error} />}
             {/* Files — the tab's one scroller (fade + safe-area padding). */}
             <div className={TAB_SCROLLER}>
-                {isLoading ? <MessageListSkeleton /> :
-                    files.length === 0 ? <div className="text-sm text-ink-gray-4 text-center py-8">{searchQuery ? _("No files found matching your search.") : _("No files shared in this channel yet.")}</div> :
+                {isLoading ? (view === 'grid' ? <FilesGridSkeleton /> : <FilesListSkeleton />) :
+                    files.length === 0 ? <div className="text-p-sm text-ink-gray-4 text-center py-8">{searchQuery ? _("No files found matching your search.") : _("No files shared in this channel yet.")}</div> :
                         view === 'grid' ? (
-                            <FilesGrid files={files} onOpen={openPreview} />
+                            <FilesGrid files={files} membersByName={membersByName} onOpen={openPreview} />
                         ) : (
                             <div className="space-y-2 pb-1">
                                 {files.map((file, index) => (
@@ -107,104 +108,185 @@ const FileListRow = ({ file, member, onOpen }: {
     onOpen: () => void
 }) => {
     return (
-        <button
-            type="button"
+        // div + role="button" (same as LinkPreviewCard): the row holds a real
+        // <a> for download, and an anchor inside a <button> is invalid HTML.
+        <div
+            className="group flex w-full cursor-pointer items-center gap-2 rounded-md border border-outline-gray-1 p-1.5 transition-colors hover:bg-surface-gray-1"
+            tabIndex={0}
+            role="button"
             onClick={onOpen}
-            className="group p-3 border border-outline-gray-2/70 rounded-lg hover:bg-surface-gray-2/50 transition-colors cursor-pointer w-full text-left"
-            aria-label={_("Preview {0}", [file.title])}>
-            <div className="flex gap-3 min-w-0">
-                <div className="shrink-0 mt-0.5">
-                    {file.message_type === 'Image' && file.internal_link ? (
-                        <div className="relative">
-                            <img
-                                src={file.internal_link}
-                                alt={file.title}
-                                loading="lazy"
-                                className="h-8 w-8 object-cover rounded-md border border-outline-gray-2/40"
-                            />
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-200 rounded-md" />
-                        </div>
-                    ) : (
-                        <FileTypeIcon fileType={file.file_type || "File"} size="lg" />
-                    )}
+            // target check: Enter on the download link bubbles here — only
+            // open the preview when the ROW itself has focus.
+            onKeyDown={(e) => {
+                if (e.target !== e.currentTarget) return
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() }
+            }}
+            aria-label={_("Preview {0}", [file.title])}
+        >
+            {file.message_type === 'Image' && file.internal_link ? (
+                // alt is empty on purpose: the row already announces the file
+                // name, so a non-empty alt would read it twice.
+                <img
+                    src={file.internal_link}
+                    alt=""
+                    loading="lazy"
+                    className="h-14 w-14 shrink-0 rounded-md border border-outline-gray-1 object-cover"
+                />
+            ) : (
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center">
+                    <FileTypeIcon fileType={file.file_type || getFileExtension(file.title) || "File"} size="lg" />
                 </div>
+            )}
 
-                <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2 mb-0.5">
-                        <h3 className="text-sm font-medium text-ink-gray-8 truncate flex-1 min-w-0 pr-2">
-                            {file.title}
-                        </h3>
-                        {/* Download is its own control — don't let it open the preview */}
-                        <a
-                            href={file.internal_link}
-                            download
-                            onClick={(event) => event.stopPropagation()}
-                            aria-label={_("Download {0}", [file.title])}
-                        >
-                            <ArrowDownToLine className="h-3 w-3 text-ink-gray-4 opacity-0 group-hover:opacity-100 hover:text-ink-gray-8 transition-opacity duration-200 shrink-0 mt-0.5" />
-                        </a>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-2xs text-ink-gray-4/70">
-                        {file.file_size ? <span>{formatFileSize(file.file_size)}</span> : <span>0 B</span>}
-                        <span>•</span>
-                        <span className="uppercase">{file.file_type}</span>
-                    </div>
+            <div className="min-w-0 flex-1 gap-0.5 flex flex-col">
+                <div className="truncate text-sm-medium leading-4 text-ink-gray-8">{file.title}</div>
+                {member && (
+                    <>
+                        <span className="truncate text-ink-gray-6 text-xs leading-snug">{member.full_name}</span>
+                    </>
+                )}
+                <div className="flex items-center gap-1.5 text-xs text-ink-gray-5">
+                    <span className="shrink-0">{formatFileSize(file.file_size ?? 0)}</span>
+                    <span>·</span>
+                    <span className="shrink-0">{formatRelativeDate(file.creation)}</span>
                 </div>
             </div>
 
-            <div className="flex items-center gap-2 text-xs text-ink-gray-4/80 mt-2 ml-11">
-                {member && <><UserAvatar
-                    user={member}
-                    size="xs"
-                    showStatusIndicator={false}
+            {/* Download is its own control — don't let it open the preview.
+                Hover-revealed on desktop, always visible on mobile (no hover
+                there). */}
+            <a
+                href={file.internal_link}
+                download
+                onClick={(event) => event.stopPropagation()}
+                aria-label={_("Download {0}", [file.title])}
+                className="shrink-0 rounded p-1.5 text-ink-gray-4 transition-opacity hover:text-ink-gray-8 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
+            >
+                <ArrowDownToLine className="h-4 w-4" />
+            </a>
+        </div>
+    )
+}
+
+/** Finder-style grid: square thumbnail, then name and size below. Every tile
+ *  has the same anatomy, so names are always visible — including image tiles
+ *  on mobile, where the old hover scrim never showed. */
+const FilesGrid = ({ files, membersByName, onOpen }: {
+    files: SearchResult[]
+    membersByName: Map<string, ChannelMemberData>
+    onOpen: (index: number) => void
+}) => {
+    return (
+        <div className="grid grid-cols-3 gap-3 pb-1">
+            {files.map((file, index) => (
+                <FileGridTile
+                    key={file.id}
+                    file={file}
+                    member={membersByName.get(file.author)}
+                    onOpen={() => onOpen(index)}
                 />
-                    <span>{member.full_name}</span>
-                    <span>•</span></>}
-                <span>{formatRelativeDate(file.creation)}</span>
+            ))}
+        </div>
+    )
+}
+
+const FileGridTile = ({ file, member, onOpen }: {
+    file: SearchResult
+    member?: ChannelMemberData
+    onOpen: () => void
+}) => {
+    return (
+        <button
+            type="button"
+            onClick={onOpen}
+            title={file.title}
+            aria-label={_("Preview {0}", [file.title])}
+            className="group flex min-w-0 flex-col gap-1 text-left"
+        >
+            <div className="relative aspect-square w-full overflow-hidden rounded-lg border border-outline-gray-1 bg-surface-gray-1 transition-colors group-hover:border-outline-gray-3">
+                {file.message_type === 'Image' ? (
+                    // alt is empty on purpose: the button already announces the
+                    // file name, so a non-empty alt would read it twice.
+                    <img
+                        src={file.internal_link}
+                        alt=""
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                    />
+                ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                        <FileTypeIcon fileType={file.file_type || getFileExtension(file.title) || "File"} size="xl" />
+                    </div>
+                )}
+                {/* Who shared it — badge in the thumbnail corner, Drive-style.
+                    The ring separates it from photo pixels underneath. Missing
+                    member (author left the channel) just means no badge.
+                    Hovering the badge names the sharer and the share date; a
+                    click still bubbles to the tile and opens the preview. */}
+                {member && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <span className="absolute -bottom-0.5 right-1">
+                                <UserAvatar
+                                    user={member}
+                                    size="xs"
+                                    showStatusIndicator={false}
+                                    avatarClassName="ring ring-surface-base"
+                                />
+                            </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                            <span className="block">{member.full_name}</span>
+                            <span className="block">{_("Shared {0}", [formatRelativeDate(file.creation)])}</span>
+                        </TooltipContent>
+                    </Tooltip>
+                )}
+            </div>
+            <div className="flex min-w-0 flex-col px-0.5">
+                <span className="truncate text-xs-medium leading-relaxed text-ink-gray-8">{file.title}</span>
+                <span className="truncate text-2xs text-ink-gray-4">
+                    {formatFileSize(file.file_size ?? 0)}
+                </span>
             </div>
         </button>
     )
 }
 
-/** Square-tile grid: images show their picture, everything else its type icon. */
-const FilesGrid = ({ files, onOpen }: { files: SearchResult[], onOpen: (index: number) => void }) => {
-    return (
-        <div className="grid grid-cols-3 gap-2 pb-1">
-            {files.map((file, index) => (
-                <button
-                    key={file.id}
-                    type="button"
-                    onClick={() => onOpen(index)}
-                    title={file.title}
-                    aria-label={_("Preview {0}", [file.title])}
-                    className="group relative aspect-square overflow-hidden rounded-lg border border-outline-gray-2 bg-surface-gray-1 transition-colors hover:border-outline-gray-3"
-                >
-                    {file.message_type === 'Image' ? (
-                        <img
-                            src={file.internal_link}
-                            alt={file.title}
-                            loading="lazy"
-                            className="h-full w-full object-cover"
-                        />
-                    ) : (
-                        <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 p-2">
-                            <FileTypeIcon fileType={file.file_type || getFileExtension(file.title) || "File"} size="xl" />
-                            <span className="line-clamp-2 w-full break-all text-center text-2xs text-ink-gray-6">
-                                {file.title}
-                            </span>
-                        </div>
-                    )}
-                    {/* Image tiles get a filename scrim on hover (desktop) */}
-                    {file.message_type === 'Image' && (
-                        <span className="pointer-events-none absolute inset-x-0 bottom-0 hidden truncate bg-gradient-to-t from-black-700 to-transparent px-1.5 pb-1 pt-4 text-left text-2xs text-white opacity-0 transition-opacity group-hover:opacity-100 md:block">
-                            {file.title}
-                        </span>
-                    )}
-                </button>
-            ))}
-        </div>
-    )
-}
+/* Loading placeholders shaped like the view they stand in for, so the swap
+   from skeleton to content doesn't reflow the tab. Caption/text widths vary
+   by index to read as real content instead of a uniform block. */
+
+const GRID_SKELETON_WIDTHS = ['w-full', 'w-3/4', 'w-5/6', 'w-2/3', 'w-full', 'w-4/5', 'w-full', 'w-3/4', 'w-2/3']
+
+const FilesGridSkeleton = () => (
+    <div className="grid grid-cols-3 gap-3 pb-1" aria-hidden="true">
+        {GRID_SKELETON_WIDTHS.map((width, index) => (
+            <div key={index} className="flex min-w-0 flex-col gap-1">
+                <Skeleton className="aspect-square w-full rounded-lg" />
+                <div className="flex flex-col gap-1 px-0.5 py-0.5">
+                    <Skeleton className={`h-3 ${width}`} />
+                    <Skeleton className="h-2.5 w-1/3" />
+                </div>
+            </div>
+        ))}
+    </div>
+)
+
+const LIST_SKELETON_WIDTHS = ['w-2/5', 'w-3/5', 'w-1/3', 'w-1/2', 'w-2/5']
+
+const FilesListSkeleton = () => (
+    <div className="space-y-2 pb-1" aria-hidden="true">
+        {LIST_SKELETON_WIDTHS.map((width, index) => (
+            <div key={index} className="flex items-center gap-2 rounded-md border border-outline-gray-1 p-1.5">
+                <Skeleton className="h-14 w-14 shrink-0 rounded-md" />
+                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                    <Skeleton className={`h-3.5 ${width}`} />
+                    <Skeleton className="h-3 w-1/3" />
+                    <Skeleton className="h-3 w-1/4" />
+                </div>
+            </div>
+        ))}
+    </div>
+)
 
 export default ChannelFiles
