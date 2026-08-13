@@ -393,7 +393,7 @@ def get_pinned_messages(channel_id: str):
 			"is_thread",
 			"is_forwarded",
 		],
-		order_by="creation asc",
+		order_by="creation desc",
 	)
 
 
