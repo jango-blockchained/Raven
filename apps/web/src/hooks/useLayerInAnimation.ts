@@ -3,16 +3,16 @@ import { useNavigationType } from "react-router-dom"
 
 /**
  * The `animate-layer-in` class for a mobile page layer — or nothing, when the
- * layer must appear WITHOUT the slide.
+ * layer should appear without the slide.
  *
- * Why it exists: the slide-in restarts on a fresh mount, not just on a
- * hidden→visible flip. Navigating away from a layer host (e.g. thread →
- * "Go to channel") unmounts the whole page; the OS back-swipe then REMOUNTS
- * it with the layer already open — and the slide played again on top of the
- * OS's own back animation. Going back must be instant (the OS already
- * animated it), so a layer that is open at mount time via a POP renders
- * without the class. Once the layer hides, the class is put back (while
- * display:none, so nothing plays) and the next real open slides as usual.
+ * Why it exists: going BACK must never animate — the OS back gesture already
+ * animates, and a second slide on top looks broken. But the slide-in plays on
+ * every fresh mount. So when the user navigates away from a page and comes
+ * back to it (a POP), the page remounts with its layer already open and slid
+ * in again. This hook leaves the class off in that one case.
+ *
+ * The class comes back once the layer hides. That happens while the element
+ * is display:none, so nothing plays — and the next real open slides as usual.
  */
 export const useLayerInAnimation = (visible: boolean): string | undefined => {
     const navigationType = useNavigationType()
