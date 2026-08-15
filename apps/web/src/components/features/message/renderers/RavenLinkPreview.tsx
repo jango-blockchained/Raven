@@ -1,6 +1,5 @@
 import { useCallback, useSyncExternalStore, type ReactNode } from "react"
 import { Link } from "react-router-dom"
-import { useFrappeGetDoc } from "frappe-react-sdk"
 import { MessageSquareTextIcon } from "lucide-react"
 import { Button } from "@components/ui/button"
 import { ChannelIcon } from "@components/common/ChannelIcon/ChannelIcon"
@@ -9,8 +8,8 @@ import { useHasBeenInView } from "@hooks/useHasBeenInView"
 import { useChannelById } from "@stores/channels/useChannelList"
 import { usersStore } from "@stores/usersStore"
 import { useWorkspaces } from "@hooks/useWorkspaces"
-import { getMessageTeaser } from "@utils/messageUtils"
-import type { Message } from "@raven/types/common/Message"
+import { attachmentCountLabel, getMessageTeaser } from "@utils/messageUtils"
+import { useMessageBatch } from "@hooks/useMessageBatch"
 import type { ChannelListItem, DMChannelListItem } from "@raven/types/common/ChannelListItem"
 import _ from "@lib/translate"
 
@@ -147,13 +146,12 @@ const MessageLinkCard = ({ messageID, to, label }: { messageID: string; to: stri
     // (viewer can't access the linked channel) — permanent for this session, so
     // re-firing the doomed request on every retry tick or tab focus is waste.
     // The card just stays absent. (Options are per-hook; MessagePermalink's use
-    // of the same key keeps its own defaults.)
-    const { data: message } = useFrappeGetDoc<Message>(
-        "Raven Message",
-        messageID,
-        hasBeenInView ? `raven_message:${messageID}` : null,
-        { shouldRetryOnError: false, revalidateOnFocus: false },
-    )
+    // of the same key keeps its own defaults.) The teaser reads the anchor
+    // message only — batch members would add nothing to a one-line card.
+    const { anchor: message, messages } = useMessageBatch(hasBeenInView ? messageID : null, {
+        shouldRetryOnError: false,
+        revalidateOnFocus: false,
+    })
     const channel = useChannelById(message?.channel_id ?? "")
     const sender = useUserLite(message?.owner)
     const context = useChannelContext(channel)
@@ -161,7 +159,21 @@ const MessageLinkCard = ({ messageID, to, label }: { messageID: string; to: stri
     if (!message) return <span ref={ref} aria-hidden="true" />
 
     const senderName = sender?.full_name ?? message.owner
-    const teaser = getMessageTeaser(message)
+
+    // For a batched message (files + caption sent together), the linked
+    // member alone under-sells what's there: tease the CAPTION (the batch's
+    // one text) and append the attachment count, so the card reads
+    // "the plan for Q3 · 📎 4 attachments". A batch with no caption becomes
+    // just the count. Unbatched messages keep the plain single teaser.
+    const members = messages ?? []
+    const captionMember = members.find((member) => member.text)
+    const fileCount = members.filter((member) => "file" in member && member.file).length
+    let teaser = getMessageTeaser(captionMember ?? message)
+    if (members.length > 1) {
+        teaser = captionMember
+            ? `${teaser} · 📎 ${attachmentCountLabel(fileCount)}`
+            : `📎 ${attachmentCountLabel(fileCount)}`
+    }
 
     return (
         <CardShell to={to} action={label ? _("View thread") : _("View message")}>

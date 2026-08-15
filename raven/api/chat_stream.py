@@ -7,8 +7,10 @@ from frappe.query_builder import Order
 from raven.utils import track_channel_visit
 
 
-def _message_columns(message):
-	"""The columns every chat stream endpoint returns for a message."""
+def message_columns(message):
+	"""The columns every chat stream endpoint returns for a message.
+	Shared: get_message_batch (raven_message.py) selects the same set, so a
+	batch fetched for the thread header renders exactly like the stream."""
 	return (
 		message.name,
 		message.owner,
@@ -115,7 +117,7 @@ def _complete_boundary_batch(channel_id: str, boundary, older: bool):
 
 	return (
 		frappe.qb.from_(message)
-		.select(*_message_columns(message))
+		.select(*message_columns(message))
 		.where(message.channel_id == channel_id)
 		.where(message.message_batch_id == boundary.message_batch_id)
 		.where(condition)
@@ -207,7 +209,7 @@ def get_messages(
 
 	messages = (
 		frappe.qb.from_(message)
-		.select(*_message_columns(message))
+		.select(*message_columns(message))
 		.where(message.channel_id == channel_id)
 		.orderby(message.creation, order=Order.desc)
 		.orderby(message.name, order=Order.desc)
@@ -301,7 +303,7 @@ def fetch_older_messages(
 
 	messages = (
 		frappe.qb.from_(message)
-		.select(*_message_columns(message))
+		.select(*message_columns(message))
 		.where(message.channel_id == channel_id)
 		.where(
 			(message.creation < from_timestamp)
@@ -398,7 +400,7 @@ def fetch_newer_messages(
 
 	messages = (
 		frappe.qb.from_(message)
-		.select(*_message_columns(message))
+		.select(*message_columns(message))
 		.where(message.channel_id == channel_id)
 		.where(condition)
 		.orderby(message.creation, order=Order.asc)

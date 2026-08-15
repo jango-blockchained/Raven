@@ -5,6 +5,7 @@ from frappe import _
 from frappe.query_builder import JoinType, Order
 from frappe.query_builder.functions import Coalesce, Count
 
+from raven.api.chat_stream import message_columns
 from raven.api.raven_channel import create_direct_message_channel, get_peer_user_id_from_dm_users
 from raven.utils import get_channel_member, is_channel_member, track_channel_visit
 
@@ -268,6 +269,44 @@ def delete_messages(message_ids: list[str]):
 		if index < len(messages) - 1:
 			doc.flags.skip_channel_summary = True
 		doc.delete(delete_permanently=True)
+
+
+@frappe.whitelist(methods=["GET"])
+def get_message_batch(message_id: str):
+	"""
+	Get a message together with every message sent in the same batch
+	(same message_batch_id — e.g. several files plus a caption sent at once).
+
+	Returns rows with the same columns the chat stream sends, oldest first —
+	no get_doc, so the mentions/links child tables are never loaded. A
+	message with no batch id comes back as a list of one, so callers don't
+	need a separate path.
+
+	Why it exists: the thread header shows the thread's root message. When
+	that root is one member of a batch, showing just the one doc loses the
+	rest of what was sent — the client uses this to show the whole batch.
+	"""
+	anchor = frappe.db.get_value(
+		"Raven Message", message_id, ["channel_id", "message_batch_id"], as_dict=True
+	)
+	if not anchor:
+		frappe.throw(_("Message not found"), frappe.DoesNotExistError)
+
+	# Message access = channel access, and batch members always share one
+	# channel — so one channel check covers everything returned below.
+	if not frappe.has_permission(doctype="Raven Channel", doc=anchor.channel_id, ptype="read"):
+		frappe.throw(_("You don't have permission to view this message"), frappe.PermissionError)
+
+	message = frappe.qb.DocType("Raven Message")
+	query = frappe.qb.from_(message).select(*message_columns(message))
+	if anchor.message_batch_id:
+		query = query.where(
+			(message.channel_id == anchor.channel_id)
+			& (message.message_batch_id == anchor.message_batch_id)
+		)
+	else:
+		query = query.where(message.name == message_id)
+	return query.orderby(message.creation, order=Order.asc).run(as_dict=True)
 
 
 @frappe.whitelist()
