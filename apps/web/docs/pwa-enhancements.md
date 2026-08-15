@@ -48,8 +48,16 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
    operating-system level — below anything we can rewrite. A swipe can still
    reach that blank page. We tried routing cold opens through the app's home
    page to bury it; on real devices iOS slid straight past our repair onto the
-   blank page anyway, so we reverted. Filed under "the platform always gets the
-   last word".
+   blank page anyway, so we reverted. Retested Aug 2026 with a freshly
+   reinstalled PWA (ruling out a stale install's captured default URL): same
+   result — the gesture reaches the blank page no matter what URL the worker
+   opens or what history we synthesize. This matches WebKit bug 268797 (the
+   openWindow'd app carries a stale about:blank window client; open since iOS
+   16.4). The remaining path is Declarative Web Push (iOS 18.4+), where the
+   SYSTEM performs the notification's navigation and no worker-created window
+   ever exists — blocked for now on the Raven Cloud relay's payload contract,
+   which v2 clients share. Filed under "the platform always gets the last
+   word".
 6. **Panels behave differently per device — on purpose.** On desktop, opening the
    members panel and switching channels keeps it open when you return: it's a
    workspace, panels are furniture. On mobile the same panel is a bottom sheet,
