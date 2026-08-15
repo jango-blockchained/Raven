@@ -152,7 +152,11 @@ export const AddMembersStep = ({ selectedUsers, onSelectUsers, workspace, exclud
                         </HoverCardTrigger>
                         <HoverCardContent
                             align="start"
-                            className="w-56 p-2"
+                            // Top/left padding only: the roster scrolls to the
+                            // card's bottom edge (fade + inner padding on the
+                            // list) and the scrollbar sits flush right — card
+                            // padding around the ScrollArea would inset it.
+                            className="w-56 p-0"
                             // The hover card portals OUTSIDE the modal create-channel dialog,
                             // whose scroll lock (react-remove-scroll) preventDefaults wheel
                             // events via a bubble-phase document listener — killing wheel
@@ -161,9 +165,11 @@ export const AddMembersStep = ({ selectedUsers, onSelectUsers, workspace, exclud
                             // fix as the emoji picker inside the message action sheet.)
                             onWheel={(e) => e.stopPropagation()}
                         >
-                            <ScrollArea viewportClassName="max-h-64">
-                                {/* pr-1: breathing room under the overlay scrollbar */}
-                                <div className="flex flex-col gap-2.5 py-0.5 pr-1">
+                            <ScrollArea viewportClassName="max-h-64 scroll-fade">
+                                {/* pr-2.5: clears the flush overlay scrollbar (the card
+                                    has no right padding); pb INSIDE the scroll — the
+                                    card itself is pb-0. */}
+                                <div className="flex flex-col gap-2.5 pt-2 pl-2 pb-2 pr-2.5">
                                     {selectedUsers.map((user) => (
                                         <div key={user.name} className="flex items-center gap-2">
                                             <UserAvatar user={user} size="xs" className="shrink-0" showStatusIndicator={false} />
