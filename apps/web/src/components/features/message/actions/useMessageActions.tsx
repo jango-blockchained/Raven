@@ -1,5 +1,5 @@
 import { useContext, useMemo } from "react"
-import { getDefaultStore, useSetAtom } from "jotai"
+import { getDefaultStore, useAtomValue, useSetAtom } from "jotai"
 import { FrappeConfig, FrappeContext, useFrappeGetCall, type FrappeError } from "frappe-react-sdk"
 import { useNavigateFromDrawer } from "@hooks/useNavigateFromDrawer"
 import { toast } from "sonner"
@@ -34,6 +34,7 @@ import { seedThreadMeta } from "@stores/threads/useThreadMeta"
 import _ from "@lib/translate"
 import type { Message } from "@raven/types/common/Message"
 import { useUserCookieData } from "@hooks/useUserCookieData"
+import { hideReadReceiptsAtom } from "@utils/preferences"
 import { errorResponseToast } from "@components/ui/error-banner"
 import type { PollData } from "../renderers/PollMessageContent"
 import { useEnabledMessageActions } from "@hooks/useEnabledMessageActions"
@@ -141,6 +142,11 @@ export const useMessageActions = (
         { dedupingInterval: 10000 },
     )
     const enabledActions = useEnabledMessageActions()
+    // Hiding your read receipts is two-way (server-enforced in
+    // get_message_readers): you don't get to see others' either, so the
+    // "Read by" action disappears entirely. Boot-seeded atom, not the
+    // profile SWR cache — this hook is on the hot menu path.
+    const hideReadReceipts = useAtomValue(hideReadReceiptsAtom)
 
     return useMemo(() => {
         if (!message) return { groups: [], isOwner: false }
@@ -370,14 +376,21 @@ export const useMessageActions = (
         // so it stays available in archived channels. Desktop menus fly the list out
         // as a nested submenu (a glance, no dialog needed); the mobile action sheet
         // runs onSelect instead, opening it as its own bottom sheet — the same flow
-        // as View reactions.
-        organize.push({
-            id: "read-receipts",
-            label: _("Read by"),
-            icon: Eye,
-            onSelect: () => setDialog({ type: "read-receipts", message }),
-            submenu: () => <ReadReceiptsList message={message} />,
-        })
+        // as View reactions. Hidden when the user hides their OWN read receipts
+        // (two-way: see hideReadReceipts above) — and on anonymous polls, whose
+        // reader list would narrow down who voted (server-enforced too). Until
+        // the poll data resolves we treat a poll as anonymous: a briefly
+        // missing action beats a briefly exposed one.
+        const pollForbidsReceipts = isPoll && (!pollData || Boolean(pollData.message.poll.is_anonymous))
+        if (!hideReadReceipts && !pollForbidsReceipts) {
+            organize.push({
+                id: "read-receipts",
+                label: _("Read by"),
+                icon: Eye,
+                onSelect: () => setDialog({ type: "read-receipts", message }),
+                submenu: () => <ReadReceiptsList message={message} />,
+            })
+        }
 
         // Owner-only, destructive last
         const owner: MessageAction[] = []
@@ -426,5 +439,5 @@ export const useMessageActions = (
         }
 
         return { groups: [respond, pollActions, clipboard, fileActions, customActions, organize, owner].filter((group) => group.length > 0), isOwner }
-    }, [message, currentUser, setDialog, navigateFromDrawer, call, pinnedString, canInteract, isPoll, pollData, mutatePoll, includeFileActions, enabledActions])
+    }, [message, currentUser, setDialog, navigateFromDrawer, call, pinnedString, canInteract, isPoll, pollData, mutatePoll, includeFileActions, enabledActions, hideReadReceipts])
 }

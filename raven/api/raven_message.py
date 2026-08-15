@@ -628,20 +628,43 @@ def get_message_readers(message_id: str):
 	record (never visited) does not appear.
 	"""
 	message = frappe.db.get_value(
-		"Raven Message", message_id, ["channel_id", "creation", "owner"], as_dict=True
+		"Raven Message",
+		message_id,
+		["channel_id", "creation", "owner", "message_type", "poll_id"],
+		as_dict=True,
 	)
 	if not message:
 		frappe.throw(_("Message not found"))
 
 	frappe.has_permission("Raven Channel", doc=message.channel_id, throw=True)
 
+	# An anonymous poll gets no read receipts: the reader list crossed with
+	# the vote counts narrows down who voted, defeating the anonymity.
+	if message.message_type == "Poll" and message.poll_id:
+		if frappe.db.get_value("Raven Poll", message.poll_id, "is_anonymous"):
+			frappe.throw(_("Read receipts are not available for anonymous polls."), frappe.PermissionError)
+
+	# Hiding your read receipts is a two-way deal: others can't see yours,
+	# and you can't see theirs. (The client hides the action too — this is
+	# the backstop.)
+	if frappe.db.get_value("Raven User", frappe.session.user, "hide_read_receipts"):
+		frappe.throw(
+			_("You have hidden your read receipts, so you can't view read receipts either."),
+			frappe.PermissionError,
+		)
+
 	member = frappe.qb.DocType("Raven Channel Member")
+	raven_user = frappe.qb.DocType("Raven User")
 	readers = (
 		frappe.qb.from_(member)
+		# Members who hide their read receipts stay out of everyone's list.
+		.join(raven_user)
+		.on(raven_user.name == member.user_id)
 		.select(member.user_id)
 		.where(member.channel_id == message.channel_id)
 		.where(member.last_visit >= message.creation)
 		.where(member.user_id != message.owner)
+		.where(Coalesce(raven_user.hide_read_receipts, 0) == 0)
 		.orderby(member.last_visit, order=Order.desc)
 		.run(as_dict=True)
 	)
