@@ -42,7 +42,7 @@ const ChannelSettingsDrawer = ({ peerUser }: ChannelSettingsDrawerProps) => {
 
     return (
         <div className="flex flex-col h-full w-full">
-            <div className='flex justify-between items-center px-2.5 pl-5 h-11 md:border-b border-outline-gray-2'>
+            <div className='flex justify-between items-center px-3.5 h-11 md:border-b border-outline-gray-2'>
                 <span className='text-lg-medium'>{isDM ? _('Profile') : _('About')}</span>
                 <div>
                     <Button
@@ -87,7 +87,7 @@ const ChannelSettingsDrawer = ({ peerUser }: ChannelSettingsDrawerProps) => {
                     capture listener stamps whichever inner element actually scrolled,
                     handing touch drags back to that scroller while it's scrolled — a
                     pull-down from the top still dismisses the sheet. */}
-                <div {...noDragProps} className="flex flex-1 min-h-0 flex-col overflow-x-hidden pt-1">
+                <div {...noDragProps} className="flex flex-1 min-h-0 flex-col pt-1">
                     {!isDM && (
                         <TabsContent value="settings" className={TAB_PANEL}>
                             <ChannelSettingsTab channelID={channelID} />

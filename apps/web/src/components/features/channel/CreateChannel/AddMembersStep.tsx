@@ -185,7 +185,7 @@ export const AddMembersStep = ({ selectedUsers, onSelectUsers, workspace, exclud
                     <Button
                         type="button"
                         variant="ghost"
-                        size="sm"
+                        size="xs"
                         onClick={() => {
                             onSelectUsers([])
                             setAnnouncement(_('All members removed from selection'))
@@ -220,47 +220,50 @@ export const AddMembersStep = ({ selectedUsers, onSelectUsers, workspace, exclud
                         itemContent={(_index, user) => {
                             const isSelected = selectedIds.has(user.name)
                             return (
-                                <button
-                                    type="button"
-                                    onClick={() => toggleUser(user)}
-                                    aria-pressed={isSelected}
-                                    className={cn(
-                                        'mb-1 flex w-full cursor-pointer items-center gap-2.5 rounded-md p-2 text-left transition-colors hover:bg-surface-gray-2',
-                                        isSelected && 'bg-surface-gray-1',
-                                    )}
-                                >
-                                    <UserAvatar
-                                        user={user}
-                                        size="sm"
-                                        className="shrink-0"
-                                        showStatusIndicator={false}
-                                    />
-                                    <div className="min-w-0 flex-1">
-                                        <div className="truncate text-sm font-medium leading-tight">
-                                            {user.full_name}
+                                <div className='pb-0.5'>
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleUser(user)}
+                                        aria-pressed={isSelected}
+                                        className={cn(
+                                            'flex w-full cursor-pointer items-center gap-2.5 rounded py-1.5 pl-1.5 pr-3 text-left transition-colors hover:bg-surface-gray-2',
+                                            isSelected && 'bg-surface-gray-1',
+                                        )}
+                                    >
+                                        <UserAvatar
+                                            user={user}
+                                            size="sm"
+                                            className="shrink-0"
+                                            showStatusIndicator={false}
+                                        />
+                                        <div className="min-w-0 flex-1">
+                                            <div className="truncate text-sm font-medium leading-tight">
+                                                {user.full_name}
+                                            </div>
+                                            <div className="truncate text-xs text-ink-gray-4 leading-tight">
+                                                {user.name}
+                                            </div>
                                         </div>
-                                        <div className="truncate text-xs text-ink-gray-4 leading-tight">
-                                            {user.name}
-                                        </div>
-                                    </div>
-                                    {/* Visual state only — the whole row button is the control
+                                        {/* Visual state only — the whole row button is the control
                                         (aria-pressed carries the state). NOT the ui Checkbox: that's
                                         a real <button> (invalid inside this row button), and its
                                         Radix form-sync dispatches a bubbling click on every checked
                                         change — which re-triggered the row's onClick in a loop.
                                         This span mirrors ui/checkbox's checked styling. */}
-                                    <span
-                                        aria-hidden="true"
-                                        className={cn(
-                                            'grid size-4 shrink-0 place-content-center rounded-sm border transition',
-                                            isSelected
-                                                ? 'border-ink-gray-8 bg-ink-gray-8 text-ink-base'
-                                                : 'border-outline-gray-4',
-                                        )}
-                                    >
-                                        {isSelected && <CheckIcon className="size-3" />}
-                                    </span>
-                                </button>
+                                        <span
+                                            aria-hidden="true"
+                                            className={cn(
+                                                'grid size-4 shrink-0 place-content-center rounded-sm border transition',
+                                                isSelected
+                                                    ? 'border-ink-gray-8 bg-ink-gray-8 text-ink-base'
+                                                    : 'border-outline-gray-4',
+                                            )}
+                                        >
+                                            {isSelected && <CheckIcon className="size-3" />}
+                                        </span>
+                                    </button>
+                                </div>
+
                             )
                         }}
                     />
