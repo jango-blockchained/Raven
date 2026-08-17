@@ -912,11 +912,108 @@ def get_count_for_pagination_of_files(
 	return count[0]["count"]
 
 
+# The Raven Message fields that survive a forward. Everything else (batch id,
+# poll, reactions, reply link, bot fields) belongs to the source conversation or is
+# overridden at insert time by add_forwarded_message_to_channel.
+FORWARDABLE_FIELDS = [
+	"text",
+	"json",
+	"file",
+	"file_thumbnail",
+	"file_size",
+	"message_type",
+	"content",
+	"link_doctype",
+	"link_document",
+	"thumbnail_width",
+	"thumbnail_height",
+	"blurhash",
+	"links",
+	"hide_link_preview",
+	"is_reply",
+	"replied_message_details",
+]
+
+
+def _forward_payloads(message_id: str) -> list[dict]:
+	"""
+	Forward payloads for a message, built from the database. A message that is
+	part of a batch (several files plus a caption sent at once) expands to every
+	member of the batch, oldest first; any other message comes back as a list of
+	one — so the caller doesn't need a separate path.
+
+	The rows come from the database, not from the client, so the caller's access
+	to the source channel is checked here. One channel check covers all members:
+	a batch always lives in one channel.
+	"""
+	anchor = frappe.db.get_value(
+		"Raven Message", message_id, ["channel_id", "message_batch_id"], as_dict=True
+	)
+	if not anchor:
+		frappe.throw(_("Message not found"), frappe.DoesNotExistError)
+
+	if not frappe.has_permission(doctype="Raven Channel", doc=anchor.channel_id, ptype="read"):
+		frappe.throw(_("You don't have permission to view this message"), frappe.PermissionError)
+
+	if anchor.message_batch_id:
+		filters = {"channel_id": anchor.channel_id, "message_batch_id": anchor.message_batch_id}
+	else:
+		filters = {"name": message_id}
+	members = frappe.get_all(
+		"Raven Message",
+		filters=filters,
+		fields=FORWARDABLE_FIELDS,
+		order_by="creation asc",
+	)
+
+	payloads = []
+	for member in members:
+		payload = {field: member.get(field) for field in FORWARDABLE_FIELDS if member.get(field) is not None}
+		# Forwarding drops the reply link (linked_message points into the source
+		# channel), so inline the quoted message into `text` up front. `json` is
+		# dropped with it: it still holds the unquoted body, and the copy should
+		# have one body that carries the quote.
+		if payload.get("is_reply"):
+			quote = build_reply_blockquote(payload.get("replied_message_details"))
+			if quote:
+				payload["text"] = quote + (payload.get("text") or "")
+			payload.pop("json", None)
+		payloads.append(payload)
+	return payloads
+
+
 @frappe.whitelist(methods=["POST"])
-def forward_message(message_receivers: list[dict], forwarded_message: dict):
+def forward_message(
+	message_receivers: list[dict], forwarded_message: dict | None = None, message_id: str | None = None
+):
 	"""
 	Forward a message to multiple users/ or in multiple channels
 	"""
+	# The v3 client sends just the message id and the payloads are built here,
+	# from the database — including every member when the message is part of a
+	# batch (the client couldn't collect siblings itself: outside the open
+	# channel it only holds the one message). `forwarded_message` remains for
+	# older clients that send the copy's content themselves; those forward the
+	# single message as before.
+	if message_id:
+		payloads = _forward_payloads(message_id)
+		for receiver in message_receivers:
+			if receiver["type"] == "User":
+				channel_id = create_direct_message_channel(receiver["name"])
+			else:
+				channel_id = receiver["name"]
+			# A fresh batch id per destination, so a batch's copies group into one
+			# album there without fusing with any other batch.
+			new_batch_id = frappe.generate_hash(length=12) if len(payloads) > 1 else None
+			for payload in payloads:
+				if new_batch_id:
+					payload = {**payload, "message_batch_id": new_batch_id}
+				add_forwarded_message_to_channel(channel_id, payload)
+		return "messages forwarded"
+
+	if not forwarded_message:
+		frappe.throw(_("Nothing to forward"))
+
 	# Forwarding drops the reply link (linked_message lives in the source channel); inline the
 	# replied message as a blockquote once, up front, so the quote survives every forward.
 	if forwarded_message.get("is_reply"):
