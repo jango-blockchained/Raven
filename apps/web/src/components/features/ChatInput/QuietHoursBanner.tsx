@@ -71,9 +71,12 @@ export const QuietHoursBanner = ({ mode }: { mode: QuietSendMode }) => {
     // while the composer stays mounted (mode flips on, re-rendering us), the
     // old dismissal has expired and the banner shows again on its own.
     const [, rerender] = useReducer((n: number) => n + 1, 0)
-    const dismissed = isDismissedThisPeriod()
 
-    if (!mode || dismissed || !isOwner) return null
+    // Cheap gates first — the dismissal check reads localStorage and does
+    // timezone math, so it must not run on every composer re-render all day
+    // (mode is undefined the whole working day).
+    if (!mode || !isOwner) return null
+    if (isDismissedThisPeriod()) return null
 
     const dismiss = () => {
         try {
