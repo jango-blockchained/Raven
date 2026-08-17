@@ -22,8 +22,8 @@ import { Switch } from '@components/ui/switch'
 import { SettingsFormDescription, SettingsFormLabel, SettingsFormRow } from '@components/ui/settings-dialog'
 import type { RavenSettings } from '@raven/types/Raven/RavenSettings'
 import _ from '@lib/translate'
-import { useAtomValue } from 'jotai'
-import { timeFormatAtom } from '@utils/preferences'
+import { useAtomValue, useSetAtom } from 'jotai'
+import { quietHoursConfigAtom, timeFormatAtom } from '@utils/preferences'
 import { formatStoredTime } from '@utils/quietHours'
 import { Label } from '@components/ui/label'
 
@@ -128,6 +128,10 @@ export const QuietHoursDialog = ({ trigger, open: controlledOpen, onOpenChange }
     const setOpen = onOpenChange ?? setInternalOpen
     const { ravenSettings, mutate } = useRavenSettings()
     const { updateDoc, loading: saving } = useFrappeUpdateDoc<RavenSettings>()
+    // Boot carries this config for everyone else; the saving admin's own
+    // session applies it live through the atom (banner, send default,
+    // preferences row) instead of waiting for a reload.
+    const setQuietHoursConfig = useSetAtom(quietHoursConfigAtom)
 
     const form = useForm<QuietHoursForm>({ defaultValues: { enabled: false, start: '09:00', end: '18:00' } })
     const enabled = form.watch('enabled')
@@ -169,7 +173,14 @@ export const QuietHoursDialog = ({ trigger, open: controlledOpen, onOpenChange }
                 working_hours_end: data.enabled ? toStoredTime(end) : ravenSettings.working_hours_end,
             })
                 .then((res) => mutate(res, { revalidate: false }))
-                .then(() => setOpen(false)),
+                .then(() => {
+                    setQuietHoursConfig(
+                        data.enabled
+                            ? { working_hours_start: toStoredTime(start), working_hours_end: toStoredTime(end) }
+                            : null,
+                    )
+                    setOpen(false)
+                }),
             { loading: _('Saving…'), success: _('Settings updated'), error: _('Could not update settings') },
         )
     }

@@ -4,21 +4,27 @@ import { useFrappePostCall } from "frappe-react-sdk"
 import { toast } from "sonner"
 import useCurrentRavenUser from "@raven/lib/hooks/useCurrentRavenUser"
 import { errorResponseToast } from "@components/ui/error-banner"
-import { getQuietHoursConfig, quietHoursNudgeAtom, type QuietHoursNudge } from "@utils/preferences"
+import { quietHoursConfigAtom, quietHoursNudgeAtom, type QuietHoursNudge } from "@utils/preferences"
 import { isInQuietHours } from "@utils/quietHours"
 import _ from "@lib/translate"
 
 /**
- * Reactive "are we in quiet hours right now" — re-evaluated once a minute and
- * on tab visibility (a phone waking hours later must not keep the stale
- * answer). When the org hasn't configured quiet hours, no timer runs and this
- * is constant false.
+ * Reactive "are we in quiet hours right now" — re-evaluated once a minute, on
+ * tab visibility (a phone waking hours later must not keep the stale answer),
+ * and when the config itself changes (an admin saving working hours applies
+ * live in their session). Without a config, no timer runs and this is
+ * constant false.
  */
 export const useIsInQuietHours = (): boolean => {
+    const config = useAtomValue(quietHoursConfigAtom)
     const [quiet, setQuiet] = useState(isInQuietHours)
 
     useEffect(() => {
-        if (!getQuietHoursConfig()) return
+        // Re-evaluate right away on a config change — enabling quiet hours at
+        // 11pm should take effect now, not at the next minute tick. A bailed
+        // setState makes the no-change case free.
+        setQuiet(isInQuietHours())
+        if (!config) return
         const update = () => setQuiet(isInQuietHours())
         const interval = window.setInterval(update, 60_000)
         document.addEventListener("visibilitychange", update)
@@ -26,7 +32,7 @@ export const useIsInQuietHours = (): boolean => {
             window.clearInterval(interval)
             document.removeEventListener("visibilitychange", update)
         }
-    }, [])
+    }, [config])
 
     return quiet
 }

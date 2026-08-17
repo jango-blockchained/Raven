@@ -1,4 +1,4 @@
-import { atom } from "jotai"
+import { atom, getDefaultStore } from "jotai"
 import { atomWithStorage } from "jotai/utils"
 
 export type ChatStyle = "Simple" | "Left-Right"
@@ -47,10 +47,19 @@ export type QuietHoursConfig = {
     working_hours_end: string
 }
 
-/** The org's quiet-hours config from boot, or null when the feature is off.
- *  Static per page load (a Raven Settings change needs a reload anyway). */
-export const getQuietHoursConfig = (): QuietHoursConfig | null =>
-    (window.frappe?.boot?.quiet_hours as QuietHoursConfig | undefined) ?? null
+/**
+ * The org's quiet-hours config, or null when the feature is off. Seeded from
+ * boot; the admin working-hours dialog writes it on save, so an admin's own
+ * session applies the change live (banner, send default, preferences row)
+ * without a reload. Other members pick it up on their next boot.
+ */
+export const quietHoursConfigAtom = atom<QuietHoursConfig | null>(
+    (window.frappe?.boot?.quiet_hours as QuietHoursConfig | undefined) ?? null,
+)
+
+/** Non-hook reader for the plain evaluator functions (utils/quietHours.ts).
+ *  Components that must REACT to changes subscribe to the atom instead. */
+export const getQuietHoursConfig = (): QuietHoursConfig | null => getDefaultStore().get(quietHoursConfigAtom)
 
 
 export const imageGroupingLayoutAtom = atomWithStorage<"stack" | "grid">("raven-image-grouping-layout", "stack")

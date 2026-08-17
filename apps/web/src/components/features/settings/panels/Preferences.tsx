@@ -3,7 +3,7 @@ import { Separator } from "@components/ui/separator"
 import { SettingsPanelDescription, SettingsPanelHeader, SettingsPanelTitle, SettingsPanelContent, SettingsFormLabel, SettingsFormDescription, SettingsFormRow, SettingsSectionHeader } from "@components/ui/settings-dialog"
 import { Switch } from "@components/ui/switch"
 import { useAtom, useAtomValue } from "jotai"
-import { EnterKeyBehaviourAtom, QuickEmojisAtom, QuietHoursNudge, getQuietHoursConfig, hideReadReceiptsAtom, quietHoursNudgeAtom, timeFormatAtom } from "@utils/preferences"
+import { EnterKeyBehaviourAtom, QuickEmojisAtom, QuietHoursNudge, hideReadReceiptsAtom, quietHoursConfigAtom, quietHoursNudgeAtom, timeFormatAtom } from "@utils/preferences"
 import { formatWorkingHoursRange } from "@utils/quietHours"
 import { hasRole } from "@lib/permissions"
 import _ from "@lib/translate"
@@ -59,8 +59,9 @@ const Preferences = () => {
     // The nudge preference only means something when the org configured quiet
     // hours — without them there's nothing to nudge about, so the row hides
     // (a visible-but-dead setting reads as broken). Admins still see the
-    // section: it hosts the org working-hours configuration.
-    const quietHoursConfigured = getQuietHoursConfig() !== null
+    // section: it hosts the org working-hours configuration. Subscribed via
+    // the atom: an admin enabling working hours reveals the row immediately.
+    const quietHoursConfigured = useAtomValue(quietHoursConfigAtom) !== null
     const isAdmin = hasRole('Raven Admin') || hasRole('System Manager')
 
     return (
