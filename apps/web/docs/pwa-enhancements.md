@@ -321,6 +321,14 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
     own declared scope, which per spec makes the browser throw the scope away
     entirely and treat the whole site as the app. An invalid config that
     accidentally looked correct, hiding the trap for the valid one.
+    Epilogue (Aug 2026): the start_url had its own slash problem — it was
+    `/raven/`, and PRODUCTION 301-redirects that form to `/raven` (the dev
+    bench serves both, which hid it). So every cold launch on prod paid a
+    redirect, and any browser logic that compares URLs against the app's
+    "default URL" (e.g. WebKit's notification-open window matching) was
+    comparing against a moving target. start_url is now `/raven`, matching
+    the scope and the canonical route. Installed apps pick the change up on
+    their next manifest refresh; a reinstall applies it immediately.
 34. **The long-press that fired twice — but only on some Androids.** Holding a
     reaction pill opens "who reacted". Holding a message opens the action
     sheet. On certain Android phones, holding a pill opened *both* — stacked
