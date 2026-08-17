@@ -663,6 +663,24 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
     The lesson: platform politeness rules differ so much that identical
     code is a courtesy on one platform and self-destruction on another.
 
+50. **The toggle that switched itself off.** Users reported the "push
+    notifications" toggle flipping back to disabled on its own, seemingly
+    after updates. The toggle's source of truth is simple: is the push token
+    stored on this device. And startup had a cleanup that read "if
+    notification permission isn't granted, delete the token — it's dead."
+    Reasonable — except iOS has a bug where a window opened from a
+    notification tap MISREPORTS the permission as "default" even though it's
+    granted. So: tap a notification while the app is closed, the app boots
+    in a lying window, the cleanup wipes the token, and the toggle reads
+    disabled from then on. One tap, permanent-looking damage — and it got
+    blamed on updates because updates are when people tap notifications and
+    relaunch. The fix is about ambiguity, not iOS: "denied" is an explicit
+    user decision and still deletes; "default" is ambiguous (revoked? or a
+    platform lie?), so now it just skips the refresh for that launch and
+    keeps the token. The lesson: never let a destructive cleanup key off a
+    reading that has a known lying state — destroy only on unambiguous
+    signals.
+
 ## What's still on the list
 
 - **Full offline mode**: storing messages themselves on-device, so channels open
