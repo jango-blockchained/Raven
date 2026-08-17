@@ -612,6 +612,37 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
     live on its own layer, and flat, bright test images are worth keeping
     around — they reveal compositor artifacts that real photos camouflage.
 
+47. **A notification click gets three chances to land.** Tap a notification
+    while the app is open but backgrounded, and the app should open that
+    conversation. Sounds like one line of code; on a phone it fails three
+    different ways. The service worker's first move is to message the page
+    with the target URL — but a backgrounded iOS PWA has its JS frozen, and
+    a message sent into a frozen page is simply lost. So the worker also
+    writes the URL down, and the page asks for it when it wakes up. But
+    "writes it down" has a trap of its own: a variable in the worker dies
+    with the worker, and the OS routinely kills the worker in the seconds it
+    takes the frozen page to thaw — so the note goes into Cache API storage,
+    which outlives it. And even then there's a race: sometimes the page
+    wakes and asks *before* the worker has finished writing. So an
+    empty-handed first ask looks once more a moment later. Three paths for
+    one click — each one exists because we watched the previous one fail on
+    a real device. None of them is removable.
+
+48. **Read notifications sweep themselves out of the tray — if you sweep at
+    the right moments.** Open a channel and its system notifications should
+    disappear. The sweep ran whenever an unread count changed — which sounds
+    complete, until you notice that push is SLOW: the socket delivers a
+    message instantly, the push notification arrives seconds later. Read
+    the message in those seconds (you were already in the channel), and the
+    notification lands in the tray AFTER the last unread change — and
+    nothing ever sweeps again. So the worker now pings the page right after
+    showing any notification ("sweep now"), which kills an already-stale
+    notification within milliseconds of it appearing. And because a frozen
+    phone misses that ping, the app also sweeps every time it becomes
+    visible — the catch-all that reconciles the tray on every return. The
+    lesson generalizes: a cleanup that runs "on change" misses everything
+    that arrives after the last change.
+
 ## What's still on the list
 
 - **Full offline mode**: storing messages themselves on-device, so channels open
