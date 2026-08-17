@@ -268,15 +268,11 @@ const QuickEmojis = () => {
             <SettingsFormLabel htmlFor="quickEmojis">{_("Quick emojis")}</SettingsFormLabel>
             <SettingsFormDescription>
                 {_("Set your favorite emojis for quick reactions.")}
-                <br />
-                {_("First 4 show in the message toolbar on desktop; all 6 on mobile.")}
             </SettingsFormDescription>
         </div>
         <div className="flex gap-2">
-            {quickEmojis.map((emoji, index) => (
+            {quickEmojis.slice(0, 4).map((emoji, index) => (
                 <Fragment key={index}>
-                    {/* slots 5-6 never show on the desktop hover toolbar (slice(0, 4)) */}
-                    {index === 4 && <Separator orientation="vertical" className="h-6! self-center" />}
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button
