@@ -1,13 +1,16 @@
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import { Button } from "@components/ui/button"
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuShortcut,
     DropdownMenuTrigger,
 } from "@components/ui/dropdown-menu"
 import { BellOffIcon, ChevronDownIcon, SendHorizontalIcon, SendIcon } from "lucide-react"
 import { useIsMobile } from "@hooks/use-mobile"
+import { useLongPress } from "@hooks/useLongPress"
+import { KeyboardMetaKeyIcon } from "@components/ui/keyboard-keys"
 import _ from "@lib/translate"
 
 type SendButtonProps = {
@@ -19,9 +22,6 @@ type SendButtonProps = {
     loading?: boolean
 }
 
-/** How long a touch must be held before it reads as "show send options" (ms). */
-const LONG_PRESS_MS = 500
-
 /**
  * Desktop: a split button — "Send" plus a chevron opening send options (currently just
  * "Send without notification"). Mobile: an icon-only round button; a long-press opens
@@ -31,41 +31,31 @@ const SendButton = ({ onSend, onSendSilently, disabled, loading }: SendButtonPro
     const isMobile = useIsMobile()
     const [menuOpen, setMenuOpen] = useState(false)
 
-    // Mobile long-press: a timer armed on pointerdown opens the menu; any settle
-    // (up / leave / cancel) before the threshold disarms it. When the long-press
-    // fired, the click that follows the pointerup must NOT also send — the flag
-    // is consumed by the click handler.
-    const longPressTimer = useRef<number | null>(null)
-    const longPressFired = useRef(false)
+    // Mobile: a long-press opens the send-options menu (shared hook — timer,
+    // drag stand-down, haptic; the click that ends a fired press is consumed
+    // in onClick below).
+    const { handlers: longPressHandlers, consumeLongPress } = useLongPress(() => setMenuOpen(true))
 
-    const disarmLongPress = () => {
-        if (longPressTimer.current !== null) {
-            window.clearTimeout(longPressTimer.current)
-            longPressTimer.current = null
-        }
-    }
-
-    const armLongPress = () => {
-        longPressFired.current = false
-        disarmLongPress()
-        longPressTimer.current = window.setTimeout(() => {
-            longPressTimer.current = null
-            longPressFired.current = true
-            setMenuOpen(true)
-        }, LONG_PRESS_MS)
-    }
-
-    // Unmount with a press still held: kill the pending timer so it can't fire
-    // against a dead instance.
-    useEffect(() => disarmLongPress, [])
+    // Whether the menu was OPEN when this press started. A tap on the trigger
+    // while the menu is showing is a DISMISS: Radix closes the menu on that
+    // pointerdown, but the tap's click still lands on the send button — and
+    // without this latch it would fire onSend (dismissing a menu must never
+    // send). Captured at pointerdown, before Radix closes; consumed on click.
+    const menuWasOpenAtPress = useRef(false)
 
     const menuItem = (
         <DropdownMenuItem
             onSelect={onSendSilently}
-            className="text-base md:text-sm py-2.5 md:py-1.5"
         >
             <BellOffIcon />
             {_("Send without notification")}
+            {/* The keyboard chord for this action (desktop only — mobile has no
+                keyboard, and this shared item renders in both menus). */}
+            {!isMobile && (
+                <DropdownMenuShortcut>
+                    <KeyboardMetaKeyIcon />⇧↵
+                </DropdownMenuShortcut>
+            )}
         </DropdownMenuItem>
     )
 
@@ -85,18 +75,22 @@ const SendButton = ({ onSend, onSendSilently, disabled, loading }: SendButtonPro
                         size="lg"
                         type="button"
                         onClick={() => {
-                            if (longPressFired.current) {
-                                longPressFired.current = false
+                            // The click that ends the long-press itself.
+                            if (consumeLongPress()) return
+                            // A tap that dismissed the open menu (see the latch).
+                            if (menuWasOpenAtPress.current) {
+                                menuWasOpenAtPress.current = false
                                 return
                             }
                             onSend()
                         }}
-                        onPointerDown={armLongPress}
-                        onPointerUp={disarmLongPress}
-                        onPointerLeave={disarmLongPress}
-                        onPointerCancel={disarmLongPress}
-                        // Suppress the OS context menu a long-press can raise.
-                        onContextMenu={(e) => e.preventDefault()}
+                        {...longPressHandlers}
+                        // Latch the open state BEFORE arming — Radix closes the
+                        // menu on this same pointerdown.
+                        onPointerDown={(event) => {
+                            menuWasOpenAtPress.current = menuOpen
+                            longPressHandlers.onPointerDown(event)
+                        }}
                         // Never steal focus from the editor: if the user is typing
                         // (keyboard open), tapping Send keeps it open naturally.
                         onMouseDown={(e) => e.preventDefault()}
