@@ -12,6 +12,8 @@ import { attachmentCountLabel, getMessageTeaser } from "@utils/messageUtils"
 import { useMessageBatch } from "@hooks/useMessageBatch"
 import type { ChannelListItem, DMChannelListItem } from "@raven/types/common/ChannelListItem"
 import _ from "@lib/translate"
+import { useIsMobile } from "@hooks/use-mobile"
+import { cn } from "@lib/utils"
 
 /**
  * Rich previews for links INTO Raven itself — message permalinks, channels,
@@ -111,8 +113,8 @@ const useUserLite = (userID?: string) =>
  *  both navigate to the same place. */
 const CardShell = ({ to, action, children }: { to: string; action?: string; children: ReactNode }) => (
     <div data-media-root="" className="w-full md:max-w-lg sm:max-w-md max-w-sm my-2">
-        <div className="flex items-center gap-3 rounded-md border border-outline-gray-2 bg-surface-gray-1 p-3 transition-colors hover:border-outline-gray-3 dark:bg-surface-elevation-2">
-            <Link to={to} className="flex min-w-0 flex-1 items-center gap-3 no-underline">
+        <div className="flex items-center gap-3 rounded border border-outline-gray-2 bg-surface-gray-1 p-3 transition-colors hover:border-outline-gray-3 dark:bg-surface-elevation-2">
+            <Link to={to} className="flex min-w-0 flex-1 items-start gap-3 no-underline">
                 {children}
             </Link>
             {action && (
@@ -155,6 +157,7 @@ const MessageLinkCard = ({ messageID, to, label }: { messageID: string; to: stri
     const channel = useChannelById(message?.channel_id ?? "")
     const sender = useUserLite(message?.owner)
     const context = useChannelContext(channel)
+    const isMobile = useIsMobile()
 
     if (!message) return <span ref={ref} aria-hidden="true" />
 
@@ -177,15 +180,17 @@ const MessageLinkCard = ({ messageID, to, label }: { messageID: string; to: stri
 
     return (
         <CardShell to={to} action={label ? _("View thread") : _("View message")}>
-            {sender ? (
-                <UserAvatar user={sender} size="md" className="shrink-0" />
-            ) : (
-                <MessageSquareTextIcon className="size-8 shrink-0 text-ink-gray-6" aria-hidden="true" />
-            )}
+            <div className="mt-0.5">
+                {sender ? (
+                    <UserAvatar user={sender} size="md" className="shrink-0" />
+                ) : (
+                    <MessageSquareTextIcon className="size-8 shrink-0 text-ink-gray-6" aria-hidden="true" />
+                )}
+            </div>
             <div className="min-w-0 flex-1 space-y-0.5">
-                <div className="truncate text-sm text-ink-gray-5">
+                <div className={cn("truncate text-sm text-ink-gray-5", isMobile && "flex flex-col gap-0.5")}>
                     <span className="text-sm-medium leading-snug text-ink-gray-8">{label ?? senderName}</span>
-                    {context && <span> · {context}</span>}
+                    {context && <span>{isMobile ? "" : " · "} {context}</span>}
                 </div>
                 <div className="line-clamp-2 text-sm leading-snug text-ink-gray-7">
                     {label ? `${senderName}: ${teaser}` : teaser}
