@@ -433,6 +433,14 @@ const AttachmentPreviewContent = ({
                             className="w-full scroll-fade-x"
                             style={{ height: 48 }}
                             increaseViewportBy={800}
+                            // Open centered on the active tile. Radix unmounts
+                            // the dialog on close, so this strip REMOUNTS every
+                            // open — and the scrollToIndex effect (above) fires
+                            // before Virtuoso has measured, so it no-ops until
+                            // the first swipe. initialTopMostItemIndex is
+                            // Virtuoso's own mount-time scroll and lands it
+                            // correctly; the effect then handles later swipes.
+                            initialTopMostItemIndex={{ index, align: "center" }}
                             endReached={() => display.onNearEnd?.()}
                             // Virtuoso lays horizontal items out as inline-block,
                             // which align to each other by BASELINE — an image
