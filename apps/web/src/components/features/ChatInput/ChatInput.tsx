@@ -14,10 +14,12 @@ import { CreatePollDialog } from "./CreatePollDialog"
 import { uploadedFilesAtom, uploadingFilesAtom, pendingSendAtom, useAttachFile } from "./useFileInput"
 import { registerComposerFocus } from "./composerFocus"
 import { useRavenEditor, EDITOR_MIN_H } from "@components/features/editor/useRavenEditor"
+import { useQuietSendMode } from "@hooks/useQuietHours"
 import { linkifyBeforeSend } from "@components/features/editor/linkifyOnSend"
 import { EditorFormattingToolbar } from "@components/features/editor/EditorFormattingToolbar"
 import { ReplyPreviewBanner } from "./ReplyPreviewBanner"
 import { MentionWarningBanner } from "./MentionWarningBanner"
+import { QuietHoursBanner } from "./QuietHoursBanner"
 import { MobileComposerActions } from "./MobileComposerActions"
 import { loadDraft, saveDraft } from "./draft"
 import { useTypingEmitter } from "@stores/typing/useTypingEmitter"
@@ -246,15 +248,26 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
         if (!isMobile) editor.commands.focus()
     }, [editor, files, channelID, currentUser, call, setFiles, replyTo, setReplyTo, persistDraft, stopTyping, isMobile])
 
+    // Quiet hours: in "auto" mode every send defaults to silent (the send
+    // button advertises it and offers the loud override) — resolved HERE, the
+    // one dispatch gate, so Enter, the button, and held sends all agree.
+    const quietSendMode = useQuietSendMode()
+
     const handleSend = useCallback((opts?: { sendSilently?: boolean }) => {
         if (!editor) return
         // Nothing to send — no meaningful text/content, no uploaded files, nothing staged.
         if (!editorHasContent && files.length === 0 && !hasUploadsInFlight && !hasFailedUploads) return
 
+        // ?? keeps explicit choices: {sendSilently: false} is the loud
+        // override from the quiet-hours menu, and stays false.
+        const sendSilently = opts?.sendSilently ?? (quietSendMode === "auto" ? true : undefined)
+
         // Files are still uploading: hold the send. An effect dispatches it once
-        // every upload settles, so the in-flight files aren't dropped.
+        // every upload settles, so the in-flight files aren't dropped. The
+        // RESOLVED flag is held — what the user asked for at click time wins,
+        // even if quiet hours end while the uploads finish.
         if (hasUploadsInFlight) {
-            setPendingSend({ sendSilently: opts?.sendSilently })
+            setPendingSend({ sendSilently })
             return
         }
 
@@ -267,8 +280,8 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
             return
         }
 
-        dispatchSend(opts)
-    }, [editor, editorHasContent, files, hasUploadsInFlight, hasFailedUploads, dispatchSend, setPendingSend])
+        dispatchSend({ sendSilently })
+    }, [editor, editorHasContent, files, hasUploadsInFlight, hasFailedUploads, dispatchSend, setPendingSend, quietSendMode])
 
     // Disable send when there's genuinely nothing to send (mirrors the handleSend guard).
     const nothingToSend = !editorHasContent && files.length === 0 && !hasUploadsInFlight && !hasFailedUploads
@@ -359,6 +372,7 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
             {/* Absolute overlay above the form — the stream's bottom padding (pb-4)
                 gives it room, so it reads as sitting in the gap, not over content */}
             <TypingIndicator channelID={channelID} />
+            <QuietHoursBanner mode={quietSendMode} />
             {/* Warning banner is only shown for primary channels, not DMs, threads in DMs. */}
             {!isDM && mentionedIds.length > 0 && <MentionWarningBanner channelID={parentChannelID ?? channelID} mentionedIds={mentionedIds} isThread={parentChannelID ? true : false} />}
             {/* Outer wrapper carries data-raven-editor and is the popup anchor: the
@@ -407,7 +421,7 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                                     <EditorContent editor={editor} />
                                 </div>
                                 <div className="flex items-center justify-center h-10 ms-1.5">
-                                    <SendButton onSend={handleSend} onSendSilently={() => handleSend({ sendSilently: true })} loading={!!pendingSend} disabled={nothingToSend} />
+                                    <SendButton onSend={handleSend} onSendSilently={() => handleSend({ sendSilently: true })} onSendLoud={() => handleSend({ sendSilently: false })} quietMode={quietSendMode} loading={!!pendingSend} disabled={nothingToSend} />
                                 </div>
 
                             </div>
@@ -445,7 +459,7 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                                     <CreatePollDialog channelID={channelID} />
                                     <AttachFrappeDocumentDialog />
                                     <div className="flex-1" />
-                                    <SendButton onSend={handleSend} onSendSilently={() => handleSend({ sendSilently: true })} loading={!!pendingSend} disabled={nothingToSend} />
+                                    <SendButton onSend={handleSend} onSendSilently={() => handleSend({ sendSilently: true })} onSendLoud={() => handleSend({ sendSilently: false })} quietMode={quietSendMode} loading={!!pendingSend} disabled={nothingToSend} />
                                 </div>
                             </>
                         )}

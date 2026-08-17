@@ -27,6 +27,31 @@ export const timeFormatAtom = atom<TimeFormat>((window.frappe?.boot?.raven_time_
  */
 export const hideReadReceiptsAtom = atom<boolean>(Boolean(window.frappe?.boot?.raven_hide_read_receipts))
 
+export type QuietHoursNudge = "Nudge" | "No Nudge" | "Auto Silent"
+
+/**
+ * What the composer does when sending OUTSIDE the org's working hours:
+ * "Nudge" suggests a silent send, "Auto Silent" makes silent the default,
+ * "No Nudge" leaves sends alone. Only meaningful when the org configured
+ * quiet hours (see getQuietHoursConfig — no config, no behavior). Stored on
+ * Raven User as `quiet_hours_nudge`; seeded from boot and written by the
+ * Preferences panel, so the send path reads a plain atom.
+ */
+export const quietHoursNudgeAtom = atom<QuietHoursNudge>(
+    (window.frappe?.boot?.raven_quiet_hours_nudge as QuietHoursNudge | undefined) ?? "Nudge",
+)
+
+export type QuietHoursConfig = {
+    /** "HH:MM:SS" in the org's timezone (= SYSTEM_TIMEZONE from boot). */
+    working_hours_start: string
+    working_hours_end: string
+}
+
+/** The org's quiet-hours config from boot, or null when the feature is off.
+ *  Static per page load (a Raven Settings change needs a reload anyway). */
+export const getQuietHoursConfig = (): QuietHoursConfig | null =>
+    (window.frappe?.boot?.quiet_hours as QuietHoursConfig | undefined) ?? null
+
 
 export const imageGroupingLayoutAtom = atomWithStorage<"stack" | "grid">("raven-image-grouping-layout", "stack")
 

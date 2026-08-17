@@ -7,9 +7,10 @@ import {
     DropdownMenuShortcut,
     DropdownMenuTrigger,
 } from "@components/ui/dropdown-menu"
-import { BellOffIcon, ChevronDownIcon, SendHorizontalIcon, SendIcon } from "lucide-react"
+import { BellOffIcon, BellRingIcon, ChevronDownIcon, SendHorizontalIcon, SendIcon } from "lucide-react"
 import { useIsMobile } from "@hooks/use-mobile"
 import { useLongPress } from "@hooks/useLongPress"
+import type { QuietSendMode } from "@hooks/useQuietHours"
 import { KeyboardMetaKeyIcon } from "@components/ui/keyboard-keys"
 import _ from "@lib/translate"
 
@@ -17,6 +18,13 @@ type SendButtonProps = {
     onSend: () => void
     /** Send without notifying recipients (the server skips push notifications). */
     onSendSilently: () => void
+    /** Send WITH notifications — the per-message override while quiet hours
+     *  make silent the default (quietMode "auto"). */
+    onSendLoud: () => void
+    /** Quiet hours state. "auto": sends default to silent — the send icon
+     *  becomes the bell-off and the menu offers the loud override. "nudge"
+     *  changes nothing here (the composer banner carries the hint). */
+    quietMode?: QuietSendMode
     disabled?: boolean
     /** Send is held while attachments finish uploading — show a spinner. */
     loading?: boolean
@@ -27,7 +35,7 @@ type SendButtonProps = {
  * "Send without notification"). Mobile: an icon-only round button; a long-press opens
  * the same options menu, a plain tap sends.
  */
-const SendButton = ({ onSend, onSendSilently, disabled, loading }: SendButtonProps) => {
+const SendButton = ({ onSend, onSendSilently, onSendLoud, quietMode, disabled, loading }: SendButtonProps) => {
     const isMobile = useIsMobile()
     const [menuOpen, setMenuOpen] = useState(false)
 
@@ -43,7 +51,16 @@ const SendButton = ({ onSend, onSendSilently, disabled, loading }: SendButtonPro
     // send). Captured at pointerdown, before Radix closes; consumed on click.
     const menuWasOpenAtPress = useRef(false)
 
-    const menuItem = (
+    // Whatever the current default is, the menu offers the OPPOSITE. Normally
+    // sends are loud and the menu offers silent; in quiet-hours "auto" mode
+    // silent IS the default, so the menu offers the loud override — the urgent
+    // late-night message stays one deliberate gesture away.
+    const menuItem = quietMode === "auto" ? (
+        <DropdownMenuItem onSelect={onSendLoud}>
+            <BellRingIcon />
+            {_("Send with notification")}
+        </DropdownMenuItem>
+    ) : (
         <DropdownMenuItem
             onSelect={onSendSilently}
         >
@@ -58,6 +75,11 @@ const SendButton = ({ onSend, onSendSilently, disabled, loading }: SendButtonPro
             )}
         </DropdownMenuItem>
     )
+
+    // Quiet-hours "auto": a plain send WILL be silent, and that must be
+    // visible before the tap — the send icon itself becomes the bell-off.
+    // Nudge mode changes nothing here; the composer banner carries the hint.
+    const autoSilent = quietMode === "auto"
 
     if (isMobile) {
         return (
@@ -99,9 +121,9 @@ const SendButton = ({ onSend, onSendSilently, disabled, loading }: SendButtonPro
                         loading={loading}
                         isIconButton
                         className="rounded-full"
-                        aria-label={_("Send message")}
+                        aria-label={autoSilent ? _("Send message silently") : _("Send message")}
                     >
-                        {!loading && <SendHorizontalIcon />}
+                        {!loading && (autoSilent ? <BellOffIcon /> : <SendHorizontalIcon />)}
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
@@ -134,12 +156,13 @@ const SendButton = ({ onSend, onSendSilently, disabled, loading }: SendButtonPro
                 loading={loading}
                 loadingText={_("Sending...")}
                 className="rounded-e-none"
-                aria-label={_("Send message")}
+                aria-label={autoSilent ? _("Send message silently") : _("Send message")}
+                title={autoSilent ? _("Quiet hours - sending silently") : undefined}
             >
                 {/* While loading the Button shows its own spinner; don't also render content. */}
                 {!loading && (
                     <>
-                        <SendIcon />
+                        {autoSilent ? <BellOffIcon /> : <SendIcon />}
                         <span>{_("Send")}</span>
                     </>
                 )}
