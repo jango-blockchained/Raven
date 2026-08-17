@@ -1,0 +1,112 @@
+import { useEffect, useReducer, useRef, useState } from "react"
+import { MoonStarIcon, XIcon } from "lucide-react"
+import { Button } from "@components/ui/button"
+import { useIsMobile } from "@hooks/use-mobile"
+import type { QuietSendMode } from "@hooks/useQuietHours"
+import { currentQuietPeriodStartMs } from "@utils/quietHours"
+import _ from "@lib/translate"
+
+/**
+ * One banner on screen, ever. Multiple composers can be mounted at once — a
+ * channel with its thread beside it on desktop, or layered over it on mobile —
+ * and each hosts this component; the same sentence twice is noise. The first
+ * mounted instance owns the banner; when it unmounts, the claim passes to the
+ * next still-mounted one (so a thread opened standalone gets it too).
+ * Module-level because "on screen" is a per-document fact, not per-composer.
+ */
+let bannerOwner: symbol | null = null
+const claimWaiters = new Set<() => void>()
+
+const useBannerOwnership = (): boolean => {
+    const idRef = useRef<symbol | null>(null)
+    if (idRef.current === null) idRef.current = Symbol("quiet-hours-banner")
+    const [isOwner, setIsOwner] = useState(false)
+
+    useEffect(() => {
+        const id = idRef.current!
+        const tryClaim = () => {
+            if (bannerOwner === null) bannerOwner = id
+            setIsOwner(bannerOwner === id)
+        }
+        tryClaim()
+        claimWaiters.add(tryClaim)
+        return () => {
+            claimWaiters.delete(tryClaim)
+            if (bannerOwner === id) {
+                bannerOwner = null
+                // Offer the claim to whichever instance is still mounted.
+                claimWaiters.forEach((waiter) => waiter())
+            }
+        }
+    }, [])
+
+    return isOwner
+}
+
+/** A dismissal hides the banner for the REST of the current quiet period —
+ *  it returns when the next one starts (i.e. tomorrow, after work ends). */
+const DISMISSED_AT_KEY = "raven-quiet-hours-banner-dismissed-at"
+
+const isDismissedThisPeriod = () => {
+    try {
+        const at = Number(localStorage.getItem(DISMISSED_AT_KEY))
+        const periodStart = currentQuietPeriodStartMs()
+        return Number.isFinite(at) && periodStart !== null && at >= periodStart
+    } catch {
+        return false
+    }
+}
+
+/**
+ * Gentle heads-up above the composer during quiet hours (MentionWarningBanner's
+ * idiom, calmer surface). In "nudge" mode it tells the user HOW to send
+ * silently; in "auto" mode it says sends already are. Dismissing hides it for
+ * the rest of this quiet period — the send button's state carries the signal
+ * from there.
+ */
+export const QuietHoursBanner = ({ mode }: { mode: QuietSendMode }) => {
+    const isMobile = useIsMobile()
+    const isOwner = useBannerOwnership()
+    // Computed at render, not held in state: when the NEXT quiet period starts
+    // while the composer stays mounted (mode flips on, re-rendering us), the
+    // old dismissal has expired and the banner shows again on its own.
+    const [, rerender] = useReducer((n: number) => n + 1, 0)
+    const dismissed = isDismissedThisPeriod()
+
+    if (!mode || dismissed || !isOwner) return null
+
+    const dismiss = () => {
+        try {
+            localStorage.setItem(DISMISSED_AT_KEY, String(Date.now()))
+        } catch {
+            // Storage unavailable — the banner just returns next mount.
+        }
+        rerender()
+    }
+
+    const text =
+        mode === "auto"
+            ? _("It's after hours - your messages will be sent silently.")
+            : isMobile
+                ? _("It's after hours - hold Send to message without pinging anyone.")
+                : _("It's after hours - send silently to let people rest (⌘⇧↵).")
+
+    return (
+        <div className="flex items-center gap-1.5 rounded-md bg-surface-gray-2 dark:bg-surface-elevation-2 py-1 pl-3 pr-1 md:mx-0 mx-1">
+            <span className="flex h-lh shrink-0 items-center" aria-hidden="true">
+                <MoonStarIcon className="size-4 text-ink-gray-6" />
+            </span>
+            <span className="flex-1 text-p-xs text-ink-gray-7">{text}</span>
+            <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                isIconButton
+                aria-label={_("Dismiss")}
+                onClick={dismiss}
+            >
+                <XIcon />
+            </Button>
+        </div>
+    )
+}
