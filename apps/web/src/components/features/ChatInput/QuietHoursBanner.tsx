@@ -1,8 +1,22 @@
-import { useEffect, useReducer, useRef, useState } from "react"
-import { MoonStarIcon, XIcon } from "lucide-react"
+import { useLayoutEffect, useReducer, useRef, useState } from "react"
+import { useAtomValue } from "jotai"
+import { ClockIcon, EllipsisVerticalIcon, MoonStarIcon, XIcon } from "lucide-react"
 import { Button } from "@components/ui/button"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuRadioGroup,
+    DropdownMenuRadioItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@components/ui/dropdown-menu"
 import { useIsMobile } from "@hooks/use-mobile"
-import type { QuietSendMode } from "@hooks/useQuietHours"
+import { useSetQuietHoursNudge, type QuietSendMode } from "@hooks/useQuietHours"
+import { QuietHoursDialog } from "@components/features/settings/panels/QuietHoursAdminSection"
+import { hasRole } from "@lib/permissions"
+import { quietHoursNudgeAtom, type QuietHoursNudge } from "@utils/preferences"
 import { currentQuietPeriodStartMs } from "@utils/quietHours"
 import _ from "@lib/translate"
 
@@ -22,7 +36,13 @@ const useBannerOwnership = (): boolean => {
     if (idRef.current === null) idRef.current = Symbol("quiet-hours-banner")
     const [isOwner, setIsOwner] = useState(false)
 
-    useEffect(() => {
+    // Layout effect, not a passive one: the claim must resolve BEFORE first
+    // paint. A passive effect made the banner pop in one paint after the
+    // composer mounted — the chat stream had already pinned to the bottom (or
+    // landed on the unread divider) against the shorter composer, and the late
+    // ~40px growth clipped the newest visible messages behind it. Pre-paint,
+    // the stream's positioning always sees the composer's final height.
+    useLayoutEffect(() => {
         const id = idRef.current!
         const tryClaim = () => {
             if (bannerOwner === null) bannerOwner = id
@@ -62,10 +82,14 @@ const isDismissedThisPeriod = () => {
  * idiom, calmer surface). In "nudge" mode it tells the user HOW to send
  * silently; in "auto" mode it says sends already are. Dismissing hides it for
  * the rest of this quiet period — the send button's state carries the signal
- * from there.
+ * from there. Its menu changes the preference in place (and, for admins, the
+ * org's working hours) — the moment someone reads "it's after hours" is
+ * exactly when they know which behavior they want.
+ *
+ * Split in two so the outer gates stay CHEAP: the content component (and its
+ * profile/mutation hooks) only mounts while the banner actually shows.
  */
 export const QuietHoursBanner = ({ mode }: { mode: QuietSendMode }) => {
-    const isMobile = useIsMobile()
     const isOwner = useBannerOwnership()
     // Computed at render, not held in state: when the NEXT quiet period starts
     // while the composer stays mounted (mode flips on, re-rendering us), the
@@ -87,6 +111,18 @@ export const QuietHoursBanner = ({ mode }: { mode: QuietSendMode }) => {
         rerender()
     }
 
+    return <QuietHoursBannerContent mode={mode} onDismiss={dismiss} />
+}
+
+const QuietHoursBannerContent = ({ mode, onDismiss }: { mode: QuietSendMode; onDismiss: () => void }) => {
+    const isMobile = useIsMobile()
+    const preference = useAtomValue(quietHoursNudgeAtom)
+    const setNudge = useSetQuietHoursNudge()
+    const isAdmin = hasRole("Raven Admin") || hasRole("System Manager")
+    // The working-hours dialog can't live inside the menu (items unmount on
+    // select) — it's a controlled sibling the menu item opens.
+    const [hoursOpen, setHoursOpen] = useState(false)
+
     const text =
         mode === "auto"
             ? _("It's after hours - your messages will be sent silently.")
@@ -100,16 +136,61 @@ export const QuietHoursBanner = ({ mode }: { mode: QuietSendMode }) => {
                 <MoonStarIcon className="size-4 text-ink-gray-6" />
             </span>
             <span className="flex-1 text-p-xs text-ink-gray-7">{text}</span>
+
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        isIconButton
+                        aria-label={_("Quiet hours options")}
+                    >
+                        <EllipsisVerticalIcon />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="top" align="end">
+                    <DropdownMenuLabel>{_("Messaging after hours")}</DropdownMenuLabel>
+                    {/* Same options (and stored values) as the Preferences row.
+                        Picking one applies in place — the banner text and send
+                        button flip immediately. "Do nothing" doubles as a
+                        permanent dismiss: the mode goes undefined and the
+                        banner unmounts. */}
+                    <DropdownMenuRadioGroup
+                        value={preference}
+                        onValueChange={(value) => setNudge(value as QuietHoursNudge)}
+                    >
+                        <DropdownMenuRadioItem value="Nudge">{_("Suggest sending silently")}</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="Auto Silent">{_("Always send silently")}</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="No Nudge">{_("Do nothing")}</DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                    {isAdmin && (
+                        <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onSelect={() => setHoursOpen(true)}>
+                                <ClockIcon />
+                                {_("Change organization's working hours")}
+                            </DropdownMenuItem>
+                        </>
+                    )}
+                </DropdownMenuContent>
+            </DropdownMenu>
+
             <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 isIconButton
                 aria-label={_("Dismiss")}
-                onClick={dismiss}
+                onClick={onDismiss}
             >
                 <XIcon />
             </Button>
+
+            {/* Admin-only, controlled by the menu item above. Mounted while the
+                banner shows (closed Radix dialogs render nothing) so opening is
+                pre-seeded and closing animates. */}
+            {isAdmin && <QuietHoursDialog open={hoursOpen} onOpenChange={setHoursOpen} />}
         </div>
     )
 }

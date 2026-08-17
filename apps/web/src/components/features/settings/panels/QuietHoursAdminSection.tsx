@@ -112,8 +112,20 @@ type QuietHoursForm = {
     end: string
 }
 
-const QuietHoursDialog = ({ trigger }: { trigger: React.ReactNode }) => {
-    const [open, setOpen] = useState(false)
+/**
+ * The org working-hours editor. Used two ways: with a `trigger` (the settings
+ * row's summary button), or CONTROLLED via open/onOpenChange with no trigger —
+ * the quiet-hours banner opens it from a menu item, where a DialogTrigger
+ * can't live (the menu unmounts its items on select).
+ */
+export const QuietHoursDialog = ({ trigger, open: controlledOpen, onOpenChange }: {
+    trigger?: React.ReactNode
+    open?: boolean
+    onOpenChange?: (open: boolean) => void
+}) => {
+    const [internalOpen, setInternalOpen] = useState(false)
+    const open = controlledOpen ?? internalOpen
+    const setOpen = onOpenChange ?? setInternalOpen
     const { ravenSettings, mutate } = useRavenSettings()
     const { updateDoc, loading: saving } = useFrappeUpdateDoc<RavenSettings>()
 
@@ -164,7 +176,7 @@ const QuietHoursDialog = ({ trigger }: { trigger: React.ReactNode }) => {
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>{trigger}</DialogTrigger>
+            {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">

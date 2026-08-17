@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react"
-import { useAtomValue } from "jotai"
-import { getQuietHoursConfig, quietHoursNudgeAtom } from "@utils/preferences"
+import { useAtomValue, useSetAtom } from "jotai"
+import { useFrappePostCall } from "frappe-react-sdk"
+import { toast } from "sonner"
+import useCurrentRavenUser from "@raven/lib/hooks/useCurrentRavenUser"
+import { errorResponseToast } from "@components/ui/error-banner"
+import { getQuietHoursConfig, quietHoursNudgeAtom, type QuietHoursNudge } from "@utils/preferences"
 import { isInQuietHours } from "@utils/quietHours"
+import _ from "@lib/translate"
 
 /**
  * Reactive "are we in quiet hours right now" — re-evaluated once a minute and
@@ -24,6 +29,36 @@ export const useIsInQuietHours = (): boolean => {
     }, [])
 
     return quiet
+}
+
+/**
+ * Save the user's quiet-hours preference: writes the Raven User field and
+ * mirrors into the boot-seeded atom, so the composer (banner, send button)
+ * reacts in place. Shared by the Preferences panel row and the banner's
+ * inline menu.
+ */
+export const useSetQuietHoursNudge = () => {
+    const { myProfile, mutate } = useCurrentRavenUser()
+    const setAtom = useSetAtom(quietHoursNudgeAtom)
+    const { call } = useFrappePostCall("frappe.client.set_value")
+
+    return (value: QuietHoursNudge) => {
+        if (!myProfile?.name) return
+        call({
+            doctype: "Raven User",
+            name: myProfile.name,
+            fieldname: "quiet_hours_nudge",
+            value,
+        })
+            .then(() => {
+                setAtom(value)
+                mutate()
+                toast.success(_("Settings updated"), { id: "preferences-updated" })
+            })
+            .catch((e) => {
+                errorResponseToast(_("Could not update preference"), e)
+            })
+    }
 }
 
 export type QuietSendMode = "nudge" | "auto" | undefined
