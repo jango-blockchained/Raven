@@ -215,7 +215,9 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
         const linkedMessage = replyTo?.name
         const repliedMessageDetails = replyTo
             ? JSON.stringify({
-                text: replyTo.text ?? "",
+                // No `text` (HTML): the server's snapshot doesn't store it and the
+                // preview renders `content`, so this stays byte-compatible with what
+                // the server sends back when the send is confirmed.
                 content: replyTo.content ?? "",
                 file: (replyTo as typeof replyTo & { file?: string }).file ?? "",
                 message_type: replyTo.message_type,
