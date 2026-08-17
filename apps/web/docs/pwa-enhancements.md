@@ -643,6 +643,26 @@ Notes for a blog post. Each item: what we did, and the non-obvious reason why.
     lesson generalizes: a cleanup that runs "on change" misses everything
     that arrives after the last change.
 
+49. **The users whose notifications quietly died — for being active.** Reports
+    came in: some users get notifications for a while, then nothing. The
+    mechanism is Apple's anti-spam rule: a push that doesn't SHOW a
+    notification is a "silent push", and after a few of those, the
+    subscription is revoked — permanently, without telling anyone. Our
+    handler had four paths that ended without showing anything, and the
+    worst was the most well-intentioned: "the app is visible, the socket
+    already showed this message in-app, skip the system notification." On
+    Chrome that's good manners (Firebase's own worker does it). On iOS,
+    every one of those skips was a strike — so the users who used the app
+    the MOST accumulated strikes the fastest, got revoked, went silent
+    until their next launch re-registered them, and then the cycle
+    restarted. Now the worker never ends an Apple push without showing
+    something: the in-app case shows anyway (the read-sweep clears it
+    within moments), and unreadable payloads get a generic fallback. A
+    `pushsubscriptionchange` handler also tells any open page to
+    re-register on the spot when the browser swaps the subscription.
+    The lesson: platform politeness rules differ so much that identical
+    code is a courtesy on one platform and self-destruction on another.
+
 ## What's still on the list
 
 - **Full offline mode**: storing messages themselves on-device, so channels open

@@ -145,28 +145,44 @@ async function updateBadgeFromNotifications(excludeTag) {
     else await navigator.clearAppBadge()
 }
 
-self.addEventListener("push", (event) => {
-    if (!event.data) return
+// Apple platforms revoke a push subscription after a few pushes that show no
+// notification ("silent" pushes, their anti-spam rule). So on Apple, EVERY
+// push must end in showNotification — even ones we'd rather swallow. Chrome
+// has no such rule, so other platforms keep the quieter behavior.
+const isApplePlatform = /iPhone|iPad|iPod|Macintosh/.test(self.navigator.userAgent)
 
+/** Last-resort notification for pushes we can't read — shown on Apple so the
+ *  push still counts as "shown" and the subscription survives. */
+const showFallbackNotification = () =>
+    self.registration.showNotification("Raven", { body: "You have a new message" })
+
+self.addEventListener("push", (event) => {
     // FCM wraps the message as { data: {...}, from, priority, ... }
-    let payload
+    let payload = null
     try {
-        payload = event.data.json()
+        payload = event.data ? event.data.json() : null
     } catch {
-        return
+        // Unreadable payload — handled below (Apple still shows a fallback).
     }
     const data = payload?.data ?? {}
 
     event.waitUntil(
         (async () => {
+            if (!payload) {
+                if (isApplePlatform) await showFallbackNotification()
+                return
+            }
+
             // If the app is visible in some window, the realtime socket already
-            // surfaced this message in-app — showing a system notification too
-            // would double-notify. (Skipping display on a visible client is
-            // also what firebase-messaging-sw does, so Chrome's userVisibleOnly
-            // expectations are satisfied.) includeUncontrolled covers pages
-            // loaded before this SW version activated.
+            // surfaced this message in-app — a system notification on top would
+            // double-notify, so Chrome and friends skip it (same as
+            // firebase-messaging-sw). Apple can't skip (see isApplePlatform):
+            // there the notification shows anyway, and the read-sweep
+            // (raven:notification-shown → useClearReadNotifications) clears it
+            // moments later once the message is read. includeUncontrolled
+            // covers pages loaded before this SW version activated.
             const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true })
-            if (windows.some((client) => client.visibilityState === "visible")) return
+            if (!isApplePlatform && windows.some((client) => client.visibilityState === "visible")) return
 
             // Authoritative badge count, when the server includes it. The page
             // mirrors the badge itself while running — this covers the closed/
@@ -181,7 +197,10 @@ self.addEventListener("push", (event) => {
             // Raven Cloud flattens title/body into `data` for web pushes; the
             // notification-key fallback covers older payload shapes.
             const title = data.title || payload?.notification?.title
-            if (!title) return
+            if (!title) {
+                if (isApplePlatform) await showFallbackNotification()
+                return
+            }
 
             /** @type {NotificationOptions} */
             const options = {
@@ -215,6 +234,20 @@ self.addEventListener("push", (event) => {
 // hence the exclude.)
 self.addEventListener("notificationclose", (event) => {
     event.waitUntil(updateBadgeFromNotifications(event.notification.tag))
+})
+
+// The browser replaced or dropped this device's push subscription (token
+// rotation, or Apple ending it over silent pushes). The worker can't mint a
+// new FCM token itself (that needs the Firebase SDK, which lives in the
+// page) — so tell any open page to re-register right now. A closed app
+// heals on its next launch: startup always re-mints and syncs the token.
+self.addEventListener("pushsubscriptionchange", (event) => {
+    event.waitUntil(
+        (async () => {
+            const pages = await self.clients.matchAll({ type: "window" })
+            for (const page of pages) page.postMessage({ type: "raven:push-subscription-changed" })
+        })(),
+    )
 })
 
 // The URL of the last clicked notification, held until the page asks for it.

@@ -276,4 +276,14 @@ export const initPushNotifications = () => {
     } else {
         window.setTimeout(refresh, 3000)
     }
+
+    // The worker saw the browser replace/drop our push subscription
+    // (pushsubscriptionchange) — re-register immediately instead of waiting
+    // for the next launch. The stored-token check inside mintAndSyncToken
+    // makes this a no-op when nothing actually changed.
+    navigator.serviceWorker.addEventListener("message", (event) => {
+        if (event.data?.type === "raven:push-subscription-changed") {
+            mintAndSyncToken().catch((e) => console.error("Push re-subscribe failed", e))
+        }
+    })
 }
