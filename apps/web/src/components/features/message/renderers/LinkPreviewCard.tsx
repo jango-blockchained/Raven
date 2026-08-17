@@ -6,6 +6,7 @@ import { linkPreviewStore, type LinkPreviewData } from "@stores/linkPreviews/sto
 import useCurrentRavenUser from "@raven/lib/hooks/useCurrentRavenUser"
 import { getDateObject } from "@lib/date"
 import { BRAND, BrandIcon, PROVIDER_BRAND } from "./BrandIcons"
+import { fitImageBox } from "./ReservedImage"
 import _ from "@lib/translate"
 
 /**
@@ -53,6 +54,8 @@ const metaLine = (preview: LinkPreviewData): string => {
 const CardBody = ({ preview }: { preview: LinkPreviewData }) =>
     preview.provider === "Frappe" ? (
         <FrappePreviewBody preview={preview} />
+    ) : preview.provider === "X" ? (
+        <XPreviewBody preview={preview} />
     ) : (
         <PreviewBody preview={preview} />
     )
@@ -132,11 +135,6 @@ const FrappePreviewBody = ({ preview }: { preview: LinkPreviewData }) => {
  *            shape when the image loads.
  */
 const imagePlacement = (preview: LinkPreviewData): "banner" | "thumb" => {
-    // A tweet's image IS the shared content — a thumb wastes it. Always
-    // full width under the text; portrait shots crop the way X's own
-    // timeline crops them.
-    if (preview.provider === "X") return "banner"
-
     const ratio =
         preview.image_width > 0 && preview.image_height > 0
             ? preview.image_width / preview.image_height
@@ -167,26 +165,68 @@ const ThumbImage = ({ preview, onError }: { preview: LinkPreviewData; onError: (
     )
 }
 
-const BannerImage = ({ preview, onError }: { preview: LinkPreviewData; onError: () => void }) => (
-    <img
-        src={preview.image}
-        alt=""
-        loading="lazy"
-        decoding="async"
-        onError={onError}
-        // Height follows the stored aspect, capped — known before the
-        // image loads, so the card never jumps. X pages often omit the
-        // og:image dimensions: those get a fixed 16:9 (what X's own
-        // timeline crops to) instead of shifting on load.
-        style={{
-            aspectRatio:
-                preview.image_width > 0 && preview.image_height > 0
-                    ? `${preview.image_width} / ${preview.image_height}`
-                    : "16 / 9",
-        }}
-        className="max-h-56 w-full rounded object-cover"
-    />
-)
+const BannerImage = ({ preview, onError }: { preview: LinkPreviewData; onError: () => void }) => {
+    const hasDims = preview.image_width > 0 && preview.image_height > 0
+    return (
+        <img
+            src={preview.image}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            onError={onError}
+            // With stored dimensions (the fetcher probes them, so nearly
+            // always), the image FITS inside the caps — shrunk, never
+            // cropped: a portrait tweet photo shows whole at up to 384px
+            // tall (the shared inline-media ceiling), a wide og banner
+            // still fills the card. max-w-full lets narrow columns shrink
+            // it further; the aspect box keeps the height in step, so the
+            // card size is known before the image loads either way.
+            // Without dimensions (old rows, failed probes): the old fixed
+            // 16:9 crop box.
+            style={hasDims ? fitImageBox(preview.image_width, preview.image_height, 488, 384) : { aspectRatio: "16 / 9" }}
+            className={hasDims ? "max-w-full rounded" : "max-h-56 w-full rounded object-cover"}
+        />
+    )
+}
+
+/** A media-less tweet's og:image is the author's AVATAR (X serves it under
+ *  /profile_images/) — a giant profile picture is worse than no image. The
+ *  fetcher now drops these at save; this guard covers previews stored
+ *  before it did. */
+const isXProfileImage = (preview: LinkPreviewData) =>
+    preview.provider === "X" && preview.image.includes("/profile_images/")
+
+/**
+ * The card for X posts. Content-first, unlike the generic card: the TWEET
+ * TEXT is the headline (real line breaks, six-line clamp so a full
+ * 280-character post fits), the author is a muted byline, and the X mark
+ * sits on the right. Media renders below at its true aspect, fitted
+ * (BannerImage).
+ */
+const XPreviewBody = ({ preview }: { preview: LinkPreviewData }) => {
+    const [imageFailed, setImageFailed] = useState(false)
+    const line = metaLine(preview)
+    const showImage = Boolean(preview.image) && !imageFailed && !isXProfileImage(preview)
+
+    return (
+        <div className="flex w-full flex-col gap-2 p-3">
+            <div className="flex items-center gap-2">
+                <span className="min-w-0 flex-1 truncate text-sm-medium leading-snug text-ink-gray-7">{preview.title}</span>
+                <BrandIcon brand={BRAND.x} className="size-4 shrink-0" />
+            </div>
+            {preview.description && (
+                <p
+                    className="line-clamp-6 whitespace-pre-line text-p-base text-ink-gray-9 mb-1"
+                    title={preview.description}
+                >
+                    {preview.description}
+                </p>
+            )}
+            {showImage && <BannerImage preview={preview} onError={() => setImageFailed(true)} />}
+            {line && <div className="truncate text-xs text-ink-gray-5">{line}</div>}
+        </div>
+    )
+}
 
 /** The card's content. Presentation only — wrappers decide interactivity. */
 const PreviewBody = ({ preview }: { preview: LinkPreviewData }) => {
@@ -211,7 +251,7 @@ const PreviewBody = ({ preview }: { preview: LinkPreviewData }) => {
                     {preview.description && (
                         <p className="line-clamp-2 text-p-sm text-ink-gray-6" title={preview.description}>{preview.description}</p>
                     )}
-                    {line && <div className="truncate pt-0.5 text-xs text-ink-gray-5">{line}</div>}
+                    {line && <div className="truncate pt-0.5 text-p-xs text-ink-gray-5">{line}</div>}
                 </div>
                 {showImage && placement === "thumb" && <ThumbImage preview={preview} onError={fail} />}
             </div>

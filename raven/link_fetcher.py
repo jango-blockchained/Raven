@@ -213,10 +213,20 @@ def fetch_oembed(endpoint: str, url: str) -> dict:
 	title = payload.get("title") or ""
 	description = ""
 	# X answers with the tweet as an HTML blockquote and no title. The
-	# blockquote's text is the tweet itself.
+	# tweet's text lives in the blockquote's <p>; the rest of the
+	# blockquote is an attribution tail ("— Author (@handle) date") that
+	# the title already covers. <br> tags become real newlines so the
+	# tweet keeps its line breaks (the client renders them for X).
 	if not title and payload.get("html"):
 		title = payload.get("author_name") or ""
-		description = BeautifulSoup(payload["html"], "html.parser").get_text(" ", strip=True)
+		soup = BeautifulSoup(payload["html"], "html.parser")
+		tweet_text = soup.find("p")
+		if tweet_text:
+			for br in tweet_text.find_all("br"):
+				br.replace_with("\n")
+			description = tweet_text.get_text().strip()
+		else:
+			description = soup.get_text(" ", strip=True)
 
 	return {
 		"title": title or payload.get("author_name") or "",
@@ -254,7 +264,11 @@ def fetch_x(url: str) -> dict:
 	except LinkFetchError:
 		return data
 
-	if scraped.get("image"):
+	# A tweet with NO media serves the author's avatar as its og:image
+	# (under /profile_images/). A giant profile picture is worse than no
+	# image — keep only real tweet media (photos and video thumbnails live
+	# under /media/ and */video_thumb/ paths).
+	if scraped.get("image") and "/profile_images/" not in scraped["image"]:
 		data["image"] = scraped["image"]
 		data["image_width"] = scraped.get("image_width")
 		data["image_height"] = scraped.get("image_height")

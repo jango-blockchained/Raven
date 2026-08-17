@@ -405,6 +405,50 @@ class TestXStrategy(IntegrationTestCase):
 		# tags on that.
 		self.assertEqual(fetch.call_args_list[1].kwargs.get("user_agent"), PREVIEW_BOT_USER_AGENT)
 
+	def test_tweet_text_keeps_line_breaks_and_drops_attribution(self):
+		import json as json_module
+
+		# Real oEmbed shape: the tweet lives in the <p> (with <br> line
+		# breaks); the rest of the blockquote is an attribution tail the
+		# title already covers.
+		payload = {
+			"author_name": "Nikhil",
+			"html": (
+				'<blockquote><p lang="en">line one<br>line two</p>'
+				"&mdash; Nikhil (@nikhil) "
+				'<a href="https://x.com/nikhil/status/3">August 17, 2026</a></blockquote>'
+			),
+			"provider_name": "X",
+		}
+		oembed = SimpleNamespace(
+			url="https://publish.twitter.com/oembed",
+			content_type="application/json",
+			body=json_module.dumps(payload).encode(),
+		)
+		page_error = LinkFetchError("no page")
+		with patch("raven.link_fetcher.safe_fetch", side_effect=[oembed, page_error]):
+			data = fetch_x("https://x.com/nikhil/status/3")
+
+		self.assertEqual(data["description"], "line one\nline two")
+
+	def test_avatar_og_image_is_dropped(self):
+		# A tweet with no media serves the AUTHOR'S AVATAR as og:image
+		# (under /profile_images/). The card must not banner a giant
+		# profile picture — keep the text, drop the image.
+		page = SimpleNamespace(
+			url="https://x.com/nikhil/status/2",
+			content_type="text/html",
+			body=(
+				b'<meta property="og:image" '
+				b'content="https://pbs.twimg.com/profile_images/12345/nikhil_400x400.jpg"/>'
+			),
+		)
+		with patch("raven.link_fetcher.safe_fetch", side_effect=[self.oembed_response(), page]):
+			data = fetch_x("https://x.com/nikhil/status/2")
+
+		self.assertEqual(data["description"], "hello world")
+		self.assertFalse(data.get("image"))
+
 	def test_image_scrape_is_best_effort(self):
 		# The scrape failing must not cost the tweet its text.
 		with patch(
