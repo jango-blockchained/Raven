@@ -150,7 +150,7 @@ export const ImageCarousel = ({ images, onImageClick }: { images: ImageFile[], o
             {images.length > 1 && (
                 <div className="flex gap-1 mt-2 overflow-x-auto">
                     {images.map((image, index) => (
-                        <Tooltip key={image.name}>
+                        <Tooltip key={`${image.file_url}:${index}`}>
                             <TooltipTrigger asChild>
                                 <div
                                     className={cn(
@@ -192,7 +192,7 @@ export const ImageGrid = ({ images, onImageClick }: { images: ImageFile[], onIma
         <div className={cn("grid gap-1 overflow-hidden rounded-lg", layout.container)}>
             {displayImages.map((image, index) => (
                 <div
-                    key={image.name}
+                    key={`${image.file_url}:${index}`}
                     data-message-id={image.message_id}
                     // bg: mats transparent-edged images (PNG logos/screenshots) —
                     // invisible behind opaque photos

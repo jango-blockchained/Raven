@@ -195,7 +195,11 @@ export const ImageStack = ({ images, onImageClick }: { images: ImageFile[]; onIm
     const maxWidth = Math.round(cardMaxHeight * (boxW / boxH))
 
     /** Which side the TOP card leans — random per batch, alternated down the pile. */
-    const startRight = hashString(cards[0].name + ":side") % 2 === 0
+    // All seeds + keys hash the FILE URL, not the message name: an optimistic
+    // send's names change when the server ack lands, and name-based seeds made
+    // the pile visibly reshuffle its tilts at that moment (name-based keys
+    // remounted the cards outright). File URLs are stable through the swap.
+    const startRight = hashString(cards[0].file_url + ":side") % 2 === 0
 
 
     return (
@@ -243,17 +247,19 @@ export const ImageStack = ({ images, onImageClick }: { images: ImageFile[]; onIm
                     // so two images never lean the same way. Magnitudes stay seeded
                     // per image, so the amount of tilt still varies.
                     const right = depth % 2 === 0 ? startRight : !startRight
-                    const mag = hashString(image.name) % 3
+                    const mag = hashString(image.file_url) % 3
                     const x = isTop ? "translate-x-0" : right ? xRight[mag] : xLeft[mag]
                     const r = isTop
-                        ? (right ? topTiltRight : topTiltLeft)[hashString(image.name + ":t") % topTiltRight.length]
+                        ? (right ? topTiltRight : topTiltLeft)[hashString(image.file_url + ":t") % topTiltRight.length]
                         : right ? rotRight[mag] : rotLeft[mag]
                     const y = yByDepth[depth]
                     // Top card lifts gently on hover (desktop only); the rest fan via their palettes.
                     const hover = isTop ? "md:group-hover:-translate-y-1.5" : ""
                     return (
                         <div
-                            key={image.name}
+                            // Index suffix: duplicate attachments can share a URL;
+                            // batch order is stable across the ack swap, so the key stays stable.
+                            key={`${image.file_url}:${index}`}
                             // Desktop centers each card (inset-0 m-auto); mobile places them
                             // top-down at their run offsets (inset-x-0 mx-auto + top%). No
                             // frame border — depth comes from the shadow. will-change promotes

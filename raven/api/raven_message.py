@@ -53,9 +53,19 @@ IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "webp", "svg", "bmp", "ico", "h
 
 # Inline-image display caps (mirror the web client's reserved box). The stored
 # aspect ratio is what prevents reflow; the absolute thumbnail size only needs
-# to be reasonable.
+# to be reasonable. The client mirrors these values for its optimistic
+# placeholder (optimisticImageThumbnail in messageSender.ts) — keep in sync.
 _IMAGE_THUMBNAIL_MAX_WIDTH = 480
-_IMAGE_THUMBNAIL_MAX_HEIGHT = 320
+_IMAGE_THUMBNAIL_MAX_HEIGHT = 384  # = the client's max-h-96, shared with videos
+
+
+def _sane_dimension(value) -> int | None:
+	"""A plausible pixel dimension from an untrusted client, or None."""
+	try:
+		number = int(value)
+	except (TypeError, ValueError):
+		return None
+	return number if 0 < number <= 10000 else None
 
 
 def _file_message_type(file_url: str) -> str:
@@ -186,6 +196,8 @@ def send_message_with_attachments(
 	`files` is a list of `{"file_url", "file_size"}` for the already-uploaded
 	attachments — the size is denormalized onto each message so the client can show
 	it without a File lookup. (A bare URL string per file is also tolerated.)
+	Videos may also carry `width`/`height`, measured by the client's browser at
+	attach time — stored so the message reserves its display box up front.
 
 	`send_silently` suppresses notifications for the whole batch (the flag is set on
 	every message before insert).
@@ -226,13 +238,24 @@ def send_message_with_attachments(
 	for f in files:
 		file_url = f["file_url"] if isinstance(f, dict) else f
 		file_size = f.get("file_size") if isinstance(f, dict) else None
-		specs.append(
-			{
-				"message_type": _file_message_type(file_url),
-				"file": file_url,
-				"file_size": file_size or 0,
-			}
-		)
+		spec = {
+			"message_type": _file_message_type(file_url),
+			"file": file_url,
+			"file_size": file_size or 0,
+		}
+		# Video dimensions, measured by the CLIENT (the browser reads them from
+		# the container header at attach time — the server has no video
+		# decoder). Stored so the message can reserve its box before the player
+		# loads. Images are skipped on purpose: the server measures those
+		# itself below and stays authoritative. Cosmetic data from an untrusted
+		# client, so clamp to plausible values.
+		if spec["message_type"] == "File" and isinstance(f, dict):
+			width = _sane_dimension(f.get("width"))
+			height = _sane_dimension(f.get("height"))
+			if width and height:
+				spec["thumbnail_width"] = width
+				spec["thumbnail_height"] = height
+		specs.append(spec)
 	if has_body:
 		specs.append({"message_type": "Text", "text": content})
 
