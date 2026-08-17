@@ -389,7 +389,9 @@ export const useMessageActions = (
         // the poll data resolves we treat a poll as anonymous: a briefly
         // missing action beats a briefly exposed one.
         const pollForbidsReceipts = isPoll && (!pollData || Boolean(pollData.message.poll.is_anonymous))
-        if (!hideReadReceipts && !pollForbidsReceipts) {
+        // Also hidden in your self-DM: the only possible reader is you.
+        const isSelfDM = parentChannel?.is_self_message === 1
+        if (!hideReadReceipts && !pollForbidsReceipts && !isSelfDM) {
             organize.push({
                 id: "read-receipts",
                 label: _("Read by"),
