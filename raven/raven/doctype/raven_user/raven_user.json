@@ -220,17 +220,17 @@
    "label": "Hide Read Receipts"
   },
   {
-   "default": "Nudge",
+   "default": "No Nudge",
    "fieldname": "quiet_hours_nudge",
    "fieldtype": "Select",
    "label": "Quiet Hours Nudge",
-   "options": "Nudge\nNo Nudge\nAuto Silent"
+   "options": "No Nudge\nNudge\nAuto Silent"
   }
  ],
  "grid_page_length": 50,
  "image_field": "user_image",
  "links": [],
- "modified": "2026-08-17 23:03:59.565193",
+ "modified": "2026-08-18 12:12:33.464600",
  "modified_by": "Administrator",
  "module": "Raven",
  "name": "Raven User",

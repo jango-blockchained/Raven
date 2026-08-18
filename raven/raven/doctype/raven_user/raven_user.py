@@ -37,7 +37,7 @@ class RavenUser(Document):
 		link_previews: DF.Literal["Link Hover", "Preview Card"]
 		pinned_channels: DF.Table[RavenPinnedChannels]
 		pinned_workspaces: DF.Table[RavenUserPinnedWorkspaces]
-		quiet_hours_nudge: DF.Literal["Nudge", "No Nudge", "Auto Silent"]
+		quiet_hours_nudge: DF.Literal["No Nudge", "Nudge", "Auto Silent"]
 		sort_channels_by: DF.Literal["Alphabetical Order", "Recent Activity", "Unreads First"]
 		time_format: DF.Literal["12-hour", "24-hour"]
 		type: DF.Literal["User", "Bot"]
