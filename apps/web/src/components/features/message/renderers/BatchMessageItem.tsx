@@ -4,6 +4,7 @@ import { MessageImages } from "./MessageImages"
 import { MessageFiles } from "./MessageFiles"
 import { MessageVideo } from "./MessageVideo"
 import { MessageAudio } from "./MessageAudio"
+import { DocumentLinkRenderer } from "./DocumentLinkRenderer"
 import { EditableMessageBody, MessageAttributes } from "./MessageContent"
 import { MessageLinkPreview } from "./LinkPreview"
 import { MessageReactionsRow } from "./MessageReactions"
@@ -108,6 +109,10 @@ export const BatchMessageItem = ({
     // A batch reply lives on one member (the send API attaches it to the last);
     // render the quote once, at the top of the block.
     const replyMember = block.messages.find((message) => message.linked_message && message.replied_message_details)
+
+    // Same for a linked document — one member carries it (the caption on a composer
+    // send). Found by field, not position, so links attached by other clients render too.
+    const linkedDocMember = block.messages.find((message) => message.link_doctype && message.link_document)
     const repliedDetails = useMemo(() => {
         if (!replyMember?.replied_message_details) return null
         try {
@@ -140,6 +145,12 @@ export const BatchMessageItem = ({
             {/* Links live on the caption member (the server extracts them from its
                 text), so that's where the first-link preview hangs off a batch too. */}
             {captionMember && <MessageLinkPreview message={captionMember} />}
+            {linkedDocMember && (
+                <DocumentLinkRenderer
+                    doctype={linkedDocMember.link_doctype!}
+                    docname={linkedDocMember.link_document!}
+                />
+            )}
             <OptimisticStatus message={head} />
             {memberReactions}
         </div>

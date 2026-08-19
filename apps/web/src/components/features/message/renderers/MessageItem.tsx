@@ -1,6 +1,7 @@
 import { Message } from "@raven/types/common/Message"
 import { MessageThreadPill } from "./ThreadMessage"
 import { useIntersectionObserver } from "usehooks-ts"
+import { DocumentLinkRenderer } from "./DocumentLinkRenderer"
 import { MessageContent } from "./MessageContent"
 import { MessageRow, MessageSenderLayout } from "./MessageRow"
 import { OptimisticStatus, optimisticRowClass } from "./OptimisticStatus"
@@ -75,6 +76,9 @@ export const MessageItem = ({ message, onInView }: { message: Message; onInView?
             isContinuation={message.is_continuation === 1}
         >
             <MessageContent message={message} />
+            {message.link_doctype && message.link_document && (
+                <DocumentLinkRenderer doctype={message.link_doctype} docname={message.link_document} />
+            )}
             <OptimisticStatus message={message} />
         </MessageSenderLayout>
 

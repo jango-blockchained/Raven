@@ -16,6 +16,7 @@ import { useIsMobile } from "@hooks/use-mobile";
 import { useNoDragWhileScrolled } from "@hooks/useNoDragWhileScrolled";
 import _ from "@lib/translate";
 import ErrorBanner from "@components/ui/error-banner";
+import { Skeleton } from "@components/ui/skeleton";
 import MarkdownRenderer from "@components/ui/markdown";
 
 export interface ResultItem {
@@ -350,11 +351,22 @@ const LinkFieldCombobox = ({
                     className="text-base"
                 />
                 <CommandList className={listClassName}>
-                    <CommandEmpty>{isLoading ? _("Loading...") : _("No results found.")}</CommandEmpty>
+                    {/* Hidden while results load — the skeleton below owns that state.
+                        A bare "Loading..." line read as a hang in the drawer sheet. */}
+                    {!isLoading && <CommandEmpty>{_("No results found.")}</CommandEmpty>}
                     {!searchInput && suggestedItems && suggestedItems.length > 0 && (
                         <CommandGroup heading={_("Recent")}>
                             {suggestedItems.map((item) => renderItem(item, "recent-"))}
                         </CommandGroup>
+                    )}
+                    {isLoading && !items?.length && (
+                        <div className="flex flex-col p-1" aria-hidden="true">
+                            {Array.from({ length: 8 }, (unused, i) => (
+                                <div key={i} className="flex h-9 items-center px-3">
+                                    <Skeleton className={cn("h-4", i % 3 === 0 ? "w-3/4" : i % 3 === 1 ? "w-1/2" : "w-2/3")} />
+                                </div>
+                            ))}
+                        </div>
                     )}
                     <CommandGroup>
                         {items?.map((result) => renderItem(result))}
@@ -362,10 +374,10 @@ const LinkFieldCombobox = ({
                             <CommandItem asChild className={cn(LINK_ITEM_STYLES, "justify-between")}>
                                 {/* No equivalent endpoint exists for "create a new document" the
                                     way document_link.get resolves an existing one, so this still
-                                    hand-builds a /app/ URL — wrong for a doctype whose app lives
+                                    hand-builds a /desk/ URL — wrong for a doctype whose app lives
                                     elsewhere (e.g. Frappe CRM). Left as-is until such an endpoint
                                     exists. */}
-                                <a href={`/app/${slug(doctype)}/new-${slug(doctype)}-1`} target="_blank">
+                                <a href={`/desk/${slug(doctype)}/new-${slug(doctype)}-1`} target="_blank">
                                     {_("Create New {0}", [doctype])}
                                     <ExternalLink />
                                 </a>
