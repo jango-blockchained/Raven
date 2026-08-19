@@ -13,7 +13,8 @@ import { MessageThreadPill } from "./ThreadMessage"
 import ReplyMessage from "./ReplyMessage"
 import { OptimisticStatus, optimisticRowClass } from "./OptimisticStatus"
 import { getAttachmentKind, messagesToAttachments } from "@utils/attachmentPreview"
-import { isThreadParent } from "@utils/messageUtils"
+import { isThreadParent, parseRepliedMessageDetails } from "@utils/messageUtils"
+import type { RepliedMessageDetails } from "./RepliedMessagePreview"
 import type { MessageBatchBlock } from "@stores/messages/types"
 import type { Message } from "@raven/types/common/Message"
 
@@ -113,14 +114,13 @@ export const BatchMessageItem = ({
     // Same for a linked document — one member carries it (the caption on a composer
     // send). Found by field, not position, so links attached by other clients render too.
     const linkedDocMember = block.messages.find((message) => message.link_doctype && message.link_document)
-    const repliedDetails = useMemo(() => {
-        if (!replyMember?.replied_message_details) return null
-        try {
-            return JSON.parse(replyMember.replied_message_details)
-        } catch {
-            return null
-        }
-    }, [replyMember?.replied_message_details])
+
+    // String from fetches, OBJECT from realtime/ack payloads — the shared
+    // parser accepts both (a bare JSON.parse dropped live receivers' quotes).
+    const repliedDetails = useMemo(
+        () => parseRepliedMessageDetails<RepliedMessageDetails>(replyMember?.replied_message_details),
+        [replyMember?.replied_message_details],
+    )
 
     // Reactions target individual messages, so a batch can carry several rows —
     // one per member that has any (usually at most one)

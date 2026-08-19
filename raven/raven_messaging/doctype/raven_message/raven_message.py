@@ -294,13 +294,21 @@ class RavenMessage(Document):
 				["content", "file", "message_type", "owner", "creation"],
 				as_dict=True,
 			)
-			self.replied_message_details = {
-				"content": details.content,
-				"file": details.file,
-				"message_type": details.message_type,
-				"owner": details.owner,
-				"creation": datetime.datetime.strftime(details.creation, "%Y-%m-%d %H:%M:%S"),
-			}
+			# Serialized HERE, not left as a dict for the DB layer to serialize:
+			# the realtime events and the send ack read this field off the
+			# in-memory doc, and a dict reaches those clients as a JSON OBJECT
+			# while fetches return the stored STRING. Clients that parsed the
+			# string form saw live reply quotes vanish (JSON.parse throws on an
+			# object). One shape everywhere.
+			self.replied_message_details = frappe.as_json(
+				{
+					"content": details.content,
+					"file": details.file,
+					"message_type": details.message_type,
+					"owner": details.owner,
+					"creation": datetime.datetime.strftime(details.creation, "%Y-%m-%d %H:%M:%S"),
+				}
+			)
 
 	def after_insert(self):
 		# In a multi-message batch (one send → several messages) only the last,

@@ -16,6 +16,8 @@ import { PollMessageContent } from "./PollMessageContent"
 import SearchTextRenderer from "./SearchTextRenderer"
 import { MessageReactionsRow } from "./MessageReactions"
 import { getAttachmentKind } from "@utils/attachmentPreview"
+import { parseRepliedMessageDetails } from "@utils/messageUtils"
+import type { RepliedMessageDetails } from "./RepliedMessagePreview"
 import _ from "@lib/translate"
 import { Badge } from "@components/ui/badge"
 
@@ -129,16 +131,12 @@ const MessageMedia = ({ message, fileUrl }: { message: Message; fileUrl: string 
 export const MessageContent = ({ message, showLinkPreview = true }: { message: Message, showLinkPreview?: boolean }) => {
     const messageFile = "file" in message ? (message.file as string | undefined) : undefined
 
-    const repliedMessageDetails = useMemo(() => {
-        if (message.replied_message_details) {
-            try {
-                return JSON.parse(message.replied_message_details)
-            } catch {
-                return null
-            }
-        }
-        return null
-    }, [message.replied_message_details])
+    // String from fetches, OBJECT from realtime/ack payloads — the shared
+    // parser accepts both (a bare JSON.parse dropped live receivers' quotes).
+    const repliedMessageDetails = useMemo(
+        () => parseRepliedMessageDetails<RepliedMessageDetails>(message.replied_message_details),
+        [message.replied_message_details],
+    )
 
     // min-w-0: without it this flex column can't shrink below its content, so
     // fixed-width media overflows narrow (mobile) columns and gets clipped
