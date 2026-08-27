@@ -1,11 +1,12 @@
 import { Message } from "@raven/types/common/Message"
 import { MessageThreadPill } from "./ThreadMessage"
 import { useIntersectionObserver } from "usehooks-ts"
-import { DocumentLinkRenderer } from "./DocumentLinkRenderer"
 import { MessageContent } from "./MessageContent"
-import { MessageRow, MessageSenderLayout } from "./MessageRow"
+import { leftRightRowClass, MessageRow, MessageSenderLayout, ownRowClass } from "./MessageRow"
+import { cn } from "@lib/utils"
 import { OptimisticStatus, optimisticRowClass } from "./OptimisticStatus"
 import { isThreadParent } from "@utils/messageUtils"
+import { useMessageAlignment } from "@hooks/useChatStyle"
 
 /**
  * Anatomy of a message
@@ -56,6 +57,11 @@ export const MessageItem = ({ message, onInView }: { message: Message; onInView?
 
     const showThread = isThreadParent(message)
 
+    const owner = message.is_bot_message ? message.bot || '' : message.owner
+    // Own rows have no avatar column for the thread connector; their pill
+    // renders as the bubble's footer instead.
+    const { isLeftRight, isOwn } = useMessageAlignment(owner)
+
     const { ref } = useIntersectionObserver({
         onChange: (isIntersecting) => {
             if (onInView && isIntersecting) {
@@ -68,21 +74,20 @@ export const MessageItem = ({ message, onInView }: { message: Message; onInView?
     // the stream level via event delegation on the data-message-id wrapper.
     // A thread parent is never a continuation (the selector enforces this), so
     // the connector always anchors to the full header — no is_continuation branch.
-    return <MessageRow ref={ref} className={optimisticRowClass(message)}>
-        {showThread && <div className="absolute left-7 w-6 border-l-2 border-b-2 border-outline-gray-2 rounded-bl-2xl z-0 top-[48px] h-[calc(100%-66px)]" />}
+    return <MessageRow ref={ref} className={cn(optimisticRowClass(message), isOwn ? ownRowClass : isLeftRight && leftRightRowClass)}>
+        {showThread && !isOwn && <div className="absolute left-7 w-6 border-l-2 border-b-2 border-outline-gray-2 rounded-bl-2xl z-0 top-[48px] h-[calc(100%-66px)]" />}
         <MessageSenderLayout
-            owner={message.is_bot_message ? message.bot || '' : message.owner}
+            owner={owner}
             creation={message.creation}
             isContinuation={message.is_continuation === 1}
+            isOwn={isOwn}
+            footer={showThread && isOwn ? <MessageThreadPill threadID={message.name} channelID={message.channel_id} align="end" /> : undefined}
         >
             <MessageContent message={message} />
-            {message.link_doctype && message.link_document && (
-                <DocumentLinkRenderer doctype={message.link_doctype} docname={message.link_document} />
-            )}
             <OptimisticStatus message={message} />
         </MessageSenderLayout>
 
-        {showThread ? <MessageThreadPill threadID={message.name} channelID={message.channel_id} /> : null}
+        {showThread && !isOwn ? <MessageThreadPill threadID={message.name} channelID={message.channel_id} align="start" /> : null}
     </MessageRow>
 }
 

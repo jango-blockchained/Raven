@@ -109,8 +109,9 @@ export const MessageActionMenu = ({
     const lastTapRef = useRef({ messageID: "", time: 0 })
     const menuOpenedAtRef = useRef(0)
     const wrapperRef = useRef<HTMLDivElement>(null)
-    /** Hovered message + its toolbar position; null hides the toolbar. */
-    const [hovered, setHovered] = useState<{ message: Message; top: number } | null>(null)
+    /** Hovered message + its toolbar position (top; one of left/right anchors
+     *  it); null hides the toolbar. */
+    const [hovered, setHovered] = useState<{ message: Message; top: number; left?: number; right?: number } | null>(null)
     /** While the toolbar's ellipsis menu is open, hover-clearing is suspended. */
     const toolbarMenuOpenRef = useRef(false)
 
@@ -157,8 +158,42 @@ export const MessageActionMenu = ({
 
     const showToolbarFor = (message: Message, element: HTMLElement) => {
         if (!wrapperRef.current) return
-        const top = element.getBoundingClientRect().top - wrapperRef.current.getBoundingClientRect().top - 14
-        setHovered({ message, top: Math.max(top, 2) })
+        const wrapperRect = wrapperRef.current.getBoundingClientRect()
+        // Resolve the ROW SHELL — `element` can be an inner node (image tile)
+        // or an outer wrapper (batch root).
+        const row =
+            (element.closest("[data-message-row]") as HTMLElement | null) ??
+            (element.querySelector("[data-message-row]") as HTMLElement | null) ??
+            element
+        // v2 placement. An OWN bubble anchors the toolbar to itself: 40px above
+        // its top, right edges flush (v2's -top-10 right-0). Others in
+        // Left-Right mode (w-fit rows) LEFT-align it to the content start
+        // (v2's -top-10 left-0). Simple mode keeps v2's -top-6 right-4.
+        const rect = row.getBoundingClientRect()
+        const bubble = row.querySelector("[data-message-bubble]") as HTMLElement | null
+        if (bubble) {
+            const bubbleRect = bubble.getBoundingClientRect()
+            setHovered({
+                message,
+                top: Math.max(bubbleRect.top - wrapperRect.top - 40, 2),
+                right: wrapperRect.right - bubbleRect.right,
+            })
+            return
+        }
+        const contentEl = row.querySelector("[data-message-content]") as HTMLElement | null
+        if (row.classList.contains("w-fit") && contentEl) {
+            setHovered({
+                message,
+                top: Math.max(rect.top - wrapperRect.top - 40, 2),
+                left: contentEl.getBoundingClientRect().left - wrapperRect.left,
+            })
+            return
+        }
+        setHovered({
+            message,
+            top: Math.max(rect.top - wrapperRect.top - 24, 2),
+            right: Math.max(wrapperRect.right - rect.right + 16, 16),
+        })
     }
 
     /** Desktop: tracks which message the pointer is over and positions the floating toolbar. */
@@ -578,6 +613,8 @@ export const MessageActionMenu = ({
                         <MessageHoverToolbar
                             message={hovered.message}
                             top={hovered.top}
+                            left={hovered.left}
+                            right={hovered.right}
                             canInteract={canInteract}
                             onMenuOpenChange={onToolbarMenuOpenChange}
                         />

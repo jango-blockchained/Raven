@@ -8,12 +8,14 @@ import { DocumentLinkRenderer } from "./DocumentLinkRenderer"
 import { EditableMessageBody, MessageAttributes } from "./MessageContent"
 import { MessageLinkPreview } from "./LinkPreview"
 import { MessageReactionsRow } from "./MessageReactions"
-import { MessageRow, MessageSenderLayout } from "./MessageRow"
+import { leftRightRowClass, MessageRow, MessageSenderLayout, ownRowClass } from "./MessageRow"
+import { cn } from "@lib/utils"
 import { MessageThreadPill } from "./ThreadMessage"
 import ReplyMessage from "./ReplyMessage"
 import { OptimisticStatus, optimisticRowClass } from "./OptimisticStatus"
 import { getAttachmentKind, messagesToAttachments } from "@utils/attachmentPreview"
 import { isThreadParent, parseRepliedMessageDetails } from "@utils/messageUtils"
+import { useMessageAlignment } from "@hooks/useChatStyle"
 import type { RepliedMessageDetails } from "./RepliedMessagePreview"
 import type { MessageBatchBlock } from "@stores/messages/types"
 import type { Message } from "@raven/types/common/Message"
@@ -77,6 +79,10 @@ export const BatchMessageItem = ({
 }) => {
     const head = block.messages[0]
     const newest = block.messages[block.messages.length - 1]
+
+    const owner = head.is_bot_message ? head.bot || '' : head.owner
+    // See MessageItem — own rows have no avatar column for the connector.
+    const { isLeftRight, isOwn } = useMessageAlignment(owner)
 
     // The selector keeps at most one thread parent in a batch (it splits 2+ into individual
     // messages), so find that member wherever it sits and show its pill + connector. v3 batch
@@ -157,17 +163,19 @@ export const BatchMessageItem = ({
     )
 
     return (
-        <MessageRow ref={ref} className={optimisticRowClass(head)}>
-            {threadMember && <div className="absolute left-7 w-6 border-l-2 border-b-2 border-outline-gray-2 rounded-bl-2xl z-0 top-[48px] h-[calc(100%-66px)]" />}
+        <MessageRow ref={ref} className={cn(optimisticRowClass(head), isOwn ? ownRowClass : isLeftRight && leftRightRowClass)}>
+            {threadMember && !isOwn && <div className="absolute left-7 w-6 border-l-2 border-b-2 border-outline-gray-2 rounded-bl-2xl z-0 top-[48px] h-[calc(100%-66px)]" />}
             <MessageSenderLayout
-                owner={head.is_bot_message ? head.bot || '' : head.owner}
+                owner={owner}
                 creation={head.creation}
                 isContinuation={block.is_continuation === 1}
+                isOwn={isOwn}
+                footer={threadMember && isOwn ? <MessageThreadPill threadID={threadMember.name} channelID={threadMember.channel_id} align="end" /> : undefined}
             >
                 {content}
             </MessageSenderLayout>
 
-            {threadMember && <MessageThreadPill threadID={threadMember.name} channelID={threadMember.channel_id} />}
+            {threadMember && !isOwn && <MessageThreadPill threadID={threadMember.name} channelID={threadMember.channel_id} align="start" />}
         </MessageRow>
     )
 }

@@ -13,6 +13,12 @@ import { NavLink, useLocation } from "react-router-dom"
 import { cn } from "@lib/utils"
 import _ from "@lib/translate"
 
+/** "start" = indented past the avatar gutter (ml-11); "end" = rendered as an own
+ *  bubble's footer in Left-Right mode, self-started to the bubble's left edge. */
+export type ThreadPillAlign = "start" | "end"
+
+const pillAlignClass = (align: ThreadPillAlign) => (align === "end" ? "mt-2" : "mt-2 ml-11")
+
 interface ThreadButtonProps {
     participants: UserData[]
     messageCount: number
@@ -21,9 +27,10 @@ interface ThreadButtonProps {
      *  real channel thread route even when the chat is rendered in a pane
      *  (notifications/search/saved), where the URL carries no channel. */
     channelID: string
+    align?: ThreadPillAlign
 }
 
-export const ThreadButton = ({ participants, messageCount, threadID, channelID }: ThreadButtonProps) => {
+export const ThreadButton = ({ participants, messageCount, threadID, channelID, align = "start" }: ThreadButtonProps) => {
     const location = useLocation()
     const drawerChannelID = channelID
     const setDrawerType = useSetAtom(channelDrawerAtom(drawerChannelID))
@@ -44,10 +51,10 @@ export const ThreadButton = ({ participants, messageCount, threadID, channelID }
             <span className="text-sm">{messageCount === 1 ? _("1 reply") : _("{0} replies", [String(messageCount)])}</span>
         </>
     )
-    const className = "flex w-fit ml-11 mt-2 items-center gap-2 text-ink-gray-6 transition-colors duration-200 hover:text-ink-gray-8"
+    const className = cn("flex w-fit items-center gap-2 text-ink-gray-6 transition-colors duration-200 hover:text-ink-gray-8", pillAlignClass(align))
 
     // No threadID → render non-interactive (shouldn't happen for a real pill).
-    if (!threadID) return <div className={cn("ml-11 mt-2", className)}>{content}</div>
+    if (!threadID) return <div className={className}>{content}</div>
 
     // Destination: the thread route under its REAL parent channel, resolved from the
     // channel store — so the pill works from anywhere, including the notification/
@@ -82,8 +89,8 @@ export const ThreadButton = ({ participants, messageCount, threadID, channelID }
 }
 
 /** Placeholder pill (reserves the row's height) shown until the thread details load. */
-const ThreadPillSkeleton = () => (
-    <div className="ml-11 mt-2 flex w-fit items-center gap-2 text-ink-gray-5">
+const ThreadPillSkeleton = ({ align = "start" }: { align?: ThreadPillAlign }) => (
+    <div className={cn("flex w-fit items-center gap-2 text-ink-gray-5", pillAlignClass(align))}>
         <div className="flex -space-x-2 text-xs">
             <span className="size-6 rounded-full border-2 border-surface-base bg-surface-gray-3" />
             <span className="size-6 rounded-full border-2 border-surface-base bg-surface-gray-3" />
@@ -92,7 +99,7 @@ const ThreadPillSkeleton = () => (
     </div>
 )
 
-const LoadedThreadPill = ({ threadID, channelID, isInView }: { threadID: string; channelID: string; isInView: boolean }) => {
+const LoadedThreadPill = ({ threadID, channelID, isInView, align }: { threadID: string; channelID: string; isInView: boolean; align?: ThreadPillAlign }) => {
     const { call } = useContext(FrappeContext) as FrappeConfig
 
     // Fetch each time the pill comes on screen. The first time seeds the count +
@@ -120,9 +127,9 @@ const LoadedThreadPill = ({ threadID, channelID, isInView }: { threadID: string;
     const replyCount = useThreadReplyCount(threadID)
 
     // Undefined until the seed lands → keep the skeleton (members arrive in the same seed).
-    if (replyCount === undefined) return <ThreadPillSkeleton />
+    if (replyCount === undefined) return <ThreadPillSkeleton align={align} />
 
-    return <ThreadButton participants={members} messageCount={replyCount} threadID={threadID} channelID={channelID} />
+    return <ThreadButton participants={members} messageCount={replyCount} threadID={threadID} channelID={channelID} align={align} />
 }
 
 /**
@@ -133,7 +140,7 @@ const LoadedThreadPill = ({ threadID, channelID, isInView }: { threadID: string;
  * the pill is actually on screen.
  * `channelID` = the message's channel (the thread's parent) — see ThreadButtonProps.
  */
-export const MessageThreadPill = ({ threadID, channelID }: { threadID: string; channelID: string }) => {
+export const MessageThreadPill = ({ threadID, channelID, align }: { threadID: string; channelID: string; align?: ThreadPillAlign }) => {
     const { ref, isInView, hasBeenInView } = useInView()
-    return <div ref={ref}>{hasBeenInView ? <LoadedThreadPill threadID={threadID} channelID={channelID} isInView={isInView} /> : <ThreadPillSkeleton />}</div>
+    return <div ref={ref} className={align === "end" ? "self-start" : undefined}>{hasBeenInView ? <LoadedThreadPill threadID={threadID} channelID={channelID} isInView={isInView} align={align} /> : <ThreadPillSkeleton align={align} />}</div>
 }

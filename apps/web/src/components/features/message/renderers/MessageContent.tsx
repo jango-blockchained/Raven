@@ -15,6 +15,7 @@ import { MessageLinkPreview } from "./LinkPreview"
 import { PollMessageContent } from "./PollMessageContent"
 import SearchTextRenderer from "./SearchTextRenderer"
 import { MessageReactionsRow } from "./MessageReactions"
+import { DocumentLinkRenderer } from "./DocumentLinkRenderer"
 import { getAttachmentKind } from "@utils/attachmentPreview"
 import { parseRepliedMessageDetails } from "@utils/messageUtils"
 import type { RepliedMessageDetails } from "./RepliedMessagePreview"
@@ -128,7 +129,9 @@ const MessageMedia = ({ message, fileUrl }: { message: Message; fileUrl: string 
     }
 }
 
-export const MessageContent = ({ message, showLinkPreview = true }: { message: Message, showLinkPreview?: boolean }) => {
+/** `showLinkedDocument` off for compact surfaces (thread lists, result blocks)
+ *  that render their own inline doc link or want no card. */
+export const MessageContent = ({ message, showLinkPreview = true, showLinkedDocument = true }: { message: Message, showLinkPreview?: boolean, showLinkedDocument?: boolean }) => {
     const messageFile = "file" in message ? (message.file as string | undefined) : undefined
 
     // String from fetches, OBJECT from realtime/ack payloads — the shared
@@ -170,6 +173,11 @@ export const MessageContent = ({ message, showLinkPreview = true }: { message: M
 
             {/* Preview for the first link in the body (YouTube embed for now) */}
             {showLinkPreview && <MessageLinkPreview message={message} />}
+
+            {/* Linked document card sits ABOVE the reactions — reactions are always last. */}
+            {showLinkedDocument && message.link_doctype && message.link_document && (
+                <DocumentLinkRenderer doctype={message.link_doctype} docname={message.link_document} />
+            )}
 
             <MessageReactionsRow message={message} />
         </div>
