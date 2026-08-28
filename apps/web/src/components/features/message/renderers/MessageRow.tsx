@@ -66,9 +66,9 @@ export const MessageRow = ({
     </div>
 )
 
-// Own-message surface in Left-Right mode (v2 look): faint gray fill that
-// deepens on row hover — it IS the hover highlight (ownRowClass silences the
-// row shell's). w-fit hugs short messages; full width around the inline editor.
+// Own-message surface in Left-Right mode: faint gray fill that deepens on row
+// hover — it IS the hover highlight (ownRowClass silences the row shell's).
+// w-fit hugs short messages; full width around the inline editor.
 const bubbleClass =
     "w-fit min-w-0 max-w-full rounded-xl bg-surface-gray-1 group-hover/message-item:bg-surface-gray-2 transition-colors p-2.5 md:p-3.5 has-[[data-raven-editor]]:w-full"
 // Alignment context for a footer (thread pill) under an own bubble. The width
@@ -126,7 +126,7 @@ export const MessageSenderLayout = ({
                     left-aligns to the bubble's left edge, not the stream's. */}
                 <div className={cn(bubbleColumnClass, "items-end")}>
                     {/* data-message-bubble: the hover toolbar anchors to the bubble
-                        itself (v2's -top-10 right-0). */}
+                        itself — above it, right edges flush. */}
                     <div className={bubbleClass} data-message-bubble="">{children}</div>
                     {footer}
                 </div>
@@ -139,7 +139,7 @@ export const MessageSenderLayout = ({
             <div className="flex items-start gap-3">
                 <div className="w-8 min-w-8" />
                 {/* data-message-content: in Left-Right mode the hover toolbar
-                    left-aligns to where the content starts (v2's left-0). */}
+                    left-aligns to where the content starts. */}
                 <div className="flex-1 min-w-0" data-message-content="">{children}</div>
             </div>
         )

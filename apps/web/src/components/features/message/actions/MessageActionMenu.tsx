@@ -165,10 +165,9 @@ export const MessageActionMenu = ({
             (element.closest("[data-message-row]") as HTMLElement | null) ??
             (element.querySelector("[data-message-row]") as HTMLElement | null) ??
             element
-        // v2 placement. An OWN bubble anchors the toolbar to itself: 40px above
-        // its top, right edges flush (v2's -top-10 right-0). Others in
-        // Left-Right mode (w-fit rows) LEFT-align it to the content start
-        // (v2's -top-10 left-0). Simple mode keeps v2's -top-6 right-4.
+        // Own bubble: toolbar 40px above it, right edges flush. Others in
+        // Left-Right mode (w-fit rows): 40px above the row, left-aligned to the
+        // content start. Simple mode: 24px above the row, 16px in from its right.
         const rect = row.getBoundingClientRect()
         const bubble = row.querySelector("[data-message-bubble]") as HTMLElement | null
         if (bubble) {
