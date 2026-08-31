@@ -13,11 +13,21 @@ import { NavLink, useLocation } from "react-router-dom"
 import { cn } from "@lib/utils"
 import _ from "@lib/translate"
 
-/** "start" = indented past the avatar gutter (ml-11); "end" = rendered as an own
- *  bubble's footer in Left-Right mode, self-started to the bubble's left edge. */
+/** Curved line joining a thread parent to its reply pill: full height from the
+ *  avatar column for others, a short bottom elbow beside an own message's pill. */
+export const ThreadConnector = ({ side }: { side: "left" | "right" }) =>
+    side === "left" ? (
+        <div className="absolute left-7 top-[48px] z-0 h-[calc(100%-66px)] w-6 rounded-bl-2xl border-b-2 border-l-2 border-outline-gray-2" />
+    ) : (
+        <div className="absolute right-7 bottom-[18px] z-0 h-4 w-6 rounded-br-2xl border-b-2 border-r-2 border-outline-gray-2" />
+    )
+
+/** "start" = indented past the avatar gutter (ml-11); "end" = an own bubble's
+ *  footer in Left-Right mode — right-aligned beside the mirrored connector,
+ *  with the reply count leading and the avatars trailing. */
 export type ThreadPillAlign = "start" | "end"
 
-const pillAlignClass = (align: ThreadPillAlign) => (align === "end" ? "mt-2" : "mt-2 ml-11")
+const pillAlignClass = (align: ThreadPillAlign) => (align === "end" ? "mt-2 mr-11 flex-row-reverse" : "mt-2 ml-11")
 
 interface ThreadButtonProps {
     participants: UserData[]
@@ -142,5 +152,5 @@ const LoadedThreadPill = ({ threadID, channelID, isInView, align }: { threadID: 
  */
 export const MessageThreadPill = ({ threadID, channelID, align }: { threadID: string; channelID: string; align?: ThreadPillAlign }) => {
     const { ref, isInView, hasBeenInView } = useInView()
-    return <div ref={ref} className={align === "end" ? "self-start" : undefined}>{hasBeenInView ? <LoadedThreadPill threadID={threadID} channelID={channelID} isInView={isInView} align={align} /> : <ThreadPillSkeleton align={align} />}</div>
+    return <div ref={ref} className={align === "end" ? "self-end" : undefined}>{hasBeenInView ? <LoadedThreadPill threadID={threadID} channelID={channelID} isInView={isInView} align={align} /> : <ThreadPillSkeleton align={align} />}</div>
 }

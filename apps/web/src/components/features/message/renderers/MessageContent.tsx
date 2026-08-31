@@ -130,8 +130,9 @@ const MessageMedia = ({ message, fileUrl }: { message: Message; fileUrl: string 
 }
 
 /** `showLinkedDocument` off for compact surfaces (thread lists, result blocks)
- *  that render their own inline doc link or want no card. */
-export const MessageContent = ({ message, showLinkPreview = true, showLinkedDocument = true }: { message: Message, showLinkPreview?: boolean, showLinkedDocument?: boolean }) => {
+ *  that render their own inline doc link or want no card. `showReactions` off
+ *  when the caller renders the reactions row outside the bubble (Left-Right). */
+export const MessageContent = ({ message, showLinkPreview = true, showLinkedDocument = true, showReactions = true }: { message: Message, showLinkPreview?: boolean, showLinkedDocument?: boolean, showReactions?: boolean }) => {
     const messageFile = "file" in message ? (message.file as string | undefined) : undefined
 
     // String from fetches, OBJECT from realtime/ack payloads — the shared
@@ -179,7 +180,7 @@ export const MessageContent = ({ message, showLinkPreview = true, showLinkedDocu
                 <DocumentLinkRenderer doctype={message.link_doctype} docname={message.link_document} />
             )}
 
-            <MessageReactionsRow message={message} />
+            {showReactions && <MessageReactionsRow message={message} />}
         </div>
     )
 }

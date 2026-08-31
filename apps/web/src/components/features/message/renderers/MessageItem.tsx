@@ -1,7 +1,8 @@
 import { Message } from "@raven/types/common/Message"
-import { MessageThreadPill } from "./ThreadMessage"
+import { MessageThreadPill, ThreadConnector } from "./ThreadMessage"
 import { useIntersectionObserver } from "usehooks-ts"
 import { MessageContent } from "./MessageContent"
+import { MessageReactionsRow } from "./MessageReactions"
 import { leftRightRowClass, MessageRow, MessageSenderLayout, ownRowClass } from "./MessageRow"
 import { cn } from "@lib/utils"
 import { OptimisticStatus, optimisticRowClass } from "./OptimisticStatus"
@@ -75,15 +76,17 @@ export const MessageItem = ({ message, onInView }: { message: Message; onInView?
     // A thread parent is never a continuation (the selector enforces this), so
     // the connector always anchors to the full header — no is_continuation branch.
     return <MessageRow ref={ref} className={cn(optimisticRowClass(message), isOwn ? ownRowClass : isLeftRight && leftRightRowClass)}>
-        {showThread && !isOwn && <div className="absolute left-7 w-6 border-l-2 border-b-2 border-outline-gray-2 rounded-bl-2xl z-0 top-[48px] h-[calc(100%-66px)]" />}
+        {showThread && <ThreadConnector side={isOwn ? "right" : "left"} />}
         <MessageSenderLayout
             owner={owner}
             creation={message.creation}
             isContinuation={message.is_continuation === 1}
+            isLeftRight={isLeftRight}
             isOwn={isOwn}
+            reactions={isLeftRight ? <MessageReactionsRow message={message} /> : undefined}
             footer={showThread && isOwn ? <MessageThreadPill threadID={message.name} channelID={message.channel_id} align="end" /> : undefined}
         >
-            <MessageContent message={message} />
+            <MessageContent message={message} showReactions={!isLeftRight} />
             <OptimisticStatus message={message} />
         </MessageSenderLayout>
 

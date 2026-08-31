@@ -66,8 +66,8 @@ export const MessageRow = ({
     </div>
 )
 
-// Own-message surface in Left-Right mode: faint gray fill that deepens on row
-// hover — it IS the hover highlight (ownRowClass silences the row shell's).
+// Left-Right message surface: faint gray fill that deepens on row hover — it
+// IS the hover highlight (leftRightRowClass silences the row shell's).
 // w-fit hugs short messages; full width around the inline editor.
 const bubbleClass =
     "w-fit min-w-0 max-w-full rounded-xl bg-surface-gray-1 group-hover/message-item:bg-surface-gray-2 transition-colors p-2.5 md:p-3.5 has-[[data-raven-editor]]:w-full"
@@ -77,31 +77,39 @@ const bubbleColumnClass = "flex w-fit max-w-full flex-col"
 
 /** Left-Right rows shrink the hover shell to their content, capped at 75% of
  *  the stream on desktop; mobile keeps the full width (alignment still reads
- *  from self-end, and a cap only clips wide content). */
-export const leftRightRowClass = "w-fit max-w-full md:max-w-[75%]"
-export const ownRowClass = `${leftRightRowClass} self-end hover:bg-transparent`
+ *  from self-end, and a cap only clips wide content). The bubble carries the
+ *  hover highlight, so the row shell's own is silenced. */
+export const leftRightRowClass = "w-fit max-w-full md:max-w-[75%] hover:bg-transparent"
+export const ownRowClass = `${leftRightRowClass} self-end`
 
 /**
  * The sender layout inside a row: avatar + name + time header for the first
  * message of a group, the empty gutter for continuations. `children` render
  * in the (min-w-0) content column either way.
  *
- * Left-Right mode only restyles the current user's OWN messages: right-aligned
- * bubble, no avatar/name. Everyone else keeps the Simple layout.
+ * Left-Right mode wraps every message in a bubble (reactions below it, outside):
+ * own messages right-aligned with no avatar/name, others keeping the avatar and
+ * name · time header above theirs.
  */
 export const MessageSenderLayout = ({
     owner,
     creation,
     isContinuation,
+    isLeftRight = false,
     isOwn = false,
+    reactions,
     footer,
     children,
 }: {
     owner: string
     creation: string
     isContinuation: boolean
+    /** Left-Right mode: every message gets a bubble; others keep avatar + header above it. */
+    isLeftRight?: boolean
     /** Left-Right mode, current user's message: right-aligned bubble, no avatar/name. */
     isOwn?: boolean
+    /** Left-Right mode: the reactions row, rendered OUTSIDE the bubble below it. */
+    reactions?: React.ReactNode
     /** Rendered under an OWN message's bubble, left-aligned to it (thread pill).
      *  Other/simple layouts render their footer at the row level instead. */
     footer?: React.ReactNode
@@ -110,6 +118,14 @@ export const MessageSenderLayout = ({
     const user = useUser(owner)
     const displayName = user?.full_name || user?.name || owner || _("User")
     const { shortTime, longTime } = useMessageTimes(creation)
+
+    /** Non-own Left-Right content: bubble with the reactions row below it. */
+    const bubbled = (
+        <>
+            <div className={bubbleClass}>{children}</div>
+            {reactions}
+        </>
+    )
 
     if (isOwn) {
         return (
@@ -128,6 +144,7 @@ export const MessageSenderLayout = ({
                     {/* data-message-bubble: the hover toolbar anchors to the bubble
                         itself — above it, right edges flush. */}
                     <div className={bubbleClass} data-message-bubble="">{children}</div>
+                    {reactions}
                     {footer}
                 </div>
             </div>
@@ -140,7 +157,9 @@ export const MessageSenderLayout = ({
                 <div className="w-8 min-w-8" />
                 {/* data-message-content: in Left-Right mode the hover toolbar
                     left-aligns to where the content starts. */}
-                <div className="flex-1 min-w-0" data-message-content="">{children}</div>
+                <div className="flex-1 min-w-0" data-message-content="">
+                    {isLeftRight ? bubbled : children}
+                </div>
             </div>
         )
     }
@@ -183,7 +202,7 @@ export const MessageSenderLayout = ({
                     media boxes (albums, file grids) read tighter, so a media
                     root leading the content gets a nudge more. */}
                 <div className="pt-1 [&_[data-media-root]:first-child]:mt-0.5">
-                    {children}
+                    {isLeftRight ? bubbled : children}
                 </div>
             </div>
         </div>

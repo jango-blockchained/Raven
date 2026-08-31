@@ -10,7 +10,7 @@ import { MessageLinkPreview } from "./LinkPreview"
 import { MessageReactionsRow } from "./MessageReactions"
 import { leftRightRowClass, MessageRow, MessageSenderLayout, ownRowClass } from "./MessageRow"
 import { cn } from "@lib/utils"
-import { MessageThreadPill } from "./ThreadMessage"
+import { MessageThreadPill, ThreadConnector } from "./ThreadMessage"
 import ReplyMessage from "./ReplyMessage"
 import { OptimisticStatus, optimisticRowClass } from "./OptimisticStatus"
 import { getAttachmentKind, messagesToAttachments } from "@utils/attachmentPreview"
@@ -158,18 +158,20 @@ export const BatchMessageItem = ({
                 />
             )}
             <OptimisticStatus message={head} />
-            {memberReactions}
+            {!isLeftRight && memberReactions}
         </div>
     )
 
     return (
         <MessageRow ref={ref} className={cn(optimisticRowClass(head), isOwn ? ownRowClass : isLeftRight && leftRightRowClass)}>
-            {threadMember && !isOwn && <div className="absolute left-7 w-6 border-l-2 border-b-2 border-outline-gray-2 rounded-bl-2xl z-0 top-[48px] h-[calc(100%-66px)]" />}
+            {threadMember && <ThreadConnector side={isOwn ? "right" : "left"} />}
             <MessageSenderLayout
                 owner={owner}
                 creation={head.creation}
                 isContinuation={block.is_continuation === 1}
+                isLeftRight={isLeftRight}
                 isOwn={isOwn}
+                reactions={isLeftRight ? <>{memberReactions}</> : undefined}
                 footer={threadMember && isOwn ? <MessageThreadPill threadID={threadMember.name} channelID={threadMember.channel_id} align="end" /> : undefined}
             >
                 {content}
