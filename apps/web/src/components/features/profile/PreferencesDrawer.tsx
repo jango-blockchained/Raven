@@ -11,6 +11,7 @@ import { Button } from "@components/ui/button"
 import { useTheme } from "@components/theme-provider"
 import { customEmojiCategoriesAtom } from "@lib/emojiMart"
 import { DoubleTapReactionAtom, QuickEmojisAtom, type QuickEmoji, type TimeFormat, timeFormatAtom, imageGroupingLayoutAtom } from "@utils/preferences"
+import { sameEmojiSet, useSuggestedReactions } from "@utils/reactionUsage"
 import { errorResponseToast } from "@components/ui/error-banner"
 import { PrefRow, PrefSection } from "./PrefRows"
 import _ from "@lib/translate"
@@ -46,6 +47,11 @@ export const PreferencesDrawer = ({ open, onOpenChange }: { open: boolean; onOpe
     const [pickingSlot, setPickingSlot] = useState<number | "double-tap" | null>(null)
 
     const [imageGrouping, setImageGrouping] = useAtom(imageGroupingLayoutAtom)
+    // See the desktop panel — the six most-used reactions of recent months,
+    // applied together as the six slots with one tap.
+    const suggestions = useSuggestedReactions(6)
+    const showSuggestions = suggestions.length > 0 && !sameEmojiSet(suggestions, quickEmojis)
+    const applySuggestions = () => setQuickEmojis(suggestions)
 
     const updateValue = (fieldname: string, value: string | number) => {
         if (!myProfile?.name) return
@@ -195,6 +201,24 @@ export const PreferencesDrawer = ({ open, onOpenChange }: { open: boolean; onOpe
                                     ))}
                                 </div>
                                 <span className="text-p-sm text-ink-gray-5">{_("Tap a slot to change its emoji - these are your one-tap reactions.")}</span>
+                                {/* Full-width like the slots row above — label left, emojis
+                                    spread; one tap applies the whole set. */}
+                                {showSuggestions && (
+                                    <div className="flex items-center">
+                                        <span className="text-base text-ink-gray-6 pr-1">{_("Suggested:")}</span>
+                                        <Button
+                                            variant="ghost"
+                                            size="lg"
+                                            className="flex-1 justify-evenly px-0"
+                                            aria-label={_("Use your most-used emojis as quick reactions")}
+                                            onClick={applySuggestions}
+                                        >
+                                            {suggestions.map((suggestion) => (
+                                                <span key={suggestion.id} className="text-2xl"><EmojiFace emoji={suggestion} /></span>
+                                            ))}
+                                        </Button>
+                                    </div>
+                                )}
                             </div>
 
                             <PrefRow

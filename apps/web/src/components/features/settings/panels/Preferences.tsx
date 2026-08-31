@@ -4,6 +4,7 @@ import { SettingsPanelDescription, SettingsPanelHeader, SettingsPanelTitle, Sett
 import { Switch } from "@components/ui/switch"
 import { useAtom, useAtomValue } from "jotai"
 import { EnterKeyBehaviourAtom, QuickEmojisAtom, QuietHoursNudge, hideReadReceiptsAtom, quietHoursConfigAtom, quietHoursNudgeAtom, timeFormatAtom } from "@utils/preferences"
+import { sameEmojiSet, useSuggestedReactions } from "@utils/reactionUsage"
 import { formatWorkingHoursRange } from "@utils/quietHours"
 import { hasRole } from "@lib/permissions"
 import _ from "@lib/translate"
@@ -253,6 +254,13 @@ const QuickEmojis = () => {
 
     const { themeValue } = useTheme()
 
+    // The user's four most-used reactions of recent months (server-counted,
+    // cross-device), applied TOGETHER as the visible slots with one click.
+    // Hidden until a full set exists, or when it matches what's pinned.
+    const suggestions = useSuggestedReactions(4)
+    const showSuggestions = suggestions.length > 0 && !sameEmojiSet(suggestions, quickEmojis.slice(0, 4))
+    const applySuggestions = () => setQuickEmojis([...suggestions, ...quickEmojis.slice(4)])
+
     const handleEmojiSelect = (index: number, emoji: any) => {
         const newEmojis = [...quickEmojis]
         newEmojis[index] = {
@@ -270,42 +278,70 @@ const QuickEmojis = () => {
                 {_("Set your favorite emojis for quick reactions.")}
             </SettingsFormDescription>
         </div>
-        <div className="flex gap-2">
-            {quickEmojis.slice(0, 4).map((emoji, index) => (
-                <Fragment key={index}>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button
-                                variant="outline"
-                                size="lg"
-                                isIconButton
-                                className="text-2xl"
-                            >
-                                {emoji.src ? (
-                                    <img
-                                        src={emoji.src}
-                                        alt={emoji.id}
-                                        loading="lazy"
-                                        className="h-4.5 w-4.5 object-contain"
-                                        aria-hidden="true"
-                                    />
+        <div className="relative flex flex-col items-end">
+            <div className="flex gap-2">
+                {quickEmojis.slice(0, 4).map((emoji, index) => (
+                    <Fragment key={index}>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="lg"
+                                    isIconButton
+                                    className="text-2xl"
+                                >
+                                    {emoji.src ? (
+                                        <img
+                                            src={emoji.src}
+                                            alt={emoji.id}
+                                            loading="lazy"
+                                            className="h-4.5 w-4.5 object-contain"
+                                            aria-hidden="true"
+                                        />
+                                    ) : (
+                                        // em-emoji renders from the Apple set (initialized in
+                                        // App.tsx) so reactions look the same on every platform
+                                        <span className="flex h-4.5 w-4.5 items-center justify-center" aria-hidden="true">
+                                            <em-emoji native={emoji.native} set="native" size="1.1em" fallback={emoji.id} />
+                                        </span>
+                                    )}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <Picker
+                                    onEmojiSelect={(emoji: any) => handleEmojiSelect(index, emoji)} theme={themeValue} set="native" custom={customEmojis} previewPosition="none"
+                                />
+                            </PopoverContent>
+                        </Popover>
+                    </Fragment>
+                ))}
+            </div>
+            {/* Out of flow: the strip renders into the gap that already exists below
+            this row, so the next section never moves — with or without it. */}
+            <div className="absolute inset-x-0 top-full flex h-8 items-center justify-between pt-1">
+                {showSuggestions && (
+                    <>
+                        <span className="text-sm text-ink-gray-5">{_("Suggested:")}</span>
+                        <Button
+                            variant="ghost"
+                            size="md"
+                            className="gap-2 px-1.5"
+                            aria-label={_("Use your most-used emojis as quick reactions")}
+                            onClick={applySuggestions}
+                        >
+                            {suggestions.map((suggestion) =>
+                                suggestion.src ? (
+                                    <img key={suggestion.id} src={suggestion.src} alt={suggestion.id} loading="lazy" className="h-4.5 w-4.5 object-contain" aria-hidden="true" />
                                 ) : (
-                                    // em-emoji renders from the Apple set (initialized in
-                                    // App.tsx) so reactions look the same on every platform
-                                    <span className="flex h-4.5 w-4.5 items-center justify-center" aria-hidden="true">
-                                        <em-emoji native={emoji.native} set="native" size="1.1em" fallback={emoji.id} />
+                                    <span key={suggestion.id} className="flex h-4.5 w-4.5 items-center justify-center" aria-hidden="true">
+                                        <em-emoji native={suggestion.native} set="native" size="1.1em" fallback={suggestion.id} />
                                     </span>
-                                )}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                            <Picker
-                                onEmojiSelect={(emoji: any) => handleEmojiSelect(index, emoji)} theme={themeValue} set="native" custom={customEmojis} previewPosition="none"
-                            />
-                        </PopoverContent>
-                    </Popover>
-                </Fragment>
-            ))}
+                                ),
+                            )}
+                        </Button>
+                    </>
+                )}
+            </div>
         </div>
     </SettingsFormRow>
 }
