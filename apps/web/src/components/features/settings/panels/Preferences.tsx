@@ -308,9 +308,13 @@ const QuickEmojis = () => {
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
-                                <Picker
-                                    onEmojiSelect={(emoji: any) => handleEmojiSelect(index, emoji)} theme={themeValue} set="native" custom={customEmojis} previewPosition="none"
-                                />
+                                {/* Dialog scroll lock preventDefaults wheel it can't inspect — emoji-mart
+                                    scrolls inside shadow DOM. This fixes it. */}
+                                <div onWheel={(event) => event.stopPropagation()}>
+                                    <Picker
+                                        onEmojiSelect={(emoji: any) => handleEmojiSelect(index, emoji)} theme={themeValue} set="native" custom={customEmojis} previewPosition="none"
+                                    />
+                                </div>
                             </PopoverContent>
                         </Popover>
                     </Fragment>
