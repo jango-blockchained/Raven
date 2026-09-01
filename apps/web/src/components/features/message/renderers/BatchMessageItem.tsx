@@ -8,11 +8,11 @@ import { DocumentLinkRenderer } from "./DocumentLinkRenderer"
 import { EditableMessageBody, MessageAttributes } from "./MessageContent"
 import { MessageLinkPreview } from "./LinkPreview"
 import { MessageReactionsRow } from "./MessageReactions"
-import { leftRightRowClass, MessageRow, MessageSenderLayout, ownRowClass } from "./MessageRow"
+import { MessageRow, MessageSenderLayout } from "./MessageRow"
 import { cn } from "@lib/utils"
 import { MessageThreadPill, ThreadConnector } from "./ThreadMessage"
 import ReplyMessage from "./ReplyMessage"
-import { OptimisticStatus, optimisticRowClass } from "./OptimisticStatus"
+import { FailedSendIndicator, OptimisticStatus, optimisticRowClass, sendingDimClass } from "./OptimisticStatus"
 import { getAttachmentKind, messagesToAttachments } from "@utils/attachmentPreview"
 import { isThreadParent, parseRepliedMessageDetails } from "@utils/messageUtils"
 import { useMessageAlignment } from "@hooks/useChatStyle"
@@ -135,7 +135,18 @@ export const BatchMessageItem = ({
     ))
 
     const content = (
-        <div className="space-y-2">
+        // Bubble mode is a flex column: media, caption bubble and cards each
+        // keep their own width and align to the message's side.
+        <div
+            className={
+                isLeftRight
+                    ? cn(
+                        "flex max-w-full flex-col gap-2 has-[[data-raven-editor]]:w-full",
+                        isOwn ? "items-end" : "items-start",
+                    )
+                    : "space-y-2"
+            }
+        >
             {/* Badges sit above everything, same as a single message — the flags
                 describe the whole block (a forwarded batch arrives all-forwarded). */}
             <MessageAttributes message={attributeFlags} />
@@ -147,7 +158,7 @@ export const BatchMessageItem = ({
                 />
             )}
             <BatchMediaGroups messages={block.messages} />
-            {captionMember && <EditableMessageBody message={captionMember} />}
+            {captionMember && <EditableMessageBody message={captionMember} bubble={isLeftRight} />}
             {/* Links live on the caption member (the server extracts them from its
                 text), so that's where the first-link preview hangs off a batch too. */}
             {captionMember && <MessageLinkPreview message={captionMember} />}
@@ -155,6 +166,8 @@ export const BatchMessageItem = ({
                 <DocumentLinkRenderer
                     doctype={linkedDocMember.link_doctype!}
                     docname={linkedDocMember.link_document!}
+                    // Fixed width in the fit-content bubble column — see MessageContent.
+                    className={isLeftRight ? "w-96 max-w-full" : undefined}
                 />
             )}
             <OptimisticStatus message={head} />
@@ -163,7 +176,11 @@ export const BatchMessageItem = ({
     )
 
     return (
-        <MessageRow ref={ref} className={cn(optimisticRowClass(head), isOwn ? ownRowClass : isLeftRight && leftRightRowClass)}>
+        <MessageRow
+            ref={ref}
+            alignment={isOwn ? "own" : isLeftRight ? "left-right" : "simple"}
+            className={isLeftRight ? sendingDimClass(head) : optimisticRowClass(head)}
+        >
             {threadMember && <ThreadConnector side={isOwn ? "right" : "left"} />}
             <MessageSenderLayout
                 owner={owner}
@@ -173,6 +190,7 @@ export const BatchMessageItem = ({
                 isOwn={isOwn}
                 reactions={isLeftRight ? <>{memberReactions}</> : undefined}
                 footer={threadMember && isOwn ? <MessageThreadPill threadID={threadMember.name} channelID={threadMember.channel_id} align="end" /> : undefined}
+                statusIcon={isOwn ? <FailedSendIndicator message={head} /> : undefined}
             >
                 {content}
             </MessageSenderLayout>

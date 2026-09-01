@@ -3,9 +3,8 @@ import { MessageThreadPill, ThreadConnector } from "./ThreadMessage"
 import { useIntersectionObserver } from "usehooks-ts"
 import { MessageContent } from "./MessageContent"
 import { MessageReactionsRow } from "./MessageReactions"
-import { leftRightRowClass, MessageRow, MessageSenderLayout, ownRowClass } from "./MessageRow"
-import { cn } from "@lib/utils"
-import { OptimisticStatus, optimisticRowClass } from "./OptimisticStatus"
+import { MessageRow, MessageSenderLayout } from "./MessageRow"
+import { FailedSendIndicator, OptimisticStatus, optimisticRowClass, sendingDimClass } from "./OptimisticStatus"
 import { isThreadParent } from "@utils/messageUtils"
 import { useMessageAlignment } from "@hooks/useChatStyle"
 
@@ -75,7 +74,13 @@ export const MessageItem = ({ message, onInView }: { message: Message; onInView?
     // the stream level via event delegation on the data-message-id wrapper.
     // A thread parent is never a continuation (the selector enforces this), so
     // the connector always anchors to the full header — no is_continuation branch.
-    return <MessageRow ref={ref} className={cn(optimisticRowClass(message), isOwn ? ownRowClass : isLeftRight && leftRightRowClass)}>
+    // Left-Right rows swap the red failed-send row wash for an icon beside the
+    // bubble (the bubble would paint over a row wash).
+    return <MessageRow
+        ref={ref}
+        alignment={isOwn ? "own" : isLeftRight ? "left-right" : "simple"}
+        className={isLeftRight ? sendingDimClass(message) : optimisticRowClass(message)}
+    >
         {showThread && <ThreadConnector side={isOwn ? "right" : "left"} />}
         <MessageSenderLayout
             owner={owner}
@@ -85,8 +90,9 @@ export const MessageItem = ({ message, onInView }: { message: Message; onInView?
             isOwn={isOwn}
             reactions={isLeftRight ? <MessageReactionsRow message={message} /> : undefined}
             footer={showThread && isOwn ? <MessageThreadPill threadID={message.name} channelID={message.channel_id} align="end" /> : undefined}
+            statusIcon={isOwn ? <FailedSendIndicator message={message} /> : undefined}
         >
-            <MessageContent message={message} showReactions={!isLeftRight} />
+            <MessageContent message={message} showReactions={!isLeftRight} bubble={isLeftRight ? (isOwn ? "end" : "start") : undefined} />
             <OptimisticStatus message={message} />
         </MessageSenderLayout>
 

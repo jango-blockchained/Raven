@@ -38,22 +38,32 @@ export const useMessageTimes = (creation: string) => {
     }, [creation, timeFormat])
 }
 
+/** How a row sits in the stream. "simple" is the classic layout. In
+ *  Left-Right mode, "own" content hugs the right edge and everyone else's
+ *  ("left-right") hugs the left. The ROW is full width in every mode — the
+ *  hover wash and highlights span the row, and the toolbar anchors to its
+ *  corners. Only the CONTENT inside is aligned and width-capped. */
+export type MessageRowAlignment = "simple" | "left-right" | "own"
+
 /** The hoverable row shell every stream row shares. */
 export const MessageRow = ({
     children,
     ref,
     className,
+    alignment = "simple",
 }: {
     children: React.ReactNode
     ref?: React.Ref<HTMLDivElement>
     className?: string
+    alignment?: MessageRowAlignment
 }) => (
     <div
         ref={ref}
         // Anchor for the floating hover toolbar (see MessageActionMenu) — the
         // hover hit can land on an inner element that also carries a
-        // data-message-id (an image tile), so the row marks itself.
-        data-message-row=""
+        // data-message-id (an image tile), so the row marks itself. The VALUE
+        // tells the toolbar which corner to anchor to.
+        data-message-row={alignment}
         className={cn(
             // overflow-hidden clips media to the rounded corners — but while this row
             // holds the inline editor, drop it so the editor's mention/emoji popup
@@ -66,21 +76,26 @@ export const MessageRow = ({
     </div>
 )
 
-// Left-Right message surface: faint gray fill that deepens on row hover — it
-// IS the hover highlight (leftRightRowClass silences the row shell's).
-// w-fit hugs short messages; full width around the inline editor.
-const bubbleClass =
-    "w-fit min-w-0 max-w-full rounded-xl bg-surface-gray-1 group-hover/message-item:bg-surface-gray-2 transition-colors p-2.5 md:p-3.5 has-[[data-raven-editor]]:w-full"
-// Alignment context for a footer (thread pill) under an own bubble. The width
-// cap lives on the row shell (ownRowClass), so the bubble just fills it.
-const bubbleColumnClass = "flex w-fit max-w-full flex-col"
+// Desktop cap for a Left-Right message's content — the row stays full width,
+// the content inside stops at 75%. Dropped while the inline editor is open,
+// so editing gets the whole row back. Mobile has no cap (it would only clip
+// wide content).
+const contentCapClass = "md:max-w-[75%] has-[[data-raven-editor]]:max-w-full"
 
-/** Left-Right rows shrink the hover shell to their content, capped at 75% of
- *  the stream on desktop; mobile keeps the full width (alignment still reads
- *  from self-end, and a cap only clips wide content). The bubble carries the
- *  hover highlight, so the row shell's own is silenced. */
-export const leftRightRowClass = "w-fit max-w-full md:max-w-[75%] hover:bg-transparent"
-export const ownRowClass = `${leftRightRowClass} self-end`
+// The text bubble, iMessage-like: tight padding, round corners, gray fill.
+// Hover feedback comes from the ROW's shared wash (it hugs the message), so
+// the bubble itself stays still. ONLY text lives in bubbles — media, polls,
+// cards, code blocks and GIFs render bare beside them (see MessageContent).
+// The radius is CONSTANT for every bubble height — that's what iMessage does.
+// 18px is half of a one-line bubble (24px line + 12px padding), so short
+// bubbles come out as true pills and tall ones keep the same corners.
+export const messageBubbleClass =
+    "w-fit min-w-0 max-w-full rounded-[18px] bg-surface-gray-1 px-3 py-1.5 md:py-2"
+
+// Alignment context for an own message's content column (thread pill footer,
+// reactions). The width cap lives on the row shell; the editor escape keeps
+// the inline edit box full width inside the w-fit chain.
+const bubbleColumnClass = "flex w-fit max-w-full flex-col has-[[data-raven-editor]]:w-full"
 
 /**
  * The sender layout inside a row: avatar + name + time header for the first
@@ -99,33 +114,28 @@ export const MessageSenderLayout = ({
     isOwn = false,
     reactions,
     footer,
+    statusIcon,
     children,
 }: {
     owner: string
     creation: string
     isContinuation: boolean
-    /** Left-Right mode: every message gets a bubble; others keep avatar + header above it. */
+    /** Left-Right mode: others keep avatar + header above their content. */
     isLeftRight?: boolean
-    /** Left-Right mode, current user's message: right-aligned bubble, no avatar/name. */
+    /** Left-Right mode, current user's message: right-aligned, no avatar/name. */
     isOwn?: boolean
-    /** Left-Right mode: the reactions row, rendered OUTSIDE the bubble below it. */
+    /** Left-Right mode: the reactions row, rendered below the content. */
     reactions?: React.ReactNode
-    /** Rendered under an OWN message's bubble, left-aligned to it (thread pill).
+    /** Rendered under an OWN message's content, aligned to it (thread pill).
      *  Other/simple layouts render their footer at the row level instead. */
     footer?: React.ReactNode
+    /** Shown to the LEFT of an own message's content — the failed-send icon. */
+    statusIcon?: React.ReactNode
     children: React.ReactNode
 }) => {
     const user = useUser(owner)
     const displayName = user?.full_name || user?.name || owner || _("User")
     const { shortTime, longTime } = useMessageTimes(creation)
-
-    /** Non-own Left-Right content: bubble with the reactions row below it. */
-    const bubbled = (
-        <>
-            <div className={bubbleClass}>{children}</div>
-            {reactions}
-        </>
-    )
 
     if (isOwn) {
         return (
@@ -133,19 +143,20 @@ export const MessageSenderLayout = ({
                 {!isContinuation && (
                     <Tooltip delayDuration={300}>
                         <TooltipTrigger asChild>
-                            <span className="pb-0.5 pr-1 text-xs text-ink-gray-5">{shortTime}</span>
+                            <span className="pb-1 pr-1 text-xs text-ink-gray-5">{shortTime}</span>
                         </TooltipTrigger>
                         <TooltipContent>{longTime}</TooltipContent>
                     </Tooltip>
                 )}
-                {/* Bubble hugs the column's right edge; the footer (self-start)
-                    left-aligns to the bubble's left edge, not the stream's. */}
-                <div className={cn(bubbleColumnClass, "items-end")}>
-                    {/* data-message-bubble: the hover toolbar anchors to the bubble
-                        itself — above it, right edges flush. */}
-                    <div className={bubbleClass} data-message-bubble="">{children}</div>
-                    {reactions}
-                    {footer}
+                {/* Content hugs the right edge; the status icon (failed send)
+                    sits on its left, centered like iMessage's error mark. */}
+                <div className={cn("flex max-w-full items-center gap-1.5 has-[[data-raven-editor]]:w-full", contentCapClass)}>
+                    {statusIcon}
+                    <div className={cn(bubbleColumnClass, "items-end")}>
+                        {children}
+                        {reactions}
+                        {footer}
+                    </div>
                 </div>
             </div>
         )
@@ -155,10 +166,9 @@ export const MessageSenderLayout = ({
         return (
             <div className="flex items-start gap-3">
                 <div className="w-8 min-w-8" />
-                {/* data-message-content: in Left-Right mode the hover toolbar
-                    left-aligns to where the content starts. */}
-                <div className="flex-1 min-w-0" data-message-content="">
-                    {isLeftRight ? bubbled : children}
+                <div className={cn("flex-1 min-w-0", isLeftRight && contentCapClass)} data-message-content="">
+                    {children}
+                    {isLeftRight && reactions}
                 </div>
             </div>
         )
@@ -180,7 +190,7 @@ export const MessageSenderLayout = ({
                     )}
                 </div>
             </UserProfileHoverCard>
-            <div className="flex-1 min-w-0" data-message-content="">
+            <div className={cn("flex-1 min-w-0", isLeftRight && contentCapClass)} data-message-content="">
                 <div className="flex items-baseline gap-1">
                     {/* Same profile card as hovering a mention — a person's name
                         opens the same thing wherever it appears in the stream. */}
@@ -202,7 +212,8 @@ export const MessageSenderLayout = ({
                     media boxes (albums, file grids) read tighter, so a media
                     root leading the content gets a nudge more. */}
                 <div className="pt-1 [&_[data-media-root]:first-child]:mt-0.5">
-                    {isLeftRight ? bubbled : children}
+                    {children}
+                    {isLeftRight && reactions}
                 </div>
             </div>
         </div>

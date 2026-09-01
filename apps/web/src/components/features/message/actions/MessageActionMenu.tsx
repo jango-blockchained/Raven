@@ -165,32 +165,29 @@ export const MessageActionMenu = ({
             (element.closest("[data-message-row]") as HTMLElement | null) ??
             (element.querySelector("[data-message-row]") as HTMLElement | null) ??
             element
-        // Own bubble: toolbar 40px above it, right edges flush. Others in
-        // Left-Right mode (w-fit rows): 40px above the row, left-aligned to the
-        // content start. Simple mode: 24px above the row, 16px in from its right.
+        // The row says how it's aligned (data-message-row, set by MessageRow) —
+        // no class sniffing. Rows are full width in every mode, and the toolbar
+        // sits 24px above the row in the corner OPPOSITE the message's side, so
+        // its overlap always lands on empty row space:
+        //  - "own" content hugs the right → toolbar top-LEFT.
+        //  - everyone else's hugs the left → toolbar top-RIGHT, which is the
+        //    same corner Simple mode has always used.
+        // The lower half overlaps the row, so the pointer reaches the toolbar
+        // without leaving the row — it can't flicker away en route.
         const rect = row.getBoundingClientRect()
-        const bubble = row.querySelector("[data-message-bubble]") as HTMLElement | null
-        if (bubble) {
-            const bubbleRect = bubble.getBoundingClientRect()
+        const top = Math.max(rect.top - wrapperRect.top - 24, 2)
+        const mode = row.getAttribute("data-message-row")
+        if (mode === "own") {
             setHovered({
                 message,
-                top: Math.max(bubbleRect.top - wrapperRect.top - 40, 2),
-                right: wrapperRect.right - bubbleRect.right,
-            })
-            return
-        }
-        const contentEl = row.querySelector("[data-message-content]") as HTMLElement | null
-        if (row.classList.contains("w-fit") && contentEl) {
-            setHovered({
-                message,
-                top: Math.max(rect.top - wrapperRect.top - 40, 2),
-                left: contentEl.getBoundingClientRect().left - wrapperRect.left,
+                top,
+                left: Math.max(rect.left - wrapperRect.left + 16, 16),
             })
             return
         }
         setHovered({
             message,
-            top: Math.max(rect.top - wrapperRect.top - 24, 2),
+            top,
             right: Math.max(wrapperRect.right - rect.right + 16, 16),
         })
     }
