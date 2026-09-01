@@ -156,5 +156,7 @@ def most_used_reactions(limit: int = 6):
 		.where(reaction.creation > frappe.utils.add_to_date(frappe.utils.now_datetime(), months=-3))
 		.groupby(reaction.reaction, reaction.is_custom, reaction.reaction_escaped)
 		.orderby(Count(reaction.name), order=Order.desc)
-		.limit(min(frappe.utils.cint(limit), 6))
+		# Clamp to 1..6 — a zero or negative limit would reach SQL as-is and
+		# either return nothing or error.
+		.limit(max(min(frappe.utils.cint(limit), 6), 1))
 	).run(as_dict=True)
