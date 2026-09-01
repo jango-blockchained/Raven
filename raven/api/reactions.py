@@ -137,7 +137,7 @@ def calculate_message_reaction(message_id, channel_id: str = None, do_not_publis
 def most_used_reactions(limit: int = 6):
 	"""
 	The current user's most-used reactions over the past 3 months — feeds the
-	quick-emoji suggestions in preferences. Counts standing reactions only
+	quick-emoji suggestions in preferences. Removed reactions don't count
 	(un-reacting deletes the row), which is the better "your emojis" signal.
 	"""
 	from frappe.query_builder import Order

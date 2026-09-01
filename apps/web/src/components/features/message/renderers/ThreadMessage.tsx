@@ -22,9 +22,9 @@ export const ThreadConnector = ({ side }: { side: "left" | "right" }) =>
         <div className="absolute right-7 bottom-[18px] z-0 h-4 w-6 rounded-br-2xl border-b-2 border-r-2 border-outline-gray-2" />
     )
 
-/** "start" = indented past the avatar gutter (ml-11); "end" = an own bubble's
- *  footer in Left-Right mode — right-aligned beside the mirrored connector,
- *  with the reply count leading and the avatars trailing. */
+/** Where the thread pill sits. "start": indented past the avatar gutter, for
+ *  left-aligned messages. "end": under an own message in Left-Right mode —
+ *  right-aligned, with its content mirrored to match. */
 export type ThreadPillAlign = "start" | "end"
 
 const pillAlignClass = (align: ThreadPillAlign) => (align === "end" ? "mt-2 mr-11 flex-row-reverse" : "mt-2 ml-11")

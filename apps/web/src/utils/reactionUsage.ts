@@ -1,8 +1,9 @@
 import { useFrappeGetCall } from "frappe-react-sdk"
 import type { QuickEmoji } from "./preferences"
 
-/** A row of raven.api.reactions.most_used_reactions — the user's standing
- *  reactions of the past 3 months, server-counted across devices. */
+/** A row of raven.api.reactions.most_used_reactions — the user's most-used
+ *  reactions of the past 3 months, counted server-side across devices.
+ *  Removed reactions don't count (un-reacting deletes the row). */
 export type ReactionUsageRow = { reaction: string; is_custom: 0 | 1; reaction_escaped?: string | null; uses: number }
 
 /** Server rows → QuickEmoji list; empty unless a FULL set of `n` exists (the

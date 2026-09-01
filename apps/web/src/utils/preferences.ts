@@ -11,9 +11,10 @@ export type TimeFormat = "12-hour" | "24-hour"
  * the Appearance switcher sets it for a live change without reload. Read it with a single
  * useAtomValue in the message rows.
  *
- * All boot-seeded atoms here use atomWithLazy: module import runs BEFORE boot
- * exists (dev fetches it async; offline shells recover it in main.tsx), so an
- * eager read seeds defaults — lazy init defers the read to first render.
+ * All boot-seeded atoms here use atomWithLazy. Why: this module can be
+ * imported before `window.frappe.boot` exists (dev loads boot async, and
+ * offline shells recover it in main.tsx). An eager read at import time would
+ * seed the defaults. Lazy init reads boot on first use instead.
  */
 export const chatStyleAtom = atomWithLazy<ChatStyle>(() => (window.frappe?.boot?.chat_style as ChatStyle | undefined) ?? "Simple")
 

@@ -83,9 +83,9 @@ export const MessageRow = ({
 const contentCapClass = "md:max-w-[75%] has-[[data-raven-editor]]:max-w-full"
 
 // The text bubble, iMessage-like: tight padding, round corners, gray fill.
-// Hover feedback comes from the ROW's shared wash (it hugs the message), so
-// the bubble itself stays still. ONLY text lives in bubbles — media, polls,
-// cards, code blocks and GIFs render bare beside them (see MessageContent).
+// The bubble has no hover style of its own — the row's wash is the hover
+// feedback. ONLY text lives in bubbles: media, polls, cards, code blocks and
+// GIFs render bare beside them (see MessageContent).
 // The radius is CONSTANT for every bubble height — that's what iMessage does.
 // 18px is half of a one-line bubble (24px line + 12px padding), so short
 // bubbles come out as true pills and tall ones keep the same corners.
@@ -93,8 +93,8 @@ export const messageBubbleClass =
     "w-fit min-w-0 max-w-full rounded-[18px] bg-surface-gray-1 px-3 py-1.5 md:py-2"
 
 // Alignment context for an own message's content column (thread pill footer,
-// reactions). The width cap lives on the row shell; the editor escape keeps
-// the inline edit box full width inside the w-fit chain.
+// reactions). The editor escape keeps the inline edit box full width inside
+// the w-fit chain.
 const bubbleColumnClass = "flex w-fit max-w-full flex-col has-[[data-raven-editor]]:w-full"
 
 /**
@@ -102,9 +102,9 @@ const bubbleColumnClass = "flex w-fit max-w-full flex-col has-[[data-raven-edito
  * message of a group, the empty gutter for continuations. `children` render
  * in the (min-w-0) content column either way.
  *
- * Left-Right mode wraps every message in a bubble (reactions below it, outside):
- * own messages right-aligned with no avatar/name, others keeping the avatar and
- * name · time header above theirs.
+ * Left-Right mode aligns the content: own messages sit right with no
+ * avatar/name (just a time label), others keep the avatar and name · time
+ * header. The content itself decides what gets a bubble (see MessageContent).
  */
 export const MessageSenderLayout = ({
     owner,
@@ -166,7 +166,7 @@ export const MessageSenderLayout = ({
         return (
             <div className="flex items-start gap-3">
                 <div className="w-8 min-w-8" />
-                <div className={cn("flex-1 min-w-0", isLeftRight && contentCapClass)} data-message-content="">
+                <div className={cn("flex-1 min-w-0", isLeftRight && contentCapClass)}>
                     {children}
                     {isLeftRight && reactions}
                 </div>
@@ -190,7 +190,7 @@ export const MessageSenderLayout = ({
                     )}
                 </div>
             </UserProfileHoverCard>
-            <div className={cn("flex-1 min-w-0", isLeftRight && contentCapClass)} data-message-content="">
+            <div className={cn("flex-1 min-w-0", isLeftRight && contentCapClass)}>
                 <div className="flex items-baseline gap-1">
                     {/* Same profile card as hovering a mention — a person's name
                         opens the same thing wherever it appears in the stream. */}

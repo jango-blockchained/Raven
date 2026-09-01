@@ -41,11 +41,10 @@ export const MessageHoverToolbar = ({
     onOpenFullMenu,
 }: {
     message: Message
-    /** The toolbar's TOP, offset from the stream wrapper's top — sits above
-     *  the bubble / row it belongs to. */
+    /** The toolbar's TOP, offset from the stream wrapper's top. */
     top: number
-    /** Horizontal anchor, offset from the wrapper's edge: `left` for others'
-     *  Left-Right rows (content start), `right` for own bubbles and Simple mode. */
+    /** Horizontal anchor, offset from the wrapper's edge. One of the two is
+     *  set: `left` for own Left-Right rows, `right` for everything else. */
     left?: number
     right?: number
     /** From the host's composer gate — see MessageActionMenu. */

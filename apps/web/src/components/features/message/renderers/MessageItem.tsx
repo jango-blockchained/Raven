@@ -74,8 +74,8 @@ export const MessageItem = ({ message, onInView }: { message: Message; onInView?
     // the stream level via event delegation on the data-message-id wrapper.
     // A thread parent is never a continuation (the selector enforces this), so
     // the connector always anchors to the full header — no is_continuation branch.
-    // Left-Right rows swap the red failed-send row wash for an icon beside the
-    // bubble (the bubble would paint over a row wash).
+    // Left-Right rows show a failed send as an icon beside the message
+    // (iMessage-style) instead of the red row wash.
     return <MessageRow
         ref={ref}
         alignment={isOwn ? "own" : isLeftRight ? "left-right" : "simple"}
