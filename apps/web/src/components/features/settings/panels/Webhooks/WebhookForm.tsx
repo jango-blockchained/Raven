@@ -14,7 +14,7 @@ import { TriggerEvents } from "./utils"
 import { WebhookData } from "./WebhookDataTable"
 import { WebhookHeaders } from "./WebhookHeaders"
 import { WebhookConditionForm } from "./WebhookConditionForm"
-import { FieldError, FieldHelp } from "./webhookFormBits"
+import { FieldError, FieldHelp, clearConditionValues } from "./webhookFormBits"
 
 /** Create/edit form for a Raven Webhook — General / Conditions / Data / Headers tabs. */
 export const WebhookForm = ({ isEdit = false }: { isEdit?: boolean }) => (
@@ -41,7 +41,7 @@ export const WebhookForm = ({ isEdit = false }: { isEdit?: boolean }) => (
 )
 
 const GeneralWebhookForm = ({ isEdit }: { isEdit: boolean }) => {
-    const { formState: { errors }, control, setValue } = useFormContext<RavenWebhook>()
+    const { formState: { errors }, control, setValue, getValues } = useFormContext<RavenWebhook>()
     const security = useWatch({ control, name: "enable_security" })
 
     return (
@@ -86,7 +86,18 @@ const GeneralWebhookForm = ({ isEdit }: { isEdit: boolean }) => {
                         render={({ field }) => (
                             <Select
                                 value={field.value}
-                                onValueChange={(v) => { field.onChange(v); setValue("webhook_data", []) }}
+                                onValueChange={(v) => {
+                                    field.onChange(v)
+                                    setValue("webhook_data", [])
+                                    // The server rejects a condition the new trigger does not support.
+                                    // Custom is allowed on every trigger, so it stays.
+                                    const supported = TriggerEvents.find((e) => e.label === v)?.trigger_on ?? []
+                                    const conditionsOn = getValues("conditions_on")
+                                    if (conditionsOn && conditionsOn !== "Custom" && !supported.includes(conditionsOn)) {
+                                        setValue("conditions_on", "")
+                                        clearConditionValues(setValue)
+                                    }
+                                }}
                                 disabled={isEdit}
                             >
                                 <SelectTrigger id="webhook_trigger" className="w-full">

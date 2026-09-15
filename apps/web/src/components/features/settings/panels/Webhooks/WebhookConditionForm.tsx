@@ -11,7 +11,7 @@ import { UserAvatar } from "@components/features/message/UserAvatar"
 import type { RavenWebhook } from "@raven/types/RavenIntegrations/RavenWebhook"
 import _ from "@lib/translate"
 import { TriggerEvents } from "./utils"
-import { FieldHelp } from "./webhookFormBits"
+import { FieldHelp, clearConditionValues } from "./webhookFormBits"
 
 /** Conditions tab — optionally gate the webhook on channel / user / channel-type / custom expression. */
 export const WebhookConditionForm = () => {
@@ -28,12 +28,7 @@ export const WebhookConditionForm = () => {
         [webhookTrigger],
     )
 
-    const clearConditionFields = () => {
-        setValue("condition", "")
-        setValue("channel_id", "")
-        setValue("user", "")
-        setValue("channel_type", "")
-    }
+    const clearConditionFields = () => clearConditionValues(setValue)
 
     return (
         <div className="flex flex-col gap-5 w-full">
