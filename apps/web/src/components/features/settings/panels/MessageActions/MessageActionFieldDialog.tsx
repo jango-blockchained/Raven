@@ -3,7 +3,7 @@ import { FormProvider, useForm, useWatch } from "react-hook-form"
 import { GlobeIcon, MailIcon, PhoneIcon } from "lucide-react"
 import { Button } from "@components/ui/button"
 import {
-    Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+    Dialog, DialogBody, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from "@components/ui/dialog"
 import { SelectItem } from "@components/ui/select"
 import {
@@ -31,7 +31,7 @@ export const FieldDialog = ({
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>{children}</DialogTrigger>
-            <DialogContent className="sm:max-w-[560px] max-h-[85vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-[560px]">
                 <DialogHeader>
                     <DialogTitle>{field ? _("Edit Field") : _("Add Field")}</DialogTitle>
                 </DialogHeader>
@@ -94,127 +94,129 @@ const FieldForm = ({
 
     return (
         <FormProvider {...methods}>
-            <div className="flex flex-col gap-4">
-                <div className="flex gap-3">
-                    {doctype ? (
-                        <div className="w-1/2">
-                            <DoctypeFieldSelect doctype={doctype} exclude={takenFieldnames} onFieldSelect={onDoctypeFieldSelect} />
-                        </div>
-                    ) : (
+            <div className="flex min-h-0 flex-1 flex-col gap-4">
+                <DialogBody className="flex flex-col gap-4">
+                    <div className="flex gap-3">
+                        {doctype ? (
+                            <div className="w-1/2">
+                                <DoctypeFieldSelect doctype={doctype} exclude={takenFieldnames} onFieldSelect={onDoctypeFieldSelect} />
+                            </div>
+                        ) : (
+                            <div className="w-1/2">
+                                <DataField
+                                    name="fieldname"
+                                    label={_("Field Name")}
+                                    isRequired
+                                    rules={{
+                                        required: _("Field is required"),
+                                        validate: (v) => (takenFieldnames.includes(v ?? "") ? _("This field is already added") : true),
+                                    }}
+                                />
+                            </div>
+                        )}
                         <div className="w-1/2">
                             <DataField
-                                name="fieldname"
-                                label={_("Field Name")}
+                                name="label"
+                                label={_("Label")}
                                 isRequired
-                                rules={{
-                                    required: _("Field is required"),
-                                    validate: (v) => (takenFieldnames.includes(v ?? "") ? _("This field is already added") : true),
-                                }}
+                                rules={{ required: _("Label is required") }}
                             />
                         </div>
-                    )}
-                    <div className="w-1/2">
-                        <DataField
-                            name="label"
-                            label={_("Label")}
-                            isRequired
-                            rules={{ required: _("Label is required") }}
-                        />
                     </div>
-                </div>
 
-                <div className="flex gap-3">
-                    <div className="w-1/2">
-                        <SelectFormField
-                            name="type"
-                            label={_("Type")}
-                            isRequired
-                            rules={{ required: _("Type is required") }}
-                        >
-                            {FIELD_TYPES.map((t) => {
-                                const Icon = FIELD_TYPE_ICONS[t]
-                                return <SelectItem key={t} value={t}><Icon /> {t}</SelectItem>
-                            })}
-                        </SelectFormField>
-                    </div>
-                    {type === "Data" && (
+                    <div className="flex gap-3">
                         <div className="w-1/2">
                             <SelectFormField
-                                name="options"
-                                label={_("Validation")}
-                                clearable
-                                placeholder={_("None")}
-                                formDescription={_("Optional. Checks the value is a valid email, phone number or URL.")}
+                                name="type"
+                                label={_("Type")}
+                                isRequired
+                                rules={{ required: _("Type is required") }}
                             >
-                                <SelectItem value="email"><MailIcon /> {_("Email")}</SelectItem>
-                                <SelectItem value="tel"><PhoneIcon /> {_("Phone")}</SelectItem>
-                                <SelectItem value="url"><GlobeIcon /> {_("URL")}</SelectItem>
+                                {FIELD_TYPES.map((t) => {
+                                    const Icon = FIELD_TYPE_ICONS[t]
+                                    return <SelectItem key={t} value={t}><Icon /> {t}</SelectItem>
+                                })}
                             </SelectFormField>
                         </div>
+                        {type === "Data" && (
+                            <div className="w-1/2">
+                                <SelectFormField
+                                    name="options"
+                                    label={_("Validation")}
+                                    clearable
+                                    placeholder={_("None")}
+                                    formDescription={_("Optional. Checks the value is a valid email, phone number or URL.")}
+                                >
+                                    <SelectItem value="email"><MailIcon /> {_("Email")}</SelectItem>
+                                    <SelectItem value="tel"><PhoneIcon /> {_("Phone")}</SelectItem>
+                                    <SelectItem value="url"><GlobeIcon /> {_("URL")}</SelectItem>
+                                </SelectFormField>
+                            </div>
+                        )}
+                    </div>
+
+                    <CheckboxFormField name="is_required" label={_("Required")} />
+
+                    {type === "Select" && (
+                        <SmallTextField
+                            name="options"
+                            label={_("Options")}
+                            inputProps={{ className: "min-h-[100px]", placeholder: _("Add options on new lines") }}
+                            rules={{ required: type === "Select" ? _("Options are required") : false }}
+                        />
                     )}
-                </div>
 
-                <CheckboxFormField name="is_required" label={_("Required")} />
+                    {type === "Link" && (
+                        <LinkFormField
+                            name="options"
+                            label={_("Document Type")}
+                            isRequired
+                            doctype="DocType"
+                            filters={[["istable", "=", 0], ["issingle", "=", 0]]}
+                            rules={{ required: type === "Link" ? _("Document Type is required") : false }}
+                        />
+                    )}
 
-                {type === "Select" && (
-                    <SmallTextField
-                        name="options"
-                        label={_("Options")}
-                        inputProps={{ className: "min-h-[100px]", placeholder: _("Add options on new lines") }}
-                        rules={{ required: type === "Select" ? _("Options are required") : false }}
-                    />
-                )}
-
-                {type === "Link" && (
-                    <LinkFormField
-                        name="options"
-                        label={_("Document Type")}
-                        isRequired
-                        doctype="DocType"
-                        filters={[["istable", "=", 0], ["issingle", "=", 0]]}
-                        rules={{ required: type === "Link" ? _("Document Type is required") : false }}
-                    />
-                )}
-
-                <SelectFormField
-                    name="default_value_type"
-                    label={_("Default Value Type")}
-                    formDescription={_("Static value, a field from the selected message, or a Jinja template with the message as context.")}
-                >
-                    <SelectItem value="Static">{_("Static")}</SelectItem>
-                    <SelectItem value="Message Field">{_("Message Field")}</SelectItem>
-                    <SelectItem value="Jinja">{_("Jinja")}</SelectItem>
-                </SelectFormField>
-
-                {defaultValueType === "Message Field" ? (
-                    <SelectFormField name="default_value" label={_("Default Value")}>
-                        <SelectItem value="text">{_("Text (with HTML)")}</SelectItem>
-                        <SelectItem value="content">{_("Content (plain text)")}</SelectItem>
-                        <SelectItem value="file">{_("File")}</SelectItem>
-                        <SelectItem value="owner">{_("Owner")}</SelectItem>
-                        <SelectItem value="creation">{_("Creation")}</SelectItem>
-                        <SelectItem value="message_type">{_("Message Type")}</SelectItem>
-                        <SelectItem value="link_doctype">{_("Linked DocType")}</SelectItem>
-                        <SelectItem value="link_document">{_("Linked Document")}</SelectItem>
-                        <SelectItem value="channel_id">{_("Channel ID")}</SelectItem>
-                        <SelectItem value="workspace_id">{_("Workspace ID")}</SelectItem>
-                        <SelectItem value="message_url">{_("Message URL")}</SelectItem>
+                    <SelectFormField
+                        name="default_value_type"
+                        label={_("Default Value Type")}
+                        formDescription={_("Static value, a field from the selected message, or a Jinja template with the message as context.")}
+                    >
+                        <SelectItem value="Static">{_("Static")}</SelectItem>
+                        <SelectItem value="Message Field">{_("Message Field")}</SelectItem>
+                        <SelectItem value="Jinja">{_("Jinja")}</SelectItem>
                     </SelectFormField>
-                ) : defaultValueType === "Jinja" ? (
-                    <SmallTextField
-                        name="default_value"
-                        label={_("Default Value")}
-                        inputProps={{ className: "min-h-[100px]", placeholder: "{{ message.content }}" }}
-                    />
-                ) : (
-                    <DataField name="default_value" label={_("Default Value")} />
-                )}
 
-                <DataField
-                    name="helper_text"
-                    label={_("Description")}
-                    formDescription={_("Optional")}
-                />
+                    {defaultValueType === "Message Field" ? (
+                        <SelectFormField name="default_value" label={_("Default Value")}>
+                            <SelectItem value="text">{_("Text (with HTML)")}</SelectItem>
+                            <SelectItem value="content">{_("Content (plain text)")}</SelectItem>
+                            <SelectItem value="file">{_("File")}</SelectItem>
+                            <SelectItem value="owner">{_("Owner")}</SelectItem>
+                            <SelectItem value="creation">{_("Creation")}</SelectItem>
+                            <SelectItem value="message_type">{_("Message Type")}</SelectItem>
+                            <SelectItem value="link_doctype">{_("Linked DocType")}</SelectItem>
+                            <SelectItem value="link_document">{_("Linked Document")}</SelectItem>
+                            <SelectItem value="channel_id">{_("Channel ID")}</SelectItem>
+                            <SelectItem value="workspace_id">{_("Workspace ID")}</SelectItem>
+                            <SelectItem value="message_url">{_("Message URL")}</SelectItem>
+                        </SelectFormField>
+                    ) : defaultValueType === "Jinja" ? (
+                        <SmallTextField
+                            name="default_value"
+                            label={_("Default Value")}
+                            inputProps={{ className: "min-h-[100px]", placeholder: "{{ message.content }}" }}
+                        />
+                    ) : (
+                        <DataField name="default_value" label={_("Default Value")} />
+                    )}
+
+                    <DataField
+                        name="helper_text"
+                        label={_("Description")}
+                        formDescription={_("Optional")}
+                    />
+                </DialogBody>
 
                 <DialogFooter>
                     <DialogClose asChild>
