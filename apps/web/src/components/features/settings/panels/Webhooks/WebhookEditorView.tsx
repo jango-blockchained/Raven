@@ -1,5 +1,6 @@
 import type { RavenWebhook } from "@raven/types/RavenIntegrations/RavenWebhook"
 import SettingsRecordEditor from "../SettingsRecordEditor"
+import { EnabledBadge, EnabledMenuItem } from "../EnabledRecord"
 import { WebhookForm } from "./WebhookForm"
 import { WEBHOOKS_LIST_KEY } from "./WebhookListView"
 import _ from "@lib/translate"
@@ -18,7 +19,8 @@ const WebhookEditorView = (props: Props) => (
         deleteTitle={_("Delete Webhook?")}
         deleteDescription={(doc) => _("This will permanently delete {0}.", [doc.name])}
         deleteSuccessMessage={_("Webhook deleted")}
-        showEnabledToggle
+        menu={(ctx) => <EnabledMenuItem {...ctx} />}
+        badge={(doc) => <EnabledBadge doc={doc} />}
         title={(doc) => <span className="truncate">{doc.name}</span>}
         form={(isEdit) => <WebhookForm isEdit={isEdit} />}
     />

@@ -4,9 +4,8 @@ import { hasDirtyFields } from "@lib/formState"
 import { useFrappeCreateDoc, useFrappeGetDoc, useFrappeUpdateDoc, useSWRConfig, type FrappeDoc, type SWRResponse } from "frappe-react-sdk"
 import { useForm, type DefaultValues, type FieldValues } from "react-hook-form"
 import { toast } from "sonner"
-import { ArrowLeftIcon, CircleCheckIcon, CircleOffIcon } from "lucide-react"
+import { ArrowLeftIcon } from "lucide-react"
 import { Badge } from "@components/ui/badge"
-import { DropdownMenuItem } from "@components/ui/dropdown-menu"
 import { Button } from "@components/ui/button"
 import ErrorBanner from "@components/ui/error-banner"
 import { Form } from "@components/ui/form"
@@ -15,6 +14,18 @@ import { Spinner } from "@components/ui/spinner"
 import useSaveHotkey from "@hooks/useSaveHotkey"
 import RecordActionsMenu from "./RecordActionsMenu"
 import _ from "@lib/translate"
+
+/** What a custom menu item gets: the loaded record, the busy flag, and a safe way to change the record. */
+export type RecordMenuContext<T extends FieldValues> = {
+    doc: T
+    loading: boolean
+    /**
+     * Saves a partial update right away, then refreshes the form's defaults from the saved
+     * doc (new values, new `modified` stamp) while keeping the user's unsaved edits. A later
+     * Save then neither undoes this change nor trips Frappe's timestamp check.
+     */
+    update: (values: Partial<T>, successMessage: string) => Promise<void>
+}
 
 type Props<T extends FieldValues> = {
     /** Set for detail/edit mode; absent for create mode. */
@@ -33,10 +44,12 @@ type Props<T extends FieldValues> = {
     form: (isEdit: boolean) => ReactNode
     /** Extra detail-mode header actions, rendered before Save. */
     actions?: (doc: T) => ReactNode
+    /** Extra items for the actions menu, rendered above Delete. */
+    menu?: (ctx: RecordMenuContext<T>) => ReactNode
+    /** Status badge next to the title. Hidden while there are unsaved changes. */
+    badge?: (doc: T) => ReactNode
     /** Toast after a successful delete. Defaults to "Deleted". */
     deleteSuccessMessage?: string
-    /** For doctypes with an `enabled` check: adds an Enable/Disable menu item and a status badge in the title. */
-    showEnabledToggle?: boolean
     onBack: () => void
     onSaved?: (id: string) => void
     onDeleted?: () => void
@@ -116,8 +129,8 @@ const Detail = <T extends FieldValues>(props: Props<T> & { id: string }) => {
 }
 
 const DetailContent = <T extends FieldValues>({
-    id, doctype, listKey, createDefaults, backLabel, deleteTitle, deleteDescription, deleteSuccessMessage, showEnabledToggle,
-    title, form, actions, onBack, onDeleted, data, mutate,
+    id, doctype, listKey, createDefaults, backLabel, deleteTitle, deleteDescription, deleteSuccessMessage,
+    title, form, actions, menu, badge, onBack, onDeleted, data, mutate,
 }: Props<T> & { id: string; data: T; mutate: SWRResponse<FrappeDoc<T>>["mutate"] }) => {
     const { updateDoc, loading, error } = useFrappeUpdateDoc<T>()
     const { mutate: globalMutate } = useSWRConfig()
@@ -136,15 +149,10 @@ const DetailContent = <T extends FieldValues>({
 
     useSaveHotkey(() => { if (!loading) handleSubmit(onSubmit)() })
 
-    const isEnabled = Boolean((data as { enabled?: 0 | 1 }).enabled)
-
-    // Flips `enabled` on the server right away. The form's defaults are then
-    // refreshed from the saved doc (new `enabled`, new `modified` stamp) while
-    // any unsaved edits stay in place, so a later Save neither undoes the
-    // toggle nor trips Frappe's timestamp check.
-    const toggleEnabled = async () => {
-        const doc = await updateDoc(doctype, id, { enabled: isEnabled ? 0 : 1 } as unknown as Partial<T>)
-        toast.success(isEnabled ? _("Disabled") : _("Enabled"), { id: SAVE_TOAST_ID })
+    // See RecordMenuContext.update.
+    const update = async (values: Partial<T>, successMessage: string) => {
+        const doc = await updateDoc(doctype, id, values)
+        toast.success(successMessage, { id: SAVE_TOAST_ID })
         methods.reset({ ...createDefaults, ...doc } as T, { keepDirtyValues: true })
         mutate(doc, { revalidate: false })
         await globalMutate((key) => typeof key === "string" && key.startsWith(listKey))
@@ -167,12 +175,7 @@ const DetailContent = <T extends FieldValues>({
                                     onDeleted?.()
                                 }}
                             >
-                                {showEnabledToggle && (
-                                    <DropdownMenuItem onClick={toggleEnabled} disabled={loading}>
-                                        {isEnabled ? <CircleOffIcon /> : <CircleCheckIcon />}
-                                        {isEnabled ? _("Disable") : _("Enable")}
-                                    </DropdownMenuItem>
-                                )}
+                                {menu?.({ doc: data, loading, update })}
                             </RecordActionsMenu>
                             {actions?.(data)}
                             <Button type="submit" size="sm" loading={loading} loadingText={_("Saving")}>
@@ -184,11 +187,7 @@ const DetailContent = <T extends FieldValues>({
                     <SettingsPanelTitle className="items-center h-auto -ml-2">
                         <BackButton onBack={onBack} label={backLabel} />
                         {title(data)}
-                        {hasChanges
-                            ? <Badge variant="subtle">{_("Not Saved")}</Badge>
-                            : showEnabledToggle
-                                ? <Badge variant="subtle" theme={isEnabled ? "green" : "gray"}>{isEnabled ? _("Enabled") : _("Disabled")}</Badge>
-                                : null}
+                        {hasChanges ? <Badge variant="subtle">{_("Not Saved")}</Badge> : badge?.(data)}
                     </SettingsPanelTitle>
                 </SettingsPanelHeader>
                 <SettingsPanelContent className="min-h-0 gap-4">

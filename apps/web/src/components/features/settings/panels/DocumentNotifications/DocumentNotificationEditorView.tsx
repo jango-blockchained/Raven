@@ -1,5 +1,6 @@
 import type { RavenDocumentNotification } from "@raven/types/RavenIntegrations/RavenDocumentNotification"
 import SettingsRecordEditor from "../SettingsRecordEditor"
+import { EnabledBadge, EnabledMenuItem } from "../EnabledRecord"
 import { DocumentNotificationForm } from "./DocumentNotificationForm"
 import { DOC_NOTIFICATIONS_LIST_KEY } from "./DocumentNotificationListView"
 import _ from "@lib/translate"
@@ -18,7 +19,8 @@ const DocumentNotificationEditorView = (props: Props) => (
         deleteTitle={_("Delete Document Notification?")}
         deleteDescription={(doc) => _("This will permanently delete {0}.", [doc.notification_name])}
         deleteSuccessMessage={_("Notification deleted")}
-        showEnabledToggle
+        menu={(ctx) => <EnabledMenuItem {...ctx} />}
+        badge={(doc) => <EnabledBadge doc={doc} />}
         title={(doc) => <span className="truncate">{doc.name}</span>}
         form={(isEdit) => <DocumentNotificationForm isEdit={isEdit} />}
     />
