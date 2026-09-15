@@ -1,29 +1,29 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { FormProvider, useForm, useWatch } from "react-hook-form"
+import { GlobeIcon, MailIcon, PhoneIcon } from "lucide-react"
 import { Button } from "@components/ui/button"
-import { Label } from "@components/ui/label"
 import {
     Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from "@components/ui/dialog"
+import { SelectItem } from "@components/ui/select"
 import {
-    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@components/ui/select"
-import {
-    DataField, LinkFormField, SelectFormField, SmallTextField, SwitchFormField,
+    CheckboxFormField, DataField, LinkFormField, SelectFormField, SmallTextField,
 } from "@components/ui/form-elements"
 import useDoctypeMetaDocs from "@hooks/useDoctypeMetaDocs"
 import type { DocField } from "@raven/types/Core/DocField"
 import _ from "@lib/translate"
 import {
-    type FieldData, FIELD_TYPES, VALID_FIELD_TYPES, dataValidationFor, toActionType,
+    type FieldData, FIELD_TYPES, FIELD_TYPE_ICONS, VALID_FIELD_TYPES, dataValidationFor, toActionType,
 } from "./messageActionFieldUtils"
 
 /** One dialog for both add and edit — a single FieldForm, no duplication. */
 export const FieldDialog = ({
-    doctype, field, onSubmit, children,
+    doctype, field, usedFieldnames, onSubmit, children,
 }: {
     doctype?: string
     field?: FieldData
+    /** Fieldnames already in the table. These are hidden from the picker. */
+    usedFieldnames: string[]
     onSubmit: (d: FieldData) => void
     children: React.ReactNode
 }) => {
@@ -39,6 +39,7 @@ export const FieldDialog = ({
                     <FieldForm
                         doctype={doctype}
                         field={field}
+                        usedFieldnames={usedFieldnames}
                         submitLabel={field ? _("Save") : _("Add")}
                         onSubmit={(d) => { onSubmit(d); setOpen(false) }}
                     />
@@ -49,42 +50,46 @@ export const FieldDialog = ({
 }
 
 const FieldForm = ({
-    doctype, field, submitLabel, onSubmit,
+    doctype, field, usedFieldnames, submitLabel, onSubmit,
 }: {
     doctype?: string
     field?: FieldData
+    usedFieldnames: string[]
     submitLabel: string
     onSubmit: (d: FieldData) => void
 }) => {
     const methods = useForm<FieldData>({ defaultValues: field ?? { default_value_type: "Static" } })
     const { control, setValue, handleSubmit } = methods
 
-    const fieldname = useWatch({ control, name: "fieldname" })
+    // Fields already in the table cannot be picked again.
+    // When editing, the row's own field stays available.
+    const takenFieldnames = useMemo(
+        () => usedFieldnames.filter((name) => name !== field?.fieldname),
+        [usedFieldnames, field?.fieldname],
+    )
+
     const type = useWatch({ control, name: "type" })
     const defaultValueType = useWatch({ control, name: "default_value_type" })
 
-    // Switching to Link repurposes `options` from newline-separated choices to a
-    // DocType name — clear it so stale Select options don't leak into the Link field.
+    // `options` means something different for each type: choices for Select,
+    // a DocType for Link, a validation for Data. Clear it whenever the type changes.
     const prevType = useRef(type)
     useEffect(() => {
         if (prevType.current !== type) {
-            if (type === "Link") setValue("options", "")
+            setValue("options", "")
             prevType.current = type
         }
     }, [type, setValue])
 
     const onDoctypeFieldSelect = (df: DocField) => {
-        setValue("fieldname", df.fieldname ?? "")
         if (df.label) setValue("label", df.label)
         if (df.description) setValue("helper_text", df.description)
-        if (df.fieldtype) {
-            // Mark the type change as seen first, or the clear-on-Link effect
-            // above would wipe the options we set right after.
-            const nextType = toActionType(df.fieldtype)
-            prevType.current = nextType
-            setValue("type", nextType)
-        }
-        if (df.options) setValue("options", df.fieldtype === "Data" ? dataValidationFor(df.options) : df.options)
+        // Mark the type change as seen first, or the clear effect
+        // above would wipe the options we set right after.
+        const nextType = toActionType(df.fieldtype)
+        prevType.current = nextType
+        setValue("type", nextType)
+        setValue("options", (df.fieldtype === "Data" ? dataValidationFor(df.options) : df.options) ?? "")
     }
 
     return (
@@ -92,9 +97,8 @@ const FieldForm = ({
             <div className="flex flex-col gap-4">
                 <div className="flex gap-3">
                     {doctype ? (
-                        <div className="flex flex-col gap-1.5 w-1/2">
-                            <Label>{_("Field")} <span className="text-ink-red-3">*</span></Label>
-                            <DoctypeFieldSelect doctype={doctype} value={fieldname ?? ""} onFieldSelect={onDoctypeFieldSelect} />
+                        <div className="w-1/2">
+                            <DoctypeFieldSelect doctype={doctype} exclude={takenFieldnames} onFieldSelect={onDoctypeFieldSelect} />
                         </div>
                     ) : (
                         <div className="w-1/2">
@@ -102,7 +106,10 @@ const FieldForm = ({
                                 name="fieldname"
                                 label={_("Field Name")}
                                 isRequired
-                                rules={{ required: _("Field is required") }}
+                                rules={{
+                                    required: _("Field is required"),
+                                    validate: (v) => (takenFieldnames.includes(v ?? "") ? _("This field is already added") : true),
+                                }}
                             />
                         </div>
                     )}
@@ -124,22 +131,30 @@ const FieldForm = ({
                             isRequired
                             rules={{ required: _("Type is required") }}
                         >
-                            {FIELD_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                            {FIELD_TYPES.map((t) => {
+                                const Icon = FIELD_TYPE_ICONS[t]
+                                return <SelectItem key={t} value={t}><Icon /> {t}</SelectItem>
+                            })}
                         </SelectFormField>
                     </div>
                     {type === "Data" && (
                         <div className="w-1/2">
-                            <DataField
+                            <SelectFormField
                                 name="options"
                                 label={_("Validation")}
-                                formDescription={_("Optional — email, tel, or url")}
-                                inputProps={{ placeholder: "email, tel, or url" }}
-                            />
+                                clearable
+                                placeholder={_("None")}
+                                formDescription={_("Optional. Checks the value is a valid email, phone number or URL.")}
+                            >
+                                <SelectItem value="email"><MailIcon /> {_("Email")}</SelectItem>
+                                <SelectItem value="tel"><PhoneIcon /> {_("Phone")}</SelectItem>
+                                <SelectItem value="url"><GlobeIcon /> {_("URL")}</SelectItem>
+                            </SelectFormField>
                         </div>
                     )}
                 </div>
 
-                <SwitchFormField name="is_required" label={_("Required")} />
+                <CheckboxFormField name="is_required" label={_("Required")} />
 
                 {type === "Select" && (
                     <SmallTextField
@@ -203,39 +218,47 @@ const FieldForm = ({
 
                 <DialogFooter>
                     <DialogClose asChild>
-                        <Button type="button" variant="outline">{_("Cancel")}</Button>
+                        <Button type="button" variant="outline" size="md">{_("Cancel")}</Button>
                     </DialogClose>
-                    <Button type="button" onClick={handleSubmit(onSubmit)}>{submitLabel}</Button>
+                    <Button type="button" size="md" onClick={handleSubmit(onSubmit)}>{submitLabel}</Button>
                 </DialogFooter>
             </div>
         </FormProvider>
     )
 }
 
-/** A Select over a target DocType's fields; picking one auto-fills the field form. */
+/** Select over the target DocType's fields. Picking one fills in the rest of the form. */
 const DoctypeFieldSelect = ({
-    doctype, value, onFieldSelect,
-}: { doctype: string; value: string; onFieldSelect: (field: DocField) => void }) => {
+    doctype, exclude, onFieldSelect,
+}: { doctype: string; exclude: string[]; onFieldSelect: (field: DocField) => void }) => {
     const { doc: meta } = useDoctypeMetaDocs(doctype)
     const fields = useMemo(
-        () => meta?.fields?.filter((f) => f.fieldtype && VALID_FIELD_TYPES.includes(f.fieldtype)) ?? [],
-        [meta],
+        () => meta?.fields?.filter((f) =>
+            f.fieldtype && VALID_FIELD_TYPES.includes(f.fieldtype) && !exclude.includes(f.fieldname ?? ""),
+        ) ?? [],
+        [meta, exclude],
     )
 
     return (
-        <Select
-            value={value}
-            onValueChange={(v) => { const df = fields.find((f) => f.fieldname === v); if (df) onFieldSelect(df) }}
+        <SelectFormField
+            name="fieldname"
+            label={_("Field")}
+            isRequired
+            placeholder={_("Select Field")}
+            rules={{
+                required: _("Field is required"),
+                onChange: (event) => {
+                    const df = fields.find((f) => f.fieldname === event.target.value)
+                    if (df) onFieldSelect(df)
+                },
+            }}
         >
-            <SelectTrigger className="w-full"><SelectValue placeholder={_("Select Field")} /></SelectTrigger>
-            <SelectContent>
-                {fields.map((f) => (
-                    <SelectItem key={f.fieldname} value={f.fieldname ?? ""}>
-                        {f.label} <span className="text-ink-gray-5">({f.fieldname})</span>
-                    </SelectItem>
-                ))}
-            </SelectContent>
-        </Select>
+            {fields.map((f) => (
+                <SelectItem key={f.fieldname} value={f.fieldname ?? ""}>
+                    {f.label} <span className="text-ink-gray-5">({f.fieldname})</span>
+                </SelectItem>
+            ))}
+        </SelectFormField>
     )
 }
 

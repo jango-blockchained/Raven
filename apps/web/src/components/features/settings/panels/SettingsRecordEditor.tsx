@@ -25,7 +25,10 @@ type Props<T extends FieldValues> = {
     createDefaults: DefaultValues<T>
     createTitle: string
     backLabel: string
-    deleteDescription: string
+    /** Confirm-dialog heading, e.g. "Delete Webhook?". */
+    deleteTitle: string
+    /** Confirm-dialog body. Gets the record so it can show its title, not its id. */
+    deleteDescription: (doc: T) => string
     title: (doc: T) => ReactNode
     form: (isEdit: boolean) => ReactNode
     /** Extra detail-mode header actions, rendered before Save. */
@@ -113,7 +116,7 @@ const Detail = <T extends FieldValues>(props: Props<T> & { id: string }) => {
 }
 
 const DetailContent = <T extends FieldValues>({
-    id, doctype, listKey, createDefaults, backLabel, deleteDescription, deleteSuccessMessage, showEnabledToggle,
+    id, doctype, listKey, createDefaults, backLabel, deleteTitle, deleteDescription, deleteSuccessMessage, showEnabledToggle,
     title, form, actions, onBack, onDeleted, data, mutate,
 }: Props<T> & { id: string; data: T; mutate: SWRResponse<FrappeDoc<T>>["mutate"] }) => {
     const { updateDoc, loading, error } = useFrappeUpdateDoc<T>()
@@ -156,7 +159,8 @@ const DetailContent = <T extends FieldValues>({
                             <RecordActionsMenu
                                 doctype={doctype}
                                 docName={id}
-                                deleteDescription={deleteDescription}
+                                deleteTitle={deleteTitle}
+                                deleteDescription={deleteDescription(data)}
                                 deleteSuccessMessage={deleteSuccessMessage}
                                 onDeleted={async () => {
                                     await globalMutate((key) => typeof key === "string" && key.startsWith(listKey))
@@ -183,7 +187,7 @@ const DetailContent = <T extends FieldValues>({
                         {hasChanges
                             ? <Badge variant="subtle">{_("Not Saved")}</Badge>
                             : showEnabledToggle
-                                ? <Badge variant={isEnabled ? "subtle" : "outline"}>{isEnabled ? _("Enabled") : _("Disabled")}</Badge>
+                                ? <Badge variant="subtle" theme={isEnabled ? "green" : "gray"}>{isEnabled ? _("Enabled") : _("Disabled")}</Badge>
                                 : null}
                     </SettingsPanelTitle>
                 </SettingsPanelHeader>

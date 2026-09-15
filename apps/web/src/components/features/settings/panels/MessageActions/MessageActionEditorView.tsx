@@ -15,7 +15,8 @@ const MessageActionEditorView = (props: Props) => (
         createDefaults={{ enabled: 1, action: "Create Document" }}
         createTitle={_("Create a Message Action")}
         backLabel={_("Back to message actions")}
-        deleteDescription={_("Are you sure you want to delete this message action?")}
+        deleteTitle={_("Delete Message Action?")}
+        deleteDescription={(doc) => _("This will permanently delete {0}.", [doc.action_name])}
         deleteSuccessMessage={_("Message action deleted")}
         showEnabledToggle
         title={(doc) => <span className="truncate">{doc.action_name}</span>}

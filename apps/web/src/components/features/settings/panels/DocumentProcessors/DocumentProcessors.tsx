@@ -253,6 +253,7 @@ const ExistingProcessorsList = ({
                                 <Button
                                     variant="solid"
                                     theme="red"
+                                    size="md"
                                     loading={isDeleting}
                                     loadingText={_("Deleting")}
                                     onClick={() => {

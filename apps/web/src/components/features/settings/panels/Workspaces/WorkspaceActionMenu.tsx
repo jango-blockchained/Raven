@@ -172,7 +172,7 @@ const DeleteWorkspaceForm = ({
             </div>
             <AlertDialogFooter>
                 <AlertDialogCancel disabled={loading}>{_("Cancel")}</AlertDialogCancel>
-                <Button variant="solid" theme="red" disabled={!isNameTyped} onClick={handleDelete} loading={loading} loadingText={_("Deleting")}>
+                <Button variant="solid" theme="red" size="md" disabled={!isNameTyped} onClick={handleDelete} loading={loading} loadingText={_("Deleting")}>
                     {_("Delete")}
                 </Button>
             </AlertDialogFooter>

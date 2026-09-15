@@ -15,7 +15,8 @@ const WebhookEditorView = (props: Props) => (
         createDefaults={{ enabled: 1, timeout: 5 }}
         createTitle={_("Create a Webhook")}
         backLabel={_("Back to webhooks")}
-        deleteDescription={_("Are you sure you want to delete this webhook?")}
+        deleteTitle={_("Delete Webhook?")}
+        deleteDescription={(doc) => _("This will permanently delete {0}.", [doc.name])}
         deleteSuccessMessage={_("Webhook deleted")}
         showEnabledToggle
         title={(doc) => <span className="truncate">{doc.name}</span>}

@@ -213,7 +213,7 @@ export const FileSources = () => {
                     {deleteError && <ErrorBanner error={deleteError} />}
                     <AlertDialogFooter>
                         <AlertDialogCancel disabled={deleteLoading}>{_("Cancel")}</AlertDialogCancel>
-                        <Button variant="solid" theme="red" loading={deleteLoading} onClick={onDelete} loadingText={_("Deleting")}>
+                        <Button variant="solid" theme="red" size="md" loading={deleteLoading} onClick={onDelete} loadingText={_("Deleting")}>
                             {_("Delete")}
                         </Button>
                     </AlertDialogFooter>

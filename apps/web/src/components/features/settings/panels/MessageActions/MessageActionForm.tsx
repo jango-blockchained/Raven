@@ -1,29 +1,22 @@
-import { Controller, useFormContext, useWatch } from "react-hook-form"
+import { useFormContext, useWatch } from "react-hook-form"
 import type { RavenMessageAction } from "@raven/types/RavenIntegrations/RavenMessageAction"
-import { ZapIcon, VariableIcon, CodeIcon, ExternalLinkIcon } from "lucide-react"
+import { SlidersHorizontalIcon, ClipboardListIcon, CodeIcon, ExternalLinkIcon } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/tabs"
 import { Button } from "@components/ui/button"
 import {
     Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
 } from "@components/ui/dialog"
-import { Input } from "@components/ui/input"
-import { Label } from "@components/ui/label"
-import {
-    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@components/ui/select"
-import { DataField, LinkFormField, SmallTextField, SwitchFormField } from "@components/ui/form-elements"
+import { SelectItem } from "@components/ui/select"
+import { DataField, LinkFormField, SelectFormField, SmallTextField } from "@components/ui/form-elements"
 import _ from "@lib/translate"
 import { MessageActionFieldsBuilder } from "./MessageActionFieldsBuilder"
-
-const FieldError = ({ message }: { message?: string }) =>
-    message ? <p className="text-p-sm text-ink-red-3">{message}</p> : null
 
 /** Create/edit form for a Raven Message Action — General + Fields tabs. */
 export const MessageActionForm = () => (
     <Tabs defaultValue="general" className="flex flex-col flex-1 min-h-0">
         <TabsList>
-            <TabsTrigger value="general"><ZapIcon /> {_("General")}</TabsTrigger>
-            <TabsTrigger value="fields"><VariableIcon /> {_("Fields")}</TabsTrigger>
+            <TabsTrigger value="general"><SlidersHorizontalIcon /> {_("General")}</TabsTrigger>
+            <TabsTrigger value="fields"><ClipboardListIcon /> {_("Fields")}</TabsTrigger>
         </TabsList>
         <TabsContent value="general" className="pt-4">
             <GeneralTab />
@@ -35,52 +28,43 @@ export const MessageActionForm = () => (
 )
 
 const GeneralTab = () => {
-    const { register, control, setValue, formState: { errors } } = useFormContext<RavenMessageAction>()
+    const { control, setValue } = useFormContext<RavenMessageAction>()
     const action = useWatch({ control, name: "action" })
     const serverScript = useWatch({ control, name: "server_script" })
 
     return (
         <div className="flex flex-col gap-5 w-full">
             <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="action_name">{_("Name")} <span className="text-ink-red-3">*</span></Label>
-                    <Input
-                        id="action_name"
-                        placeholder={_("Create support ticket")}
-                        {...register("action_name", {
-                            required: _("Name is required"),
-                            onBlur: (e) => setValue("title", e.target.value.trim()),
-                        })}
-                    />
-                    <FieldError message={errors.action_name?.message} />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                    <Label>{_("Action Type")} <span className="text-ink-red-3">*</span></Label>
-                    <Controller
-                        control={control}
-                        name="action"
-                        rules={{
-                            required: _("Action Type is required"),
-                            // Clear the fields belonging to the other action types.
-                            onChange: (e) => {
-                                if (e.target.value !== "Create Document") setValue("document_type", "")
-                                if (e.target.value !== "Custom Function") setValue("custom_function_path", "")
-                                if (e.target.value !== "Server Script") setValue("server_script", "")
-                            },
-                        }}
-                        render={({ field }) => (
-                            <Select value={field.value} onValueChange={field.onChange}>
-                                <SelectTrigger className="w-full"><SelectValue placeholder={_("Pick an action type")} /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Create Document">{_("Create Document")}</SelectItem>
-                                    <SelectItem value="Custom Function">{_("Custom Function (API)")}</SelectItem>
-                                    <SelectItem value="Server Script">{_("Server Script")}</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        )}
-                    />
-                    <FieldError message={errors.action?.message} />
-                </div>
+                <DataField
+                    name="action_name"
+                    label={_("Name")}
+                    isRequired
+                    inputProps={{ placeholder: _("Create support ticket") }}
+                    rules={{
+                        required: _("Name is required"),
+                        // The dialog title follows the name.
+                        onBlur: (e) => setValue("title", e.target.value.trim()),
+                    }}
+                />
+                <SelectFormField
+                    name="action"
+                    label={_("Action Type")}
+                    isRequired
+                    placeholder={_("Pick an action type")}
+                    rules={{
+                        required: _("Action Type is required"),
+                        // Clear the fields belonging to the other action types.
+                        onChange: (e) => {
+                            if (e.target.value !== "Create Document") setValue("document_type", "")
+                            if (e.target.value !== "Custom Function") setValue("custom_function_path", "")
+                            if (e.target.value !== "Server Script") setValue("server_script", "")
+                        },
+                    }}
+                >
+                    <SelectItem value="Create Document">{_("Create Document")}</SelectItem>
+                    <SelectItem value="Custom Function">{_("Custom Function (API)")}</SelectItem>
+                    <SelectItem value="Server Script">{_("Server Script")}</SelectItem>
+                </SelectFormField>
             </div>
             {action === "Create Document" && (
                 <div className="grid grid-cols-2">
@@ -137,8 +121,6 @@ const GeneralTab = () => {
                     <div><ViewDocsButton /></div>
                 </div>
             )}
-
-            <SwitchFormField name="enabled" label={_("Enabled")} />
 
             <DataField
                 name="title"

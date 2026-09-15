@@ -56,7 +56,6 @@ export const DocumentNotificationDetailsTab = ({ isEdit }: { isEdit: boolean }) 
             </div>
 
             <div className="flex flex-col gap-3">
-                <SwitchFormField name="enabled" label={_("Enabled")} />
                 <SwitchFormField
                     name="do_not_attach_doc"
                     label={_("Hide document preview in the notification message")}

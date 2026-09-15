@@ -15,7 +15,8 @@ const DocumentNotificationEditorView = (props: Props) => (
         createDefaults={{ enabled: 1 }}
         createTitle={_("Create a Document Notification")}
         backLabel={_("Back to notifications")}
-        deleteDescription={_("Are you sure you want to delete this notification?")}
+        deleteTitle={_("Delete Document Notification?")}
+        deleteDescription={(doc) => _("This will permanently delete {0}.", [doc.notification_name])}
         deleteSuccessMessage={_("Notification deleted")}
         showEnabledToggle
         title={(doc) => <span className="truncate">{doc.name}</span>}

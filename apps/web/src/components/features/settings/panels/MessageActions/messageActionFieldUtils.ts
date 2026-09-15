@@ -1,4 +1,8 @@
 import type { RavenMessageActionFields } from "@raven/types/RavenIntegrations/RavenMessageActionFields"
+import {
+    AlignLeftIcon, CalendarClockIcon, CalendarIcon, ClockIcon, HashIcon, LinkIcon, ListIcon,
+    SquareCheckIcon, TypeIcon, type LucideIcon,
+} from "lucide-react"
 
 export type FieldData = Partial<RavenMessageActionFields>
 export type ActionFieldType = RavenMessageActionFields["type"]
@@ -7,6 +11,19 @@ export type ActionFieldType = RavenMessageActionFields["type"]
 export const FIELD_TYPES: ActionFieldType[] = [
     "Data", "Number", "Select", "Link", "Checkbox", "Date", "Time", "Datetime", "Small Text",
 ]
+
+/** Icon shown next to each field type in the Type select. */
+export const FIELD_TYPE_ICONS: Record<ActionFieldType, LucideIcon> = {
+    "Data": TypeIcon,
+    "Number": HashIcon,
+    "Select": ListIcon,
+    "Link": LinkIcon,
+    "Checkbox": SquareCheckIcon,
+    "Date": CalendarIcon,
+    "Time": ClockIcon,
+    "Datetime": CalendarClockIcon,
+    "Small Text": AlignLeftIcon,
+}
 
 /** DocType fieldtypes we can surface as an action field (drives the import + field picker). */
 export const VALID_FIELD_TYPES = [

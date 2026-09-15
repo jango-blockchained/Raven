@@ -1,6 +1,7 @@
+import { useMemo } from "react"
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form"
 import type { RavenMessageAction } from "@raven/types/RavenIntegrations/RavenMessageAction"
-import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react"
+import { PlusIcon, SquarePenIcon, Trash2Icon } from "lucide-react"
 import { Button } from "@components/ui/button"
 import { Badge } from "@components/ui/badge"
 import {
@@ -19,6 +20,7 @@ export const MessageActionFieldsBuilder = () => {
     const { fields, append, remove, update } = useFieldArray({ control, name: "fields" })
     const action = useWatch({ control, name: "action" })
     const doctype = useWatch({ control, name: "document_type" })
+    const usedFieldnames = useMemo(() => fields.map((f) => f.fieldname ?? ""), [fields])
 
     return (
         <div className="flex flex-col gap-3">
@@ -28,7 +30,7 @@ export const MessageActionFieldsBuilder = () => {
                     {action === "Create Document" && doctype && (
                         <ImportFromDoctype doctype={doctype} append={(d) => append(d as RavenMessageActionFields)} />
                     )}
-                    <FieldDialog doctype={doctype} onSubmit={(d) => append(d as RavenMessageActionFields)}>
+                    <FieldDialog doctype={doctype} usedFieldnames={usedFieldnames} onSubmit={(d) => append(d as RavenMessageActionFields)}>
                         <Button type="button" variant="outline" size="sm"><PlusIcon />{_("Add Field")}</Button>
                     </FieldDialog>
                 </div>
@@ -77,10 +79,11 @@ export const MessageActionFieldsBuilder = () => {
                                         <FieldDialog
                                             doctype={doctype}
                                             field={field}
+                                            usedFieldnames={usedFieldnames}
                                             onSubmit={(d) => update(index, d as RavenMessageActionFields)}
                                         >
                                             <Button type="button" variant="ghost" size="sm" isIconButton aria-label={_("Edit field")}>
-                                                <PencilIcon className="text-ink-gray-6" />
+                                                <SquarePenIcon />
                                             </Button>
                                         </FieldDialog>
                                         <Button

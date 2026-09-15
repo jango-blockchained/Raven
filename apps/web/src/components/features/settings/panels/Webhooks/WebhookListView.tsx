@@ -51,7 +51,7 @@ const WebhookListView = ({ onOpen, onCreate }: { onOpen: (id: string) => void; o
             header: _("Status"),
             meta: { gridWidth: "minmax(0,1fr)" } satisfies ListViewColumnMeta,
             cell: ({ row }) => (
-                <Badge variant={row.original.enabled ? "subtle" : "outline"}>
+                <Badge variant="subtle" theme={row.original.enabled ? "green" : "gray"}>
                     {row.original.enabled ? _("Enabled") : _("Disabled")}
                 </Badge>
             ),
