@@ -246,7 +246,7 @@ function SettingsPanelContent({
     ...props
 }: React.ComponentProps<"div">) {
     return (
-        <div className={cn("flex-1 flex flex-col overflow-y-auto overflow-x-hidden px-2 pt-0.5", className)} {...props} />
+        <div className={cn("flex-1 flex flex-col overflow-y-auto overflow-x-hidden px-2 pt-0.5 min-h-0 gap-2", className)} {...props} />
     )
 }
 
