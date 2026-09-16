@@ -100,7 +100,7 @@ const Create = <T extends FieldValues>({
                         {createTitle}
                     </SettingsPanelTitle>
                 </SettingsPanelHeader>
-                <SettingsPanelContent className="min-h-0 gap-4">
+                <SettingsPanelContent className="min-h-0 gap-2">
                     {error && <ErrorBanner error={error} />}
                     {form(false)}
                 </SettingsPanelContent>
@@ -193,7 +193,7 @@ const DetailContent = <T extends FieldValues>({
                         {hasChanges ? <Badge variant="subtle">{_("Not Saved")}</Badge> : badge?.(data)}
                     </SettingsPanelTitle>
                 </SettingsPanelHeader>
-                <SettingsPanelContent className="min-h-0 gap-4">
+                <SettingsPanelContent className="min-h-0 gap-2">
                     {error && <ErrorBanner error={error} />}
                     {form(true)}
                 </SettingsPanelContent>

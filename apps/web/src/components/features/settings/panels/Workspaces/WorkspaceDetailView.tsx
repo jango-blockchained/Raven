@@ -118,7 +118,7 @@ const WorkspaceDetailContent = ({
                         {isDirty && <Badge variant="subtle">{_("Not Saved")}</Badge>}
                     </SettingsPanelTitle>
                 </SettingsPanelHeader>
-                <SettingsPanelContent className="min-h-0 gap-4">
+                <SettingsPanelContent className="min-h-0 gap-2">
                     {error && <ErrorBanner error={error} />}
                     <Tabs defaultValue="details">
                         <TabsList>

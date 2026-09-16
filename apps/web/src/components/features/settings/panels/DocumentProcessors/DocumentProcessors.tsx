@@ -104,7 +104,7 @@ const DocumentProcessors = () => {
                         {_("View your active document processors or select a processor type and create a new processor.")}
                     </SettingsPanelDescription>
                 </SettingsPanelHeader>
-                <SettingsPanelContent className="gap-4">
+                <SettingsPanelContent className="gap-2">
                     <Alert theme="amber">
                         <CircleAlertIcon />
                         <AlertDescription>{_("You need Raven Admin permissions to manage document processors.")}</AlertDescription>
@@ -135,7 +135,7 @@ const DocumentProcessors = () => {
                     {_("View your active document processors or select a processor type and create a new processor.")}
                 </SettingsPanelDescription>
             </SettingsPanelHeader>
-            <SettingsPanelContent className="min-h-0 gap-4">
+            <SettingsPanelContent className="min-h-0 gap-2">
                 <AINotEnabledCallout />
                 <GoogleAPINotEnabledCallout />
                 {isAIEnabled && hasGoogleApis && (

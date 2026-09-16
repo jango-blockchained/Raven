@@ -144,7 +144,7 @@ export const Channels = () => {
             {/* gap-6, and no pt nudge: the filter row sat 26px below the description but only
                 16px above the table, so it read as belonging to the table rather than sitting
                 between the two. 24px evens it against the header's own spacing. */}
-            <SettingsPanelContent className="min-h-0 gap-6">
+            <SettingsPanelContent className="min-h-0 gap-2">
                 <ChannelFilters filters={filters} setFilters={setFilters} workspaces={memberWorkspaces} />
                 <ListView
                     className="flex-1 min-h-0"

@@ -82,7 +82,7 @@ const WebhookListView = ({ onOpen, onCreate }: { onOpen: (id: string) => void; o
                     {_("Fire webhooks on specific events like when a message is sent or channel is created.")}
                 </SettingsPanelDescription>
             </SettingsPanelHeader>
-            <SettingsPanelContent className="min-h-0 gap-4">
+            <SettingsPanelContent className="min-h-0 gap-2">
                 {error && <ErrorBanner error={error} />}
                 {!data && !error && (
                     <div className="flex flex-1 items-center justify-center">

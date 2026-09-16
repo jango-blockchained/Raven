@@ -28,7 +28,7 @@ export const About = () => {
                 <SettingsPanelTitle>{_("About")}</SettingsPanelTitle>
                 <SettingsPanelDescription>{_("Raven version, links, and support.")}</SettingsPanelDescription>
             </SettingsPanelHeader>
-            <SettingsPanelContent className="gap-6">
+            <SettingsPanelContent className="min-h-0 gap-6">
                 {/* Have feedback / found a bug? */}
                 <div className="flex flex-col gap-2">
                     <p className="text-sm font-medium text-ink-gray-7">{_("Have ideas or ran into an issue?")}</p>

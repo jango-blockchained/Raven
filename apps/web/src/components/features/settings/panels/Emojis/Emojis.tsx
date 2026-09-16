@@ -168,7 +168,7 @@ export const Emojis = () => {
                     .
                 </SettingsPanelDescription>
             </SettingsPanelHeader>
-            <SettingsPanelContent className="min-h-0">
+            <SettingsPanelContent className="min-h-0 gap-2">
                 {error && <ErrorBanner error={error} />}
                 {!isLoading && (data?.length ?? 0) === 0 && pagination.totalCount === 0 ? (
                     <CustomEmojiEmptyState setOpen={setOpen} />

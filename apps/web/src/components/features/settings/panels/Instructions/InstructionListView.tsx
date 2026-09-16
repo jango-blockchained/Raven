@@ -67,7 +67,7 @@ const InstructionListView = ({ onOpen, onCreate }: { onOpen: (id: string) => voi
                 <SettingsPanelTitle>{_("Instruction Templates")}</SettingsPanelTitle>
                 <SettingsPanelDescription>{_("Save commonly used instructions as templates for your bots.")}</SettingsPanelDescription>
             </SettingsPanelHeader>
-            <SettingsPanelContent className="min-h-0 gap-4">
+            <SettingsPanelContent className="min-h-0 gap-2">
                 {error && <ErrorBanner error={error} />}
                 {!data && !error && (
                     <div className="flex flex-1 items-center justify-center">

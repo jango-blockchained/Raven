@@ -64,8 +64,8 @@ export const Users = () => {
                 <SettingsPanelTitle>{_("Users")}</SettingsPanelTitle>
                 <SettingsPanelDescription>{_("Manage users added to Raven.")}</SettingsPanelDescription>
             </SettingsPanelHeader>
-            <SettingsPanelContent className="min-h-0 gap-4">
-                <div className="relative mt-0.5">
+            <SettingsPanelContent className="min-h-0 gap-2">
+                <div className="relative">
                     <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-gray-4" aria-hidden="true" />
                     <Input
                         inputSize="sm"

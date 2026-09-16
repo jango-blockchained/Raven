@@ -71,7 +71,7 @@ export default function WorkspaceListView({ onOpenWorkspace }: { onOpenWorkspace
                     {_("Workspaces allow you to organize your channels and teams.")}
                 </SettingsPanelDescription>
             </SettingsPanelHeader>
-            <SettingsPanelContent className="min-h-0">
+            <SettingsPanelContent className="min-h-0 gap-2">
                 {error && <ErrorBanner error={error} />}
                 {isLoading && !error && (
                     <div className="flex flex-1 items-center justify-center">

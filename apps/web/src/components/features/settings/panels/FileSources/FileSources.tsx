@@ -141,7 +141,7 @@ export const FileSources = () => {
                 <SettingsPanelTitle>{_("File Sources")}</SettingsPanelTitle>
                 <SettingsPanelDescription>{_("Add files that can be used by AI Agents.")}</SettingsPanelDescription>
             </SettingsPanelHeader>
-            <SettingsPanelContent className="min-h-0 gap-4">
+            <SettingsPanelContent className="min-h-0 gap-2">
                 {error && <ErrorBanner error={error} />}
                 {!data && !error && (
                     <div className="flex flex-1 items-center justify-center">

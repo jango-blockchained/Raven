@@ -74,7 +74,7 @@ const MessageActionListView = ({ onOpen, onCreate }: { onOpen: (id: string) => v
                     {_("Use these to add custom actions - like creating an issue/task from a message.")}
                 </SettingsPanelDescription>
             </SettingsPanelHeader>
-            <SettingsPanelContent className="min-h-0 gap-4">
+            <SettingsPanelContent className="min-h-0 gap-2">
                 {error && <ErrorBanner error={error} />}
                 {!data && !error && (
                     <div className="flex flex-1 items-center justify-center">

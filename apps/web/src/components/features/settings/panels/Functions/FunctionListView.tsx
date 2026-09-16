@@ -82,7 +82,7 @@ const FunctionListView = ({ onOpen, onCreate }: { onOpen: (id: string) => void; 
                 <SettingsPanelTitle>{_("Functions")}</SettingsPanelTitle>
                 <SettingsPanelDescription>{_("Declare functions to be used by your AI bots.")}</SettingsPanelDescription>
             </SettingsPanelHeader>
-            <SettingsPanelContent className="min-h-0 gap-4">
+            <SettingsPanelContent className="min-h-0 gap-2">
                 {error && <ErrorBanner error={error} />}
                 {!data && !error && (
                     <div className="flex flex-1 items-center justify-center">

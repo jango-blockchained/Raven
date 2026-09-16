@@ -81,7 +81,7 @@ const DocumentNotificationListView = ({ onOpen, onCreate }: { onOpen: (id: strin
                     {_("Configure alerts to be sent to users or channels when documents are updated in the system.")}
                 </SettingsPanelDescription>
             </SettingsPanelHeader>
-            <SettingsPanelContent className="min-h-0 gap-4">
+            <SettingsPanelContent className="min-h-0 gap-2">
                 {error && <ErrorBanner error={error} />}
                 {!data && !error && (
                     <div className="flex flex-1 items-center justify-center">
