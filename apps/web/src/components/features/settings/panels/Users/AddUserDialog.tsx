@@ -1,4 +1,4 @@
-import { useState, useContext, useMemo } from "react"
+import { useState, useContext } from "react"
 import { useController, useForm } from "react-hook-form"
 import { FrappeConfig, FrappeContext, useFrappePostCall } from "frappe-react-sdk"
 import { toast } from "sonner"
@@ -32,8 +32,8 @@ import { usersStore } from "@stores/usersStore"
 import { useUserCookieData } from "@hooks/useUserCookieData"
 import _ from "@lib/translate"
 import { useWorkspaces } from "@hooks/useWorkspaces"
-import { useChannels } from "@stores/channels/useChannelList"
 import WorkspaceAccessPicker from "./WorkspaceAccessPicker"
+import useChannelsByWorkspace from "./useChannelsByWorkspace"
 
 interface UserFormFields {
     email: string
@@ -76,17 +76,7 @@ const UserForm = ({ onClose }: { onClose: VoidFunction }) => {
         defaultValues: { workspaces: workspaces.length === 1 ? [workspaces[0].name] : [], channels: [] },
     })
 
-    // Channels the admin can add people to, grouped by workspace: ones they are in,
-    // skipping DMs, archived channels and Open channels (every workspace member is already in those).
-    const { channels } = useChannels()
-    const channelsByWorkspace = useMemo(() => {
-        const map = new Map<string, typeof channels>()
-        for (const c of channels) {
-            if (c.is_direct_message || c.is_archived || c.type === "Open" || !c.workspace) continue
-            map.set(c.workspace, [...(map.get(c.workspace) ?? []), c])
-        }
-        return map
-    }, [channels])
+    const channelsByWorkspace = useChannelsByWorkspace()
 
     // The picker owns both fields; workspaces go through FormField below, channels through this controller.
     const channelsField = useController({ control: form.control, name: "channels" })

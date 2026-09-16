@@ -6,6 +6,7 @@ from frappe.utils.caching import redis_cache
 
 from raven.api.raven_channel_member import add_channel_members
 from raven.api.workspaces import add_workspace_members
+from raven.api.workspaces import get_list as get_workspace_list
 
 
 @frappe.whitelist(methods=["GET"])
@@ -251,3 +252,87 @@ def get_employee_details(user: str):
 		)
 
 	return None
+
+
+def _as_list(value) -> list:
+	"""Whitelisted list args arrive as JSON strings from form posts."""
+	if isinstance(value, str):
+		value = json.loads(value)
+	return value or []
+
+
+def _visible_to_caller() -> tuple[set[str], set[str]]:
+	"""
+	Workspaces and channels the calling admin can see, using the same list
+	endpoints the app itself uses for the caller.
+	"""
+	# Imported here: raven_channel imports from this module, so a top-level import would be circular.
+	from raven.api.raven_channel import get_all_channels
+
+	workspaces = {w["name"] for w in get_workspace_list()}
+	channels = {c["name"] for c in get_all_channels()["channels"]}
+	return workspaces, channels
+
+
+def _access_within(user: str, visible_workspaces: set[str], visible_channels: set[str]) -> dict:
+	"""Which of the given workspaces and channels the user is a member of."""
+	member_of_workspaces = set(frappe.get_all("Raven Workspace Member", {"user": user}, pluck="workspace"))
+	member_of_channels = set(frappe.get_all("Raven Channel Member", {"user_id": user}, pluck="channel_id"))
+	return {
+		"workspaces": sorted(visible_workspaces & member_of_workspaces),
+		"channels": sorted(visible_channels & member_of_channels),
+	}
+
+
+@frappe.whitelist(methods=["GET"])
+def get_user_access(user: str):
+	"""
+	Which of the caller's visible workspaces and channels the user is a member of.
+	Feeds the Manage Access dialog.
+	"""
+	frappe.only_for(("System Manager", "Raven Admin"))
+	return _access_within(user, *_visible_to_caller())
+
+
+@frappe.whitelist(methods=["POST"])
+def update_user_access(
+	user: str,
+	add_workspaces: list[str] | str | None = None,
+	remove_workspaces: list[str] | str | None = None,
+	add_channels: list[str] | str | None = None,
+	remove_channels: list[str] | str | None = None,
+):
+	"""
+	Applies a membership diff for one user. The client sends only what changed.
+	All workspace changes run before any channel change, so channel membership is
+	always checked against the final workspace membership. Adding someone to a
+	channel in a workspace they were just removed from is refused, not slipped in.
+	"""
+	frappe.only_for(("System Manager", "Raven Admin"))
+
+	for workspace in _as_list(add_workspaces):
+		add_workspace_members(workspace, [user])
+
+	for workspace in _as_list(remove_workspaces):
+		frappe.has_permission("Raven Workspace", doc=workspace, ptype="write", throw=True)
+		member_id = frappe.db.exists("Raven Workspace Member", {"workspace": workspace, "user": user})
+		if member_id:
+			# on_trash removes the user's channel memberships in this workspace too.
+			frappe.delete_doc("Raven Workspace Member", member_id, ignore_permissions=True)
+
+	for channel in _as_list(add_channels):
+		add_channel_members(channel, [user])
+
+	# Computed once: it gates the removals below and shapes the response.
+	visible_workspaces, visible_channels = _visible_to_caller()
+	for channel in _as_list(remove_channels):
+		# The caller can only remove people from channels they are in themselves.
+		if channel not in visible_channels:
+			frappe.throw(_("You are not a member of this channel."), frappe.PermissionError)
+		member_id = frappe.db.exists("Raven Channel Member", {"channel_id": channel, "user_id": user})
+		if member_id:
+			# Channel member delete permission is limited to channel admins. The role
+			# and membership checks above are the authority here, so skip the per-doc check.
+			frappe.delete_doc("Raven Channel Member", member_id, ignore_permissions=True)
+
+	return _access_within(user, visible_workspaces, visible_channels)

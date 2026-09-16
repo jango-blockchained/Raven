@@ -53,6 +53,9 @@ export const WorkspaceAccessPicker = ({
         <div className="flex flex-col gap-0.5 -mx-2">
             {workspaces.map((workspace) => {
                 const checked = selectedWorkspaces.includes(workspace.name)
+                // Only workspace admins can add or remove members. Others still see the
+                // membership and, when the user is in the workspace, can manage its channels.
+                const canEditMembership = Boolean(workspace.is_admin)
                 const channels = channelsByWorkspace.get(workspace.name) ?? []
                 const pickedCount = channels.filter((c) => selectedChannels.includes(c.name)).length
                 const isOpen = checked && expanded.includes(workspace.name)
@@ -63,7 +66,7 @@ export const WorkspaceAccessPicker = ({
                             <label className="relative flex h-full min-w-0 flex-1 cursor-pointer items-center gap-2 has-[:disabled]:cursor-not-allowed">
                                 <Checkbox
                                     checked={checked}
-                                    disabled={disabled}
+                                    disabled={disabled || !canEditMembership}
                                     onCheckedChange={(v) => toggleWorkspace(workspace.name, v === true)}
                                 />
                                 <Avatar className="h-5 w-5 shrink-0 rounded-sm">
