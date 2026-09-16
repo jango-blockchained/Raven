@@ -323,16 +323,10 @@ def update_user_access(
 	for channel in _as_list(add_channels):
 		add_channel_members(channel, [user])
 
-	# Computed once: it gates the removals below and shapes the response.
-	visible_workspaces, visible_channels = _visible_to_caller()
 	for channel in _as_list(remove_channels):
-		# The caller can only remove people from channels they are in themselves.
-		if channel not in visible_channels:
-			frappe.throw(_("You are not a member of this channel."), frappe.PermissionError)
 		member_id = frappe.db.exists("Raven Channel Member", {"channel_id": channel, "user_id": user})
 		if member_id:
-			# Channel member delete permission is limited to channel admins. The role
-			# and membership checks above are the authority here, so skip the per-doc check.
-			frappe.delete_doc("Raven Channel Member", member_id, ignore_permissions=True)
+			# Normal delete permission applies: only admins of that channel may remove a member.
+			frappe.delete_doc("Raven Channel Member", member_id)
 
-	return _access_within(user, visible_workspaces, visible_channels)
+	return _access_within(user, *_visible_to_caller())

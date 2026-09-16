@@ -19,6 +19,8 @@ type Props = {
     onWorkspacesChange: (value: string[]) => void
     selectedChannels: string[]
     onChannelsChange: (value: string[]) => void
+    /** Channels the user is in that the caller cannot remove them from (not a channel admin). Shown ticked and locked. */
+    lockedChannels?: Set<string>
     disabled?: boolean
 }
 
@@ -30,7 +32,7 @@ const SEARCH_THRESHOLD = 8
  * show its channels, so channel picks stay next to the workspace they belong to.
  */
 export const WorkspaceAccessPicker = ({
-    workspaces, channelsByWorkspace, selectedWorkspaces, onWorkspacesChange, selectedChannels, onChannelsChange, disabled,
+    workspaces, channelsByWorkspace, selectedWorkspaces, onWorkspacesChange, selectedChannels, onChannelsChange, lockedChannels, disabled,
 }: Props) => {
     const [expanded, setExpanded] = useState<string[]>([])
 
@@ -112,6 +114,7 @@ export const WorkspaceAccessPicker = ({
                                 channels={channels}
                                 selected={selectedChannels}
                                 onChange={onChannelsChange}
+                                locked={lockedChannels}
                                 disabled={disabled}
                             />
                         )}
@@ -124,8 +127,8 @@ export const WorkspaceAccessPicker = ({
 
 /** One workspace's channels: an optional search box over a clamped checkbox list. */
 const ChannelList = ({
-    channels, selected, onChange, disabled,
-}: { channels: ChannelListItem[]; selected: string[]; onChange: (v: string[]) => void; disabled?: boolean }) => {
+    channels, selected, onChange, locked, disabled,
+}: { channels: ChannelListItem[]; selected: string[]; onChange: (v: string[]) => void; locked?: Set<string>; disabled?: boolean }) => {
     const [search, setSearch] = useState("")
     const query = useDeferredValue(search.trim().toLowerCase())
     const visible = useMemo(
@@ -161,20 +164,30 @@ const ChannelList = ({
                 {visible.length === 0 && (
                     <p className="px-2 py-1.5 text-p-sm text-ink-gray-5">{_("No channels match your search.")}</p>
                 )}
-                {visible.map((channel) => (
-                    <label
-                        key={channel.name}
-                        className="relative flex cursor-pointer items-center gap-2 rounded px-2.5 py-1.5 hover:bg-surface-gray-2 has-[:disabled]:cursor-not-allowed"
-                    >
-                        <Checkbox
-                            checked={selected.includes(channel.name)}
-                            disabled={disabled}
-                            onCheckedChange={(v) => toggle(channel.name, v === true)}
-                        />
-                        <ChannelIcon type={channel.type} className="size-4 shrink-0 text-ink-gray-6" />
-                        <span className="truncate text-sm leading-snug text-ink-gray-8">{channel.channel_name}</span>
-                    </label>
-                ))}
+                {visible.map((channel) => {
+                    const isLocked = locked?.has(channel.name) ?? false
+                    const row = (
+                        <label className="relative flex cursor-pointer items-center gap-2 rounded px-2.5 py-1.5 hover:bg-surface-gray-2 has-[:disabled]:cursor-not-allowed">
+                            <Checkbox
+                                checked={selected.includes(channel.name)}
+                                disabled={disabled || isLocked}
+                                onCheckedChange={(v) => toggle(channel.name, v === true)}
+                            />
+                            <ChannelIcon type={channel.type} className="size-4 shrink-0 text-ink-gray-6" />
+                            <span className="truncate text-sm leading-snug text-ink-gray-8">{channel.channel_name}</span>
+                        </label>
+                    )
+                    if (!isLocked) return <div key={channel.name}>{row}</div>
+                    // The disabled checkbox swallows pointer events, so the label carries the tooltip.
+                    return (
+                        <Tooltip key={channel.name}>
+                            <TooltipTrigger asChild>{row}</TooltipTrigger>
+                            <TooltipContent>
+                                {_("You are not an admin of this channel, so you cannot remove its members.")}
+                            </TooltipContent>
+                        </Tooltip>
+                    )
+                })}
             </div>
         </div>
     )

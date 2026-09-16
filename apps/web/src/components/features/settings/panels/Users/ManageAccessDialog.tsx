@@ -64,6 +64,12 @@ const AccessEditor = ({
     )
     const initialChannels = useMemo(() => initial.channels.filter((c) => manageable.has(c)), [initial.channels, manageable])
 
+    // Removing someone from a channel needs channel-admin rights. Lock the ones the caller cannot change.
+    const lockedChannels = useMemo(() => {
+        const adminOf = new Set([...channelsByWorkspace.values()].flat().filter((c) => c.is_admin).map((c) => c.name))
+        return new Set(initialChannels.filter((c) => !adminOf.has(c)))
+    }, [channelsByWorkspace, initialChannels])
+
     const [selectedWorkspaces, setSelectedWorkspaces] = useState<string[]>(initial.workspaces)
     const [selectedChannels, setSelectedChannels] = useState<string[]>(initialChannels)
 
@@ -98,6 +104,7 @@ const AccessEditor = ({
                     onWorkspacesChange={setSelectedWorkspaces}
                     selectedChannels={selectedChannels}
                     onChannelsChange={setSelectedChannels}
+                    lockedChannels={lockedChannels}
                     disabled={loading}
                 />
             </DialogBody>
