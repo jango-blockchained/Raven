@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@components/ui/avatar"
 import { Checkbox } from "@components/ui/checkbox"
 import { Input } from "@components/ui/input"
 import { InputGroup, InputGroupAddon } from "@components/ui/input-group"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@components/ui/tooltip"
 import { ChannelIcon } from "@components/common/ChannelIcon/ChannelIcon"
 import type { WorkspaceFields } from "@hooks/useWorkspaces"
 import type { ChannelListItem } from "@raven/types/common/ChannelListItem"
@@ -59,24 +60,35 @@ export const WorkspaceAccessPicker = ({
                 const channels = channelsByWorkspace.get(workspace.name) ?? []
                 const pickedCount = channels.filter((c) => selectedChannels.includes(c.name)).length
                 const isOpen = checked && expanded.includes(workspace.name)
+                const row = (
+                    <label className="relative flex h-full min-w-0 flex-1 cursor-pointer items-center gap-2 has-[:disabled]:cursor-not-allowed">
+                        <Checkbox
+                            checked={checked}
+                            disabled={disabled || !canEditMembership}
+                            onCheckedChange={(v) => toggleWorkspace(workspace.name, v === true)}
+                        />
+                        <Avatar className="h-5 w-5 shrink-0 rounded-sm">
+                            <AvatarImage src={workspace.logo} alt={workspace.workspace_name} />
+                            <AvatarFallback className="rounded-sm text-xs bg-surface-gray-2 text-ink-gray-7">
+                                {workspace.workspace_name?.charAt(0)?.toUpperCase()}
+                            </AvatarFallback>
+                        </Avatar>
+                        <span className="truncate text-base text-ink-gray-8">{workspace.workspace_name}</span>
+                    </label>
+                )
                 return (
                     <div key={workspace.name}>
                         {/* Fixed height so the channels toggle appearing never shifts the row. */}
                         <div className="flex h-9 items-center gap-2 rounded px-2 hover:bg-surface-gray-2">
-                            <label className="relative flex h-full min-w-0 flex-1 cursor-pointer items-center gap-2 has-[:disabled]:cursor-not-allowed">
-                                <Checkbox
-                                    checked={checked}
-                                    disabled={disabled || !canEditMembership}
-                                    onCheckedChange={(v) => toggleWorkspace(workspace.name, v === true)}
-                                />
-                                <Avatar className="h-5 w-5 shrink-0 rounded-sm">
-                                    <AvatarImage src={workspace.logo} alt={workspace.workspace_name} />
-                                    <AvatarFallback className="rounded-sm text-xs bg-surface-gray-2 text-ink-gray-7">
-                                        {workspace.workspace_name?.charAt(0)?.toUpperCase()}
-                                    </AvatarFallback>
-                                </Avatar>
-                                <span className="truncate text-base text-ink-gray-8">{workspace.workspace_name}</span>
-                            </label>
+                            {canEditMembership ? row : (
+                                // The disabled checkbox swallows pointer events, so the label carries the tooltip.
+                                <Tooltip>
+                                    <TooltipTrigger asChild>{row}</TooltipTrigger>
+                                    <TooltipContent>
+                                        {_("You are not an admin of this workspace, so you cannot manage it's members.")}
+                                    </TooltipContent>
+                                </Tooltip>
+                            )}
                             {checked && channels.length > 0 && (
                                 // Plain text toggle: no background of its own, so the row hover stays one colour.
                                 <button
