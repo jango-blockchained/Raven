@@ -23,6 +23,7 @@ export type RecordMenuContext<T extends FieldValues> = {
      * Saves a partial update right away, then refreshes the form's defaults from the saved
      * doc (new values, new `modified` stamp) while keeping the user's unsaved edits. A later
      * Save then neither undoes this change nor trips Frappe's timestamp check.
+     * A failed update is shown in the editor's error banner and never rejects.
      */
     update: (values: Partial<T>, successMessage: string) => Promise<void>
 }
@@ -150,13 +151,15 @@ const DetailContent = <T extends FieldValues>({
     useSaveHotkey(() => { if (!loading) handleSubmit(onSubmit)() })
 
     // See RecordMenuContext.update.
-    const update = async (values: Partial<T>, successMessage: string) => {
-        const doc = await updateDoc(doctype, id, values)
-        toast.success(successMessage, { id: SAVE_TOAST_ID })
-        methods.reset({ ...createDefaults, ...doc } as T, { keepDirtyValues: true })
-        mutate(doc, { revalidate: false })
-        await globalMutate((key) => typeof key === "string" && key.startsWith(listKey))
-    }
+    const update = (values: Partial<T>, successMessage: string) =>
+        updateDoc(doctype, id, values)
+            .then(async (doc) => {
+                toast.success(successMessage, { id: SAVE_TOAST_ID })
+                methods.reset({ ...createDefaults, ...doc } as T, { keepDirtyValues: true })
+                mutate(doc, { revalidate: false })
+                await globalMutate((key) => typeof key === "string" && key.startsWith(listKey))
+            })
+            .catch(() => { /* surfaced by the error banner */ })
 
     return (
         <Form {...methods}>
