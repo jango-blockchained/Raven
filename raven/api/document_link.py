@@ -89,6 +89,8 @@ def get_preview_data(doctype: str, docname: str | int):
 
 @frappe.whitelist(methods=["POST"])
 def update_preview_fields(doctype: str, fields: list[str]):
+	# Writes property setters, which change the doctype for the whole site.
+	frappe.only_for("System Manager")
 
 	meta = frappe.get_meta(doctype)
 
