@@ -9,7 +9,8 @@ import { errorResponseToast } from "@components/ui/error-banner"
 import { DataField } from "@components/ui/form-elements"
 import { useRavenSettings } from "@hooks/fetchers/useRavenSettings"
 import type { RavenSettings } from "@raven/types/Raven/RavenSettings"
-import { AdminSettingsForm, isRavenSettingsAdmin } from "./AdminSettingsForm"
+import { AdminSettingsForm } from "./AdminSettingsForm"
+import { hasRole } from "@lib/permissions"
 import _ from "@lib/translate"
 
 const FORM_ID = "settings-notifications-form"
@@ -124,14 +125,16 @@ const PushNotificationFields = () => {
  */
 const ServiceActions = () => {
     const { ravenSettings, mutate } = useRavenSettings()
-    const isAdmin = isRavenSettingsAdmin()
+    // Each endpoint checks a different role, so each button is gated by exactly that role.
+    const canRegister = hasRole("System Manager")
+    const canSync = hasRole("Raven Admin")
     const savedRavenCloud = ravenSettings?.push_notification_service === "Raven" && Boolean(ravenSettings?.push_notification_server_url)
 
     if (!savedRavenCloud) return null
     return (
         <div className="flex flex-wrap gap-2">
-            <RegisterSiteButton registered={Boolean(ravenSettings?.vapid_public_key)} disabled={!isAdmin} onDone={() => mutate()} />
-            {ravenSettings?.vapid_public_key && <SyncDataButton disabled={!isAdmin} />}
+            <RegisterSiteButton registered={Boolean(ravenSettings?.vapid_public_key)} disabled={!canRegister} onDone={() => mutate()} />
+            {ravenSettings?.vapid_public_key && <SyncDataButton disabled={!canSync} />}
         </div>
     )
 }
