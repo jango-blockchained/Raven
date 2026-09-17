@@ -276,8 +276,12 @@ def _visible_to_caller() -> tuple[set[str], set[str]]:
 
 def _access_within(user: str, visible_workspaces: set[str], visible_channels: set[str]) -> dict:
 	"""Which of the given workspaces and channels the user is a member of."""
-	member_of_workspaces = set(frappe.get_all("Raven Workspace Member", {"user": user}, pluck="workspace"))
-	member_of_channels = set(frappe.get_all("Raven Channel Member", {"user_id": user}, pluck="channel_id"))
+	member_of_workspaces = set(
+		frappe.get_all("Raven Workspace Member", {"user": user}, pluck="workspace")
+	)
+	member_of_channels = set(
+		frappe.get_all("Raven Channel Member", {"user_id": user}, pluck="channel_id")
+	)
 	return {
 		"workspaces": sorted(visible_workspaces & member_of_workspaces),
 		"channels": sorted(visible_channels & member_of_channels),
