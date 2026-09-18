@@ -19,10 +19,13 @@ def send_due_reminders():
 		limit_page_length=REMINDER_BATCH_SIZE,
 	)
 
+	# One transaction per reminder, on purpose. Each row is independent work: a commit
+	# after each releases its row lock and keeps the rest of the batch out of a single
+	# failure. Frappe's own daily notification sweep commits per document the same way.
 	for name in due:
 		try:
 			frappe.get_doc("Raven Reminder", name).send_reminder()
-			frappe.db.commit()
+			frappe.db.commit()  # nosemgrep
 		except Exception:
 			frappe.db.rollback()
 			frappe.log_error(title=f"Failed to send Raven reminder {name}", message=frappe.get_traceback())
