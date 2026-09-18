@@ -4268,6 +4268,11 @@ core-js-compat@^3.48.0:
   dependencies:
     browserslist "^4.28.1"
 
+cronstrue@^3.27.0:
+  version "3.27.0"
+  resolved "https://registry.yarnpkg.com/cronstrue/-/cronstrue-3.27.0.tgz#ceb0ee5c066ce70bd4c20b2d983c19b86d4e9b94"
+  integrity sha512-AKhV4ilvx73NmicrZCGASdszUIf2ew0A/6jQQTh4pu3lIUzgWOGjT3Gv3CGIcTQ/p8Qy/tZuCmlaOftj8PXaNg==
+
 cross-spawn@^7.0.6:
   version "7.0.6"
   resolved "https://registry.yarnpkg.com/cross-spawn/-/cross-spawn-7.0.6.tgz#8a58fe78f00dcd70c370451759dfbfaf03e8ee9f"

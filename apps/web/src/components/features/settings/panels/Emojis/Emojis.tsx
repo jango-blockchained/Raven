@@ -3,8 +3,11 @@ import { ListView, type ListViewColumnMeta, type SortingState } from '@component
 import type { ColumnDef } from '@tanstack/react-table'
 import { TablePagination } from '@components/ui/table-pagination'
 import { useFetchCustomEmojis } from '@hooks/fetchers/useFetchCustomEmojis'
-import usePaginatedList from '@hooks/usePaginatedList'
+import usePaginatedList, { type ListQuery } from '@hooks/usePaginatedList'
+import useCreateHotkey from '@hooks/useCreateHotkey'
 import { useSWRConfig } from 'frappe-react-sdk'
+import { useDebounceValue } from 'usehooks-ts'
+import { Input } from '@components/ui/input'
 import {
     SettingsPanelContent,
     SettingsPanelDescription,
@@ -17,7 +20,7 @@ import { Spinner } from '@components/ui/spinner'
 import { RavenCustomEmoji } from '@raven/types/RavenMessaging/RavenCustomEmoji'
 import { getDateObject } from '@lib/date'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@components/ui/empty'
-import { SmilePlus } from 'lucide-react'
+import { SearchIcon, SmilePlus } from 'lucide-react'
 import _ from '@lib/translate'
 import AddCustomEmojiDialog from './AddEmojiDialog'
 import DeleteEmojiDialog from './DeleteEmojiDialog'
@@ -52,7 +55,19 @@ export const Emojis = () => {
 
     const [sorting, setSorting] = useState<SortingState>([])
     const [open, setOpen] = useState(false)
-    const pagination = usePaginatedList("custom-emojis-settings", "Raven Custom Emoji", true)
+    useCreateHotkey(() => setOpen(true))
+
+    // Search runs on the server since the list is paginated there. Debounced so typing
+    // does not fire a request per keystroke.
+    const [search, setSearch] = useState("")
+    const [debouncedSearch] = useDebounceValue(search.trim(), 300)
+    // Match on the name or the keywords. The same query feeds the list and its count.
+    const query = useMemo<ListQuery<RavenCustomEmoji> | undefined>(() => {
+        if (!debouncedSearch) return undefined
+        const like = `%${debouncedSearch}%`
+        return { orFilters: [["emoji_name", "like", like], ["keywords", "like", like]] }
+    }, [debouncedSearch])
+    const pagination = usePaginatedList("custom-emojis-settings", "Raven Custom Emoji", true, query)
 
     // The server fetch takes a single {field, order}; ListView holds TanStack sorting.
     const fetchSort = useMemo(() => {
@@ -63,7 +78,8 @@ export const Emojis = () => {
     // Fetch data with current page settings (SDK auto-key: sort + page are both in the params)
     const { data, isLoading, error, mutate } = useFetchCustomEmojis(
         fetchSort,
-        { pageIndex: pagination.pageIndex, pageSize: pagination.pageSize, totalCount: 0 }
+        { pageIndex: pagination.pageIndex, pageSize: pagination.pageSize, totalCount: 0 },
+        query,
     )
 
     const onAddEmoji = (refresh: boolean = false) => {
@@ -168,12 +184,29 @@ export const Emojis = () => {
                     .
                 </SettingsPanelDescription>
             </SettingsPanelHeader>
-            <SettingsPanelContent className="min-h-0">
+            <SettingsPanelContent className="min-h-0 gap-4">
                 {error && <ErrorBanner error={error} />}
-                {!isLoading && (data?.length ?? 0) === 0 && pagination.totalCount === 0 ? (
+                {/* No emojis at all (not just no matches): show the getting-started state. */}
+                {!debouncedSearch && !isLoading && (data?.length ?? 0) === 0 && pagination.totalCount === 0 ? (
                     <CustomEmojiEmptyState setOpen={setOpen} />
                 ) : (
                     <>
+                        <div className="relative">
+                            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-gray-4" aria-hidden="true" />
+                            <Input
+                                inputSize="sm"
+                                type="search"
+                                className="pl-9"
+                                placeholder={_("Search emojis")}
+                                aria-label={_("Search emojis")}
+                                value={search}
+                                onChange={(e) => {
+                                    setSearch(e.target.value)
+                                    // A new search re-orders the whole set. Start from the first page.
+                                    pagination.onPageChange(0)
+                                }}
+                            />
+                        </div>
                         {!data ? (
                             <div className="flex flex-1 items-center justify-center">
                                 <Spinner />

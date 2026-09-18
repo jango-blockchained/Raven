@@ -24,6 +24,7 @@ import {
 import { Spinner } from "@components/ui/spinner"
 import { TablePagination } from "@components/ui/table-pagination"
 import usePaginatedList from "@hooks/usePaginatedList"
+import useCreateHotkey from "@hooks/useCreateHotkey"
 import { FileIcon, Trash2Icon } from "lucide-react"
 import { isRavenSettingsAdmin } from "../AdminSettingsForm"
 import { getTimePassed } from "@raven/lib/utils/dateConversions"
@@ -39,6 +40,8 @@ export const FileSources = () => {
     const { mutate: globalMutate } = useSWRConfig()
     const isAdmin = isRavenSettingsAdmin()
     const pagination = usePaginatedList(FILE_SOURCES_KEY, "Raven AI File Source", isAdmin)
+    const [uploadOpen, setUploadOpen] = useState(false)
+    useCreateHotkey(() => setUploadOpen(true), isAdmin)
 
     const { data, error } = useFrappeGetDocList<RavenAIFileSource>(
         "Raven AI File Source",
@@ -135,13 +138,13 @@ export const FileSources = () => {
         <>
             <SettingsPanelHeader
                 actions={
-                    isAdmin ? <FileSourceUploadDialog onUpload={refresh} /> : null
+                    isAdmin ? <FileSourceUploadDialog onUpload={refresh} open={uploadOpen} onOpenChange={setUploadOpen} /> : null
                 }
             >
                 <SettingsPanelTitle>{_("File Sources")}</SettingsPanelTitle>
                 <SettingsPanelDescription>{_("Add files that can be used by AI Agents.")}</SettingsPanelDescription>
             </SettingsPanelHeader>
-            <SettingsPanelContent className="min-h-0 gap-4">
+            <SettingsPanelContent className="min-h-0 gap-2">
                 {error && <ErrorBanner error={error} />}
                 {!data && !error && (
                     <div className="flex flex-1 items-center justify-center">
@@ -213,9 +216,8 @@ export const FileSources = () => {
                     {deleteError && <ErrorBanner error={deleteError} />}
                     <AlertDialogFooter>
                         <AlertDialogCancel disabled={deleteLoading}>{_("Cancel")}</AlertDialogCancel>
-                        <Button variant="solid" theme="red" disabled={deleteLoading} onClick={onDelete}>
-                            {deleteLoading && <Spinner />}
-                            {deleteLoading ? _("Deleting...") : _("Delete")}
+                        <Button variant="solid" theme="red" size="md" loading={deleteLoading} onClick={onDelete} loadingText={_("Deleting")}>
+                            {_("Delete")}
                         </Button>
                     </AlertDialogFooter>
                 </AlertDialogContent>

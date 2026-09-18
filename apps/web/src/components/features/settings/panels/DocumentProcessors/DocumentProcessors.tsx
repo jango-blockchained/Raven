@@ -1,4 +1,5 @@
 import { useState } from "react"
+import useCreateHotkey from "@hooks/useCreateHotkey"
 import { useFrappeGetCall, useFrappePostCall } from "frappe-react-sdk"
 import { toast } from "sonner"
 import { CircleAlertIcon, PlusIcon, Trash2Icon } from "lucide-react"
@@ -13,7 +14,6 @@ import {
     SettingsPanelContent, SettingsPanelDescription, SettingsPanelHeader, SettingsPanelTitle,
 } from "@components/ui/settings-dialog"
 import { Skeleton } from "@components/ui/skeleton"
-import { Spinner } from "@components/ui/spinner"
 import { isRavenSettingsAdmin } from "../AdminSettingsForm"
 import { useRavenSettings } from "@hooks/fetchers/useRavenSettings"
 import AINotEnabledCallout from "../ai/AINotEnabledCallout"
@@ -70,6 +70,7 @@ const DocumentProcessors = () => {
     const isAIEnabled = ravenSettings?.enable_ai_integration === 1
     const hasGoogleApis = ravenSettings?.enable_google_apis === 1
 
+
     const handleCreateProcessor = () => {
         if (!selectedProcessorType || !isAdmin) return
 
@@ -85,6 +86,8 @@ const DocumentProcessors = () => {
                 toast.error(_("Failed to create processor"), { description: error.message }),
             )
     }
+
+    useCreateHotkey(handleCreateProcessor, Boolean(selectedProcessorType && isAdmin))
 
     const handleDeleteProcessor = (processorId: string, processorName: string) =>
         deleteProcessor({ processor_id: processorId }).then(() => {
@@ -105,7 +108,7 @@ const DocumentProcessors = () => {
                         {_("View your active document processors or select a processor type and create a new processor.")}
                     </SettingsPanelDescription>
                 </SettingsPanelHeader>
-                <SettingsPanelContent className="gap-4">
+                <SettingsPanelContent className="gap-2">
                     <Alert theme="amber">
                         <CircleAlertIcon />
                         <AlertDescription>{_("You need Raven Admin permissions to manage document processors.")}</AlertDescription>
@@ -122,9 +125,11 @@ const DocumentProcessors = () => {
                     <Button
                         size="sm"
                         onClick={handleCreateProcessor}
-                        disabled={!selectedProcessorType || creating}
+                        disabled={!selectedProcessorType}
+                        loading={creating}
+                        loadingText={_("Creating")}
                     >
-                        {creating ? <Spinner /> : <PlusIcon />}
+                        <PlusIcon />
                         {_("Create Processor")}
                     </Button>
                 }
@@ -134,7 +139,7 @@ const DocumentProcessors = () => {
                     {_("View your active document processors or select a processor type and create a new processor.")}
                 </SettingsPanelDescription>
             </SettingsPanelHeader>
-            <SettingsPanelContent className="min-h-0 gap-4">
+            <SettingsPanelContent className="min-h-0 gap-2">
                 <AINotEnabledCallout />
                 <GoogleAPINotEnabledCallout />
                 {isAIEnabled && hasGoogleApis && (
@@ -252,7 +257,9 @@ const ExistingProcessorsList = ({
                                 <Button
                                     variant="solid"
                                     theme="red"
-                                    disabled={isDeleting}
+                                    size="md"
+                                    loading={isDeleting}
+                                    loadingText={_("Deleting")}
                                     onClick={() => {
                                         if (!processorToDelete) return
                                         onDeleteProcessor(processorToDelete.id, processorToDelete.display_name).then(
@@ -260,7 +267,6 @@ const ExistingProcessorsList = ({
                                         )
                                     }}
                                 >
-                                    {isDeleting && <Spinner />}
                                     {_("Delete Processor")}
                                 </Button>
                             </AlertDialogFooter>

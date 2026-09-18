@@ -15,6 +15,7 @@ import {
 import { Spinner } from "@components/ui/spinner"
 import { TablePagination } from "@components/ui/table-pagination"
 import usePaginatedList from "@hooks/usePaginatedList"
+import useCreateHotkey from "@hooks/useCreateHotkey"
 import { FileTextIcon, SparklesIcon } from "lucide-react"
 import { isRavenSettingsAdmin } from "../AdminSettingsForm"
 import type { RavenBotInstructionTemplate } from "@raven/types/RavenAI/RavenBotInstructionTemplate"
@@ -27,6 +28,7 @@ export const INSTRUCTIONS_LIST_KEY = "raven-instruction-templates"
 const InstructionListView = ({ onOpen, onCreate }: { onOpen: (id: string) => void; onCreate: () => void }) => {
     const isAdmin = isRavenSettingsAdmin()
     const pagination = usePaginatedList(INSTRUCTIONS_LIST_KEY, "Raven Bot Instruction Template", isAdmin)
+    useCreateHotkey(onCreate, isAdmin)
 
     const { data, error } = useFrappeGetDocList<RavenBotInstructionTemplate>(
         "Raven Bot Instruction Template",
@@ -67,7 +69,7 @@ const InstructionListView = ({ onOpen, onCreate }: { onOpen: (id: string) => voi
                 <SettingsPanelTitle>{_("Instruction Templates")}</SettingsPanelTitle>
                 <SettingsPanelDescription>{_("Save commonly used instructions as templates for your bots.")}</SettingsPanelDescription>
             </SettingsPanelHeader>
-            <SettingsPanelContent className="min-h-0 gap-4">
+            <SettingsPanelContent className="min-h-0 gap-2">
                 {error && <ErrorBanner error={error} />}
                 {!data && !error && (
                     <div className="flex flex-1 items-center justify-center">

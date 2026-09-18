@@ -15,6 +15,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { FilterComboboxItem, FILTER_ITEM_STYLES, FILTER_TRIGGER_STYLES, PAGE_GUTTER } from "@components/common/filters/FilterCombobox";
 import { useIsMobile } from "@hooks/use-mobile";
 import { useNoDragWhileScrolled } from "@hooks/useNoDragWhileScrolled";
+import { useResetScrollOnSearch } from "@hooks/useResetScrollOnSearch";
 import _ from "@lib/translate";
 import ErrorBanner from "@components/ui/error-banner";
 import { Skeleton } from "@components/ui/skeleton";
@@ -123,6 +124,8 @@ export interface LinkFieldComboboxProps {
     readOnly?: boolean;
     /** Should the field be disabled. Default: false */
     disabled?: boolean;
+    /** Hide the "Create New" row, for doctypes that are created elsewhere in Raven rather than on desk. */
+    hideCreate?: boolean;
     /**
     * Function to filter the options based on the input value/other criteria.
     *
@@ -154,6 +157,7 @@ const LinkFieldCombobox = ({
     onChange,
     readOnly,
     disabled,
+    hideCreate = false,
     filterFn,
     suggestedItems,
     placeholder = _("Select {0}", [doctype]),
@@ -182,6 +186,9 @@ const LinkFieldCombobox = ({
     const isMobile = useIsMobile()
 
     const [searchInput, setSearchInput] = useDebounceValue('', 400)
+    // The list does its own filtering (shouldFilter={false}), so cmdk does not reset the
+    // scroll when results change. Keyed on the debounced term: that is when the list swaps.
+    const listRef = useResetScrollOnSearch(searchInput)
 
     const { data: linkTitleData } = useFrappeGetCall('frappe.client.get_value', {
         doctype,
@@ -357,7 +364,7 @@ const LinkFieldCombobox = ({
                     onValueChange={setSearchInput}
                     className="text-base"
                 />
-                <CommandList className={listClassName}>
+                <CommandList ref={listRef} className={listClassName}>
                     {/* Hidden while results load — the skeleton below owns that state.
                         A bare "Loading..." line read as a hang in the drawer sheet. */}
                     {!isLoading && <CommandEmpty>{_("No results found.")}</CommandEmpty>}
@@ -377,7 +384,7 @@ const LinkFieldCombobox = ({
                     )}
                     <CommandGroup>
                         {items?.map((result) => renderItem(result))}
-                        {userCanCreate && (
+                        {userCanCreate && !hideCreate && (
                             <CommandItem asChild className={cn(LINK_ITEM_STYLES, "justify-between")}>
                                 {/* No equivalent endpoint exists for "create a new document" the
                                     way document_link.get resolves an existing one, so this still

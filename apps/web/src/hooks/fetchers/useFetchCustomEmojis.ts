@@ -1,11 +1,16 @@
-import { useFrappeGetDocList } from "frappe-react-sdk"
+import { useFrappeGetDocList, type GetDocListArgs } from "frappe-react-sdk"
 import { RavenCustomEmoji } from '@raven/types/RavenMessaging/RavenCustomEmoji'
 import { PaginationState, SortingState } from "src/types/DataTable"
 
 /**
  * Fetches custom emojis with optional sorting and pagination.
+ * `args` is spread over the query last, so any doc list option (filters, orFilters, ...) can be set.
  */
-export const useFetchCustomEmojis = (sorting?: SortingState, pagination?: PaginationState) => {
+export const useFetchCustomEmojis = (
+    sorting?: SortingState,
+    pagination?: PaginationState,
+    args?: Partial<GetDocListArgs<RavenCustomEmoji>>,
+) => {
     const limitStart = pagination ? pagination.pageIndex * pagination.pageSize : 0
     const limit = pagination?.pageSize ?? 20
 
@@ -19,7 +24,8 @@ export const useFetchCustomEmojis = (sorting?: SortingState, pagination?: Pagina
             order: "asc"
         },
         limit_start: limitStart,
-        limit: limit
+        limit: limit,
+        ...args,
     }, undefined, {
         errorRetryCount: 2,
         keepPreviousData: true

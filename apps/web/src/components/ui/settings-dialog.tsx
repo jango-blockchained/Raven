@@ -177,7 +177,7 @@ function SettingsPanel({
     return (
         <TabsPrimitive.Content
             data-slot="settings-panel"
-            className={cn("flex flex-col h-full w-full min-w-0 text-ink-gray-8 py-8 px-6 gap-6", className)}
+            className={cn("flex flex-col h-full w-full min-w-0 text-ink-gray-8 py-8 px-6 gap-4", className)}
             {...props}
         />
     )
@@ -246,7 +246,7 @@ function SettingsPanelContent({
     ...props
 }: React.ComponentProps<"div">) {
     return (
-        <div className={cn("flex-1 flex flex-col overflow-y-auto overflow-x-hidden px-2", className)} {...props} />
+        <div className={cn("flex-1 flex flex-col overflow-y-auto overflow-x-hidden px-2 pt-0.5 min-h-0 gap-2", className)} {...props} />
     )
 }
 

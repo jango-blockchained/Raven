@@ -100,9 +100,8 @@ const WorkspaceDetailContent = ({
                                     onDeleted={onBack}
                                     onRenamed={() => onBack()}
                                 />
-                                <Button type="submit" size="sm" disabled={loading || !isDirty}>
-                                    {loading && <Spinner />}
-                                    {loading ? _("Saving") : _("Save")}
+                                <Button type="submit" size="sm" disabled={!isDirty} loading={loading} loadingText={_("Saving")}>
+                                    {_("Save")}
                                 </Button>
                             </div>
                         ) : null
@@ -119,7 +118,7 @@ const WorkspaceDetailContent = ({
                         {isDirty && <Badge variant="subtle">{_("Not Saved")}</Badge>}
                     </SettingsPanelTitle>
                 </SettingsPanelHeader>
-                <SettingsPanelContent className="min-h-0 gap-4">
+                <SettingsPanelContent className="min-h-0 gap-2">
                     {error && <ErrorBanner error={error} />}
                     <Tabs defaultValue="details">
                         <TabsList>
