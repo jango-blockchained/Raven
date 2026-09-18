@@ -5,9 +5,9 @@ import { Switch } from "@components/ui/switch"
 import {
     Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from "@components/ui/select"
-import { LinkFormField, SelectFormField, SmallTextField } from "@components/ui/form-elements"
-import { useUsers } from "@hooks/useUsers"
-import { UserAvatar } from "@components/features/message/UserAvatar"
+import { SelectFormField, SmallTextField } from "@components/ui/form-elements"
+import ChannelFormField from "@components/common/ChannelFormField"
+import UserFormField from "@components/common/UserFormField"
 import type { RavenWebhook } from "@raven/types/RavenIntegrations/RavenWebhook"
 import _ from "@lib/translate"
 import { TriggerEvents } from "./utils"
@@ -16,8 +16,6 @@ import { FieldHelp, clearConditionValues } from "./webhookFormBits"
 /** Conditions tab — optionally gate the webhook on channel / user / channel-type / custom expression. */
 export const WebhookConditionForm = () => {
     const { control, setValue } = useFormContext<RavenWebhook>()
-    const allUsers = useUsers()
-    const users = useMemo(() => allUsers.filter((u) => u.type === "User"), [allUsers])
 
     const needCondition = useWatch({ control, name: "trigger_webhook_on_condition" })
     const conditionOn = useWatch({ control, name: "conditions_on" })
@@ -96,34 +94,21 @@ export const WebhookConditionForm = () => {
                 </div>
             ) : needCondition && conditionOn === "Channel" ? (
                 <div className="grid grid-cols-2">
-                    <LinkFormField
+                    <ChannelFormField
                         name="channel_id"
                         label={_("Channel")}
-                        doctype="Raven Channel"
-                        filters={[["is_direct_message", "=", 0], ["is_archived", "=", 0], ["is_thread", "=", 0]]}
                         placeholder={_("Select a channel")}
                         formDescription={_("Webhook will trigger only if the message is sent on this channel.")}
                     />
                 </div>
             ) : needCondition && conditionOn === "User" ? (
                 <div className="grid grid-cols-2">
-                    <SelectFormField
+                    <UserFormField
                         name="user"
                         label={_("User")}
+                        placeholder={_("Select a user")}
                         formDescription={_("Webhook will trigger only if the message is sent by this user.")}
-                    >
-                        <SelectGroup>
-                            <SelectLabel>{_("User")}</SelectLabel>
-                            {users.map((user) => (
-                                <SelectItem key={user.name} value={user.name}>
-                                    <span className="flex items-center gap-2 min-w-0">
-                                        <UserAvatar user={user} size="sm" showStatusIndicator={false} />
-                                        <span className="truncate">{user.full_name ?? user.name}</span>
-                                    </span>
-                                </SelectItem>
-                            ))}
-                        </SelectGroup>
-                    </SelectFormField>
+                    />
                 </div>
             ) : needCondition && conditionOn === "Channel Type" ? (
                 <div className="grid grid-cols-2">

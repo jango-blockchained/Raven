@@ -123,6 +123,8 @@ export interface LinkFieldComboboxProps {
     readOnly?: boolean;
     /** Should the field be disabled. Default: false */
     disabled?: boolean;
+    /** Hide the "Create New" row, for doctypes that are created elsewhere in Raven rather than on desk. */
+    hideCreate?: boolean;
     /**
     * Function to filter the options based on the input value/other criteria.
     *
@@ -154,6 +156,7 @@ const LinkFieldCombobox = ({
     onChange,
     readOnly,
     disabled,
+    hideCreate = false,
     filterFn,
     suggestedItems,
     placeholder = _("Select {0}", [doctype]),
@@ -377,7 +380,7 @@ const LinkFieldCombobox = ({
                     )}
                     <CommandGroup>
                         {items?.map((result) => renderItem(result))}
-                        {userCanCreate && (
+                        {userCanCreate && !hideCreate && (
                             <CommandItem asChild className={cn(LINK_ITEM_STYLES, "justify-between")}>
                                 {/* No equivalent endpoint exists for "create a new document" the
                                     way document_link.get resolves an existing one, so this still

@@ -113,6 +113,12 @@ export function FilterComboboxItem({
 }
 
 interface FilterComboboxProps {
+    /**
+     * Open the popover in modal mode. Needed when the combobox sits inside a modal dialog:
+     * the dialog's scroll lock blocks wheel and touch scrolling on anything portalled
+     * outside it, and a modal popover brings its own lock that allows its list to scroll.
+     */
+    modal?: boolean
     /** Rendered inside the trigger button, left of the chevron. */
     trigger: ReactNode
     emptyLabel: string
@@ -145,6 +151,7 @@ export function FilterCombobox({
     onClear,
     triggerClassName,
     className,
+    modal = false,
 }: FilterComboboxProps) {
     const [open, setOpen] = useState(false)
     const isMobile = useIsMobile()
@@ -176,7 +183,7 @@ export function FilterCombobox({
         // nudged the whole filter row (and everything under it) down by a pixel.
         // relative: the clear button is positioned over the chevron's place.
         <div className={cn("relative flex shrink-0", className)}>
-            <Popover open={open} onOpenChange={onOpenChange}>
+            <Popover open={open} onOpenChange={onOpenChange} modal={modal}>
                 <PopoverTrigger asChild>
                     <Button
                         variant="subtle"

@@ -9,7 +9,8 @@ import {
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@components/ui/table"
-import LinkFieldCombobox from "@components/common/LinkFieldComboBox/LinkFieldCombobox"
+import { ChannelPicker } from "@components/common/ChannelFormField"
+import { UserPicker } from "@components/common/UserFormField"
 import useDoctypeMetaDocs from "@hooks/useDoctypeMetaDocs"
 import type { RavenDocumentNotification } from "@raven/types/RavenIntegrations/RavenDocumentNotification"
 import type { RavenDocumentNotificationRecipients } from "@raven/types/RavenIntegrations/RavenDocumentNotificationRecipients"
@@ -135,23 +136,9 @@ const RecipientValueField = ({
     const documentType = useWatch({ control, name: "document_type" })
 
     if (variableType === "Static") {
-        return channelType === "Channel" ? (
-            <LinkFieldCombobox
-                doctype="Raven Channel"
-                filters={[["is_direct_message", "=", 0], ["is_archived", "=", 0], ["is_thread", "=", 0]]}
-                placeholder={_("Select a channel")}
-                value={value}
-                onChange={onChange}
-            />
-        ) : (
-            <LinkFieldCombobox
-                doctype="Raven User"
-                filters={[["enabled", "=", 1], ["type", "=", "User"]]}
-                placeholder={_("Select a user")}
-                value={value}
-                onChange={onChange}
-            />
-        )
+        return channelType === "Channel"
+            ? <ChannelPicker value={value} onChange={onChange} placeholder={_("Select a channel")} />
+            : <UserPicker value={value} onChange={onChange} placeholder={_("Select a user")} />
     }
 
     if (variableType === "DocField" && documentType) {
