@@ -126,7 +126,7 @@ const ThreadRow = memo(function ThreadRow({
             return {
                 channelName: channel.channel_name || channel.name,
                 channelIcon: (
-                    <ChannelIcon type={channel.type as "Public" | "Private" | "Open"} className="h-3.5 w-3.5" />
+                    <ChannelIcon type={channel.type as "Public" | "Private" | "Open"} className="h-4 w-4" />
                 ),
                 isDirectMessage: false,
                 participants: members,
@@ -259,8 +259,8 @@ export default function ThreadsList({
                             {onlyShowUnread
                                 ? _("There are no unread threads to show. Clear the filter to see all threads.")
                                 : threadType === "ai"
-                                  ? _("AI threads will appear here when you start conversations with an AI bot.")
-                                  : _("Create a thread by right-clicking a message and selecting 'Create Thread'.")}
+                                    ? _("AI threads will appear here when you start conversations with an AI bot.")
+                                    : _("Create a thread by right-clicking a message and selecting 'Create Thread'.")}
                         </EmptyDescription>
                     </EmptyHeader>
                 </Empty>
