@@ -21,16 +21,27 @@ export const TIME_VALUES = Array.from({ length: 96 }, (_v, i) => {
     return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`
 })
 
-/** Select options still in the future for the date — "today" never offers a past slot. */
-export const getAvailableTimeOptions = (date: Date | Dayjs, timeFormat: TimeFormat, now: Dayjs = dayjs()) => {
+/**
+ * Select options still in the future for the date — "today" never offers a past slot.
+ * `include` adds one off-grid HH:mm to the list (sorted in), so an existing time that
+ * sits on the 5-minute sweep grid stays selectable when a reminder is edited.
+ */
+export const getAvailableTimeOptions = (
+    date: Date | Dayjs,
+    timeFormat: TimeFormat,
+    now: Dayjs = dayjs(),
+    include?: string,
+) => {
     const day = dayjs(date)
-    const values = day.isSame(now, "day")
-        ? TIME_VALUES.filter((value) => {
+    // HH:mm strings sort correctly as text.
+    const values = include && !TIME_VALUES.includes(include) ? [...TIME_VALUES, include].sort() : TIME_VALUES
+    const future = day.isSame(now, "day")
+        ? values.filter((value) => {
             const [hours, minutes] = value.split(":").map(Number)
             return day.hour(hours).minute(minutes).isAfter(now)
         })
-        : TIME_VALUES
-    return values.map((value) => ({ value, label: formatTimeLabel(value, timeFormat) }))
+        : values
+    return future.map((value) => ({ value, label: formatTimeLabel(value, timeFormat) }))
 }
 
 /** Local pick → the naive server-timezone datetime string the backend stores. */

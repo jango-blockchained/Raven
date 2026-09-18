@@ -16,7 +16,7 @@ import { timeFormatAtom } from "@utils/preferences"
 import _ from "@lib/translate"
 import type { Message } from "@raven/types/common/Message"
 import { DatePickerPopover } from "./DatePickerPopover"
-import { ceilToStep, formatDateTimeLabel, fromServerDatetime, getAvailableTimeOptions, toServerDatetime } from "@lib/timeUtils"
+import { formatDateTimeLabel, fromServerDatetime, getAvailableTimeOptions, toServerDatetime } from "@lib/timeUtils"
 import type { ReminderRow } from "./useReminders"
 
 /** Exact-time + note picker behind the "Remind me" preset submenu; also the
@@ -52,12 +52,12 @@ export const ReminderDialog = ({
     useEffect(() => {
         if (!open) return
         if (editing) {
-            // Stored times sit on the 5-min sweep grid, but the Select only offers
-            // quarter-hour slots — ceil up to one so the value matches an option.
-            const rounded = ceilToStep(fromServerDatetime(editing.remind_at), 15)
+            // Keep the stored time exactly. Presets sit on the 5-minute sweep grid, and
+            // rounding to a quarter-hour slot would delay delivery on a note-only edit.
+            const stored = fromServerDatetime(editing.remind_at)
             setNote(editing.description ?? "")
-            setDate(rounded.toDate())
-            setTime(rounded.format("HH:mm"))
+            setDate(stored.toDate())
+            setTime(stored.format("HH:mm"))
         } else {
             setNote("")
             setDate(new Date())
@@ -66,7 +66,11 @@ export const ReminderDialog = ({
     }, [open, editing])
 
     // A date change can strand the picked time in the past — snap to the next slot.
-    const availableOptions = getAvailableTimeOptions(date, timeFormat)
+    // The stored time is offered as an option on its own day even when it is off the
+    // quarter-hour grid, so it survives an edit untouched.
+    const stored = editing ? fromServerDatetime(editing.remind_at) : null
+    const keepStored = stored && stored.isSame(dayjs(date), "day") ? stored.format("HH:mm") : undefined
+    const availableOptions = getAvailableTimeOptions(date, timeFormat, dayjs(), keepStored)
     const effectiveTime = availableOptions.some((option) => option.value === time) ? time : availableOptions[0]?.value
     const effectiveOption = availableOptions.find((option) => option.value === effectiveTime)
 
