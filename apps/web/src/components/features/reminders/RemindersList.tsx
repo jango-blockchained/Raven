@@ -47,6 +47,7 @@ import { Message, BaseMessage } from "@raven/types/common/Message"
 import _ from "@lib/translate"
 import { cn } from "@lib/utils"
 import { escapeHtml } from "@utils/htmlUtils"
+import { getMessageAuthorId } from "@utils/messageUtils"
 import { formatDateTimeLabel, fromServerDatetime, getReminderPresets, toServerDatetime } from "@lib/timeUtils"
 import { ReminderDialog } from "./ReminderDialog"
 import { UNREAD_REMINDER_COUNT_KEY, useRemindersList, type ReminderRow } from "./useReminders"
@@ -70,6 +71,10 @@ interface RemindersListProps {
 type Row =
     | { kind: "header"; label: string }
     | { kind: "reminder"; reminder: ReminderRow }
+
+/** The user shown as the reminder message's author: the bot for bot messages. */
+const reminderAuthor = (r: ReminderRow) =>
+    r.message_owner ? getMessageAuthorId({ is_bot_message: r.message_is_bot, bot: r.message_bot }, r.message_owner) : undefined
 
 /** Map a reminder's message preview fields to a Message for MessageResultBlock. */
 function reminderRowToMessage(r: ReminderRow): Message {
@@ -370,6 +375,7 @@ const RemindersList = ({ searchQuery, channel, mode, onSelect, selectedID, selec
                         )
                     }
                     const { reminder } = row
+                    const authorId = reminderAuthor(reminder)
                     const isUnread = reminder.notified === 1 && !reminder.is_read
                     const menu = cardMenu(reminder)
                     const channelData = channelById.get(reminder.channel_id)
@@ -393,7 +399,7 @@ const RemindersList = ({ searchQuery, channel, mode, onSelect, selectedID, selec
                                 >
                                     <MessageResultBlock
                                         message={reminderRowToMessage(reminder)}
-                                        user={reminder.message_owner ? usersById.get(reminder.message_owner) : undefined}
+                                        user={authorId ? usersById.get(authorId) : undefined}
                                         channel={channelData}
                                         dmChannel={dmChannel}
                                         peer={peer}

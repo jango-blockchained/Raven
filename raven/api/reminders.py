@@ -69,6 +69,8 @@ def get_reminders() -> list[dict]:
 			message.content.as_("message_content"),
 			message.message_type,
 			message.owner.as_("message_owner"),
+			message.is_bot_message.as_("message_is_bot"),
+			message.bot.as_("message_bot"),
 			message.creation.as_("message_creation"),
 			message.file.as_("message_file"),
 		)

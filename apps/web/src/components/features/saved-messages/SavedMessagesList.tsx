@@ -14,6 +14,7 @@ import ErrorBanner from '@components/ui/error-banner'
 import { Bookmark } from 'lucide-react'
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@components/ui/empty'
 import _ from '@lib/translate'
+import { getMessageAuthorId } from '@utils/messageUtils'
 
 interface SavedMessagesListProps {
     searchQuery: string
@@ -175,7 +176,7 @@ const SavedMessagesList = ({ searchQuery, channel, onSelect, selectedID }: Saved
                 return (
                     <MessageResultBlock
                         message={savedRowToMessage(r)}
-                        user={usersById.get(r.owner)}
+                        user={usersById.get(getMessageAuthorId(r, r.owner))}
                         channel={channelData}
                         dmChannel={dmChannel}
                         peer={peer}

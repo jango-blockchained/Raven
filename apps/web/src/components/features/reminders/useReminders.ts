@@ -17,6 +17,8 @@ export type ReminderRow = {
     message_content?: string | null
     message_type?: BaseMessage["message_type"] | null
     message_owner?: string | null
+    message_is_bot?: 0 | 1 | null
+    message_bot?: string | null
     message_creation?: string | null
     message_file?: string | null
 }

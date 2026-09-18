@@ -21,6 +21,7 @@ import ErrorBanner from "@components/ui/error-banner"
 import { Bot, CheckCheck, MessagesSquare, Search } from "lucide-react"
 import type { ChannelListItem, DMChannelListItem } from "@raven/types/common/ChannelListItem"
 import _ from "@lib/translate"
+import { getMessageAuthorId } from "@utils/messageUtils"
 
 interface ThreadsListProps {
     threadType?: "participating" | "other" | "ai"
@@ -92,7 +93,7 @@ const ThreadRow = memo(function ThreadRow({
     const dmChannel = dmById.get(thread.channel_id)
     const channel = channelById.get(thread.channel_id)
     const peer = dmChannel?.peer_user_id ? usersById.get(dmChannel.peer_user_id) : undefined
-    const user = usersById.get(thread.owner) ?? null
+    const user = usersById.get(getMessageAuthorId(thread, thread.owner)) ?? null
 
     // Members + reply count come from the stores, lazily. A regular channel thread fetches its
     // details (members + count) ONCE the row actually scrolls into view — gated on
