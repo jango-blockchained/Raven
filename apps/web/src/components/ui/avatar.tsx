@@ -4,6 +4,14 @@ import { cn } from "@lib/utils"
 
 type ImageStatus = "loading" | "loaded" | "error"
 
+/**
+ * Image URLs that have painted once this session. A remounting avatar for one of
+ * these starts out loaded, so its fallback never paints. Route changes remount
+ * whole page shells (the mobile footer with the profile avatar, for one), and
+ * without this Safari showed the initials for a frame on every navigation.
+ */
+const loadedSources = new Set<string>()
+
 // Lets the fallback know whether the image has painted, so it can get out of
 // the way. Transparent logos would otherwise show the initials through them.
 const AvatarContext = React.createContext<{
@@ -47,16 +55,26 @@ function AvatarImage({
   const { status, setStatus } = React.useContext(AvatarContext)
   const ref = React.useRef<HTMLImageElement>(null)
 
-  // Every new src starts over. A cached image can be complete before this
-  // effect runs, so read the element instead of relying on the load event.
-  React.useEffect(() => {
+  // Every new src starts over. A layout effect runs before paint, so an image
+  // known to be loaded flips the status in the same frame and the fallback never
+  // shows. A cached image can also be complete already, so read the element
+  // rather than waiting for the load event.
+  React.useLayoutEffect(() => {
     if (!src) return
     const image = ref.current
-    setStatus(image?.complete && image.naturalWidth > 0 ? "loaded" : "loading")
+    const ready = loadedSources.has(src) || (image?.complete && image.naturalWidth > 0)
+    setStatus(ready ? "loaded" : "loading")
     return () => setStatus("loading")
   }, [src, setStatus])
 
   if (!src) return null
+
+  // An image this session has already shown is loaded eagerly and decoded on the
+  // main thread, so a remount paints it in its first frame with no flash. A first
+  // showing keeps lazy loading and async decoding: initials while it arrives is the
+  // intended state there, and a large original must not decode on the main thread
+  // while a list scrolls. Explicit props from the caller still win.
+  const known = loadedSources.has(src)
 
   return (
     <img
@@ -64,9 +82,12 @@ function AvatarImage({
       data-slot="avatar-image"
       src={src}
       alt={alt}
+      loading={known ? "eager" : "lazy"}
+      decoding={known ? "sync" : "async"}
       hidden={status === "error"}
       className={cn("aspect-square size-full object-cover object-center", className)}
       onLoad={(event) => {
+        if (src) loadedSources.add(src)
         setStatus("loaded")
         onLoad?.(event)
       }}
