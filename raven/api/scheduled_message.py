@@ -81,14 +81,19 @@ def get_next_working_day():
 
 
 def get_holiday_list() -> str | None:
-	"""The session user's Holiday List, resolved the way HRMS/ERPNext do: their
-	Employee's list, else the default company's. None when neither app is installed."""
+	"""The session user's Holiday List: their Employee's list (HRMS), else the
+	default company's (ERPNext). None when neither app is installed."""
 	apps = frappe.get_installed_apps()
 	if "hrms" in apps:
 		from hrms.hr.utils import get_holiday_list_for_employee
 
 		employee = frappe.db.get_value("Employee", {"user_id": frappe.session.user, "status": "Active"})
-		return get_holiday_list_for_employee(employee, raise_exception=False)
+		# A user without an Employee record (an admin, a contractor) still gets the
+		# company list below instead of the weekend fallback.
+		if employee:
+			holiday_list = get_holiday_list_for_employee(employee, raise_exception=False)
+			if holiday_list:
+				return holiday_list
 	if "erpnext" in apps:
 		company = frappe.db.get_single_value("Global Defaults", "default_company")
 		return frappe.get_cached_value("Company", company, "default_holiday_list") if company else None
