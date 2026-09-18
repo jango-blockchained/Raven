@@ -21,9 +21,9 @@ import _ from "@lib/translate"
 type LaterTab = 'in-progress' | 'saved' | 'completed'
 
 const TABS: { key: LaterTab; label: string }[] = [
-    { key: 'in-progress', label: 'In progress' },
-    { key: 'saved', label: 'Saved' },
-    { key: 'completed', label: 'Completed' },
+    { key: 'in-progress', label: _('In Progress') },
+    { key: 'saved', label: _('Saved') },
+    { key: 'completed', label: _('Completed') },
 ]
 
 /** Later (Slack-style). Tabs are view state (threads pattern); push notifications
@@ -122,7 +122,7 @@ const Later = () => {
                                 <TabsList variant="subtle" size="md">
                                     {TABS.map(t => (
                                         <TabsTrigger key={t.key} value={t.key}>
-                                            {_(t.label)}
+                                            {t.label}
                                         </TabsTrigger>
                                     ))}
                                 </TabsList>
