@@ -28,6 +28,7 @@ import { useThreadsRealtime } from "@stores/threads/useThreadsRealtime"
 import { useUnreadThreadsSync } from "@stores/threads/useUnreadThreads"
 import { useNotificationsRealtime } from "@stores/notifications/useNotificationsRealtime"
 import { useUnreadNotificationsSync } from "@hooks/useNotifications"
+import { useRemindersRealtime } from "@components/features/reminders/useReminders"
 import { useReportActiveState } from "@stores/presence/useReportActiveState"
 import { usePushNotificationNavigation } from "@hooks/usePushNotificationNavigation"
 import { useAppBadge } from "@hooks/useAppBadge"
@@ -194,6 +195,9 @@ const AppListeners = ({ children }: { children: React.ReactNode }) => {
     // Seeds + reconciles the unread-notification id set (badge = set size; ids are marked
     // read as their messages scroll into view — markNotificationsReadOnView)
     useUnreadNotificationsSync()
+    // Reminders: the single subscriber for raven_reminders_updated. Revalidates the
+    // Later badge and list by SWR key, so no page-level hook needs its own socket listener.
+    useRemindersRealtime()
     // Focus-and-route when a push notification is clicked while a window exists
     // (sw.js posts the target URL instead of opening a duplicate tab)
     usePushNotificationNavigation()
