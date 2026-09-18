@@ -14,20 +14,22 @@ export const usePaginatedList = <T = unknown>(listKey: string, doctype: string, 
     const [pageSize, setPageSize] = useState(20)
 
     // The count follows the same filters as the list, so pagination matches a search.
-    // get_list with a count aggregate is used because get_count has no or_filters.
+    // get_count's signature has no or_filters, but it counts through reportview, which
+    // reads or_filters from the request itself. That works on Frappe v15 and v16 alike.
+    // A count aggregate in get_list's fields does not: v15 only takes strings and v16
+    // only takes dicts.
     const hasQuery = Boolean(query?.filters?.length || query?.orFilters?.length)
-    const { data: countData, mutate: mutateCount } = useFrappeGetCall<{ message: { total: number }[] }>(
-        "frappe.client.get_list",
+    const { data: countData, mutate: mutateCount } = useFrappeGetCall<{ message: number }>(
+        "frappe.client.get_count",
         {
             doctype,
-            fields: ["count(name) as total"],
             filters: query?.filters,
             or_filters: query?.orFilters,
         },
         enabled ? `${listKey}-count${hasQuery ? `-q${JSON.stringify(query)}` : ""}` : null,
         { errorRetryCount: 2 },
     )
-    const totalCount = countData?.message?.[0]?.total ?? 0
+    const totalCount = countData?.message ?? 0
 
     // Deleting the last row of the last page leaves pageIndex past the end — clamp back.
     useEffect(() => {
