@@ -114,7 +114,9 @@ def _default_in_preview(doctype: str, fieldname: str) -> int:
 	"""What in_preview is without any property setter: the DocField or Custom Field definition."""
 	value = frappe.db.get_value("DocField", {"parent": doctype, "fieldname": fieldname}, "in_preview")
 	if value is None:
-		value = frappe.db.get_value("Custom Field", {"dt": doctype, "fieldname": fieldname}, "in_preview")
+		value = frappe.db.get_value(
+			"Custom Field", {"dt": doctype, "fieldname": fieldname}, "in_preview"
+		)
 	return int(value or 0)
 
 

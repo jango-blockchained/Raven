@@ -473,7 +473,9 @@ def get_pinned_messages(channel_id: str):
 
 
 @frappe.whitelist()
-def get_saved_messages(limit: int | None = None, start: int = 0, search: str | None = None, channel_id: str | None = None):
+def get_saved_messages(
+	limit: int | None = None, start: int = 0, search: str | None = None, channel_id: str | None = None
+):
 	"""
 	Messages liked (saved) by the user, permission-filtered.
 
