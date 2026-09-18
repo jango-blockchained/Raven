@@ -131,7 +131,9 @@ const PreviewFieldsEditor = ({
     const save = () => {
         call({ doctype, fields: selected })
             .then(() => {
-                toast.success(_("Fields updated"))
+                toast.success(_("Fields updated"), {
+                    id: "preview-field-updated"
+                })
                 onSaved()
                 // The card renderer caches meta and preview data under its own keys.
                 globalMutate(`doctype_meta::${doctype}`)

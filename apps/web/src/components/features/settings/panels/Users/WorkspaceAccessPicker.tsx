@@ -9,6 +9,7 @@ import { ChannelIcon } from "@components/common/ChannelIcon/ChannelIcon"
 import type { WorkspaceFields } from "@hooks/useWorkspaces"
 import type { ChannelListItem } from "@raven/types/common/ChannelListItem"
 import { cn } from "@lib/utils"
+import { useResetScrollOnSearch } from "@hooks/useResetScrollOnSearch"
 import _ from "@lib/translate"
 
 type Props = {
@@ -131,6 +132,8 @@ const ChannelList = ({
 }: { channels: ChannelListItem[]; selected: string[]; onChange: (v: string[]) => void; locked?: Set<string>; disabled?: boolean }) => {
     const [search, setSearch] = useState("")
     const query = useDeferredValue(search.trim().toLowerCase())
+    // The clamped list keeps its scroll offset when filtered. Start each search at the top.
+    const listRef = useResetScrollOnSearch(query)
     const visible = useMemo(
         () => (query ? channels.filter((c) => c.channel_name.toLowerCase().includes(query)) : channels),
         [channels, query],
@@ -160,7 +163,7 @@ const ChannelList = ({
             {/* Rows are `relative`: inside a form, Radix checkboxes render a hidden absolutely
                 positioned input. Without a positioned row it escapes this clamped list and
                 stretches the dialog's scroll area by the list's full height. */}
-            <div className="scroll-fade flex max-h-56 flex-col gap-1 overflow-y-auto">
+            <div ref={listRef} className="scroll-fade flex max-h-56 flex-col gap-1 overflow-y-auto">
                 {visible.length === 0 && (
                     <p className="px-2 py-1.5 text-p-sm text-ink-gray-5">{_("No channels match your search.")}</p>
                 )}
