@@ -511,6 +511,7 @@ def get_saved_messages(limit: int | None = None, start: int = 0, search: str | N
 			raven_message.owner,
 			raven_message.creation,
 			raven_message.text,
+			raven_message.content,
 			raven_message.channel_id,
 			raven_message.file,
 			raven_message.message_type,

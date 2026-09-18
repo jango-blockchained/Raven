@@ -66,6 +66,7 @@ def get_reminders() -> list[dict]:
 			reminder.notified,
 			reminder.is_read,
 			message.text.as_("message_text"),
+			message.content.as_("message_content"),
 			message.message_type,
 			message.owner.as_("message_owner"),
 			message.creation.as_("message_creation"),

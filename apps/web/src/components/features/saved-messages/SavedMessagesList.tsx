@@ -7,6 +7,7 @@ import { useMessageRowLookups } from '@hooks/useMessageRowLookups'
 import { useUserCookieData } from '@hooks/useUserCookieData'
 import { MessageListSkeleton } from '@components/features/dm-channel/DirectMessagePageSkeleton'
 import { MessageResultBlock, RESULT_ROW_ACTIVE_CLASS } from '@components/common/MessageResultBlock/MessageResultBlock'
+import { pollPreviewHtml } from '@components/common/MessageResultBlock/pollPreviewHtml'
 import { searchResultToSelection } from '@components/common/MessageResultBlock/searchResultToSelection'
 import type { SelectedNotification } from '@pages/notifications/NotificationChat'
 import ErrorBanner from '@components/ui/error-banner'
@@ -30,6 +31,8 @@ type SavedMessageRow = {
     creation: string
     is_thread: 0 | 1
     text?: string
+    /** Plain text. For a poll this is the question and its options, one per line. */
+    content?: string
     channel_id: string
     file?: string
     message_type?: BaseMessage['message_type']
@@ -66,6 +69,11 @@ function savedRowToMessage(r: SavedMessageRow): Message {
 
     if (messageType === 'File' || messageType === 'Image') {
         return { ...base, message_type: messageType, text: r.text ?? '', file: r.file ?? '' }
+    }
+    // A poll renders as a static question + options block (see pollPreviewHtml).
+    if (messageType === 'Poll') {
+        // poll_id is required by the type but unused here: the block never fetches the live poll.
+        return { ...base, message_type: 'Poll', text: pollPreviewHtml(r.content), poll_id: '' }
     }
     return { ...base, message_type: 'Text', text: r.text ?? '' }
 }

@@ -13,6 +13,8 @@ export type ReminderRow = {
     is_read: 0 | 1
     /** Message preview fields (LEFT JOIN) — null if the message vanished mid-delete. */
     message_text?: string | null
+    /** Plain text. For a poll this is the question and its options, one per line. */
+    message_content?: string | null
     message_type?: BaseMessage["message_type"] | null
     message_owner?: string | null
     message_creation?: string | null

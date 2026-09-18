@@ -40,6 +40,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@c
 import ErrorBanner, { errorResponseToast } from "@components/ui/error-banner"
 import { MessageListSkeleton } from "@components/features/dm-channel/DirectMessagePageSkeleton"
 import { MessageResultBlock, RESULT_ROW_ACTIVE_CLASS } from "@components/common/MessageResultBlock/MessageResultBlock"
+import { pollPreviewHtml } from "@components/common/MessageResultBlock/pollPreviewHtml"
 import type { SelectedNotification } from "@pages/notifications/NotificationChat"
 import { useMessageRowLookups } from "@hooks/useMessageRowLookups"
 import { Message, BaseMessage } from "@raven/types/common/Message"
@@ -55,7 +56,7 @@ interface RemindersListProps {
     searchQuery: string
     /** Page-level channel filter ('*all' = no filter). */
     channel: string
-    /** In progress = upcoming + delivered-unread; Completed = delivered-read. */
+    /** In progress = due (fired, unread) + upcoming; Completed = fired and read. */
     mode: 'in-progress' | 'completed'
     /** Opens the card's message; the reminder id rides along as `?r=`. */
     onSelect: (selection: SelectedNotification, reminderID?: string) => void
@@ -88,6 +89,11 @@ function reminderRowToMessage(r: ReminderRow): Message {
         is_thread: 0,
         is_pinned: 0,
     }
+    // A poll renders as a static question + options block (see pollPreviewHtml).
+    if (messageType === "Poll") {
+        // poll_id is required by the type but unused here: the block never fetches the live poll.
+        return { ...base, message_type: "Poll", text: pollPreviewHtml(r.message_content), poll_id: "" }
+    }
     // Media becomes a text placeholder — a real image block would dominate the list.
     if (messageType === "Image") {
         return { ...base, message_type: "Text", text: r.message_text || `<p>📷 ${_("Sent a photo")}</p>` }
@@ -99,6 +105,17 @@ function reminderRowToMessage(r: ReminderRow): Message {
     return { ...base, message_type: "Text", text: r.message_text ?? "" }
 }
 
+/** One plain-text line describing the reminder's message, for the delete confirmation. */
+const messagePreview = (r: ReminderRow): string => {
+    if (r.message_type === "Image") return `📷 ${_("Sent a photo")}`
+    if (r.message_type === "File") return `📄 ${r.message_content || (r.message_file ?? "").split("/").pop() || _("Sent a file")}`
+    // A poll's content is its question on the first line, then the options.
+    if (r.message_type === "Poll") return `📊 ${r.message_content?.split("\n")[0]?.trim() || _("Poll")}`
+    // Plain content when the server has it, else the HTML body with its tags stripped.
+    const plain = r.message_content || (r.message_text ?? "").replace(/<[^>]+>/g, " ")
+    return plain.replace(/\s+/g, " ").trim() || _("Message")
+}
+
 /** Later's reminder lists — one card design (Slack Later pattern) across both modes. */
 const RemindersList = ({ searchQuery, channel, mode, onSelect, selectedID, selectedReminderID }: RemindersListProps) => {
     const { reminders, error, isLoading, mutate } = useRemindersList()
@@ -107,7 +124,7 @@ const RemindersList = ({ searchQuery, channel, mode, onSelect, selectedID, selec
     const { usersById, channelById, dmById, workspaceById } = useMessageRowLookups()
     const timeFormat = useAtomValue(timeFormatAtom)
 
-    // Cards completed this visit stay in Delivered (restyled as read) instead
+    // Cards completed this visit stay in Due (restyled as read) instead
     // of jumping to Completed mid-look; cleared on tab switch.
     const [stickyRead, setStickyRead] = useState<Set<string>>(() => new Set())
     useEffect(() => setStickyRead(new Set()), [mode])
@@ -130,12 +147,13 @@ const RemindersList = ({ searchQuery, channel, mode, onSelect, selectedID, selec
         const upcoming = visible
             .filter((r) => !r.notified)
             .sort((a, b) => a.remind_at.localeCompare(b.remind_at))
-        const delivered = visible
+        const due = visible
             .filter((r) => r.notified === 1 && (!r.is_read || stickyRead.has(r.name)))
             .sort((a, b) => b.remind_at.localeCompare(a.remind_at))
+        // Due first: those need an action now. Upcoming is a schedule to glance at.
         const out: Row[] = []
+        if (due.length) out.push({ kind: "header", label: _("Due") }, ...due.map((reminder) => ({ kind: "reminder" as const, reminder })))
         if (upcoming.length) out.push({ kind: "header", label: _("Upcoming") }, ...upcoming.map((reminder) => ({ kind: "reminder" as const, reminder })))
-        if (delivered.length) out.push({ kind: "header", label: _("Delivered") }, ...delivered.map((reminder) => ({ kind: "reminder" as const, reminder })))
         return out
     }, [reminders, searchQuery, channel, mode, stickyRead])
 
@@ -158,6 +176,9 @@ const RemindersList = ({ searchQuery, channel, mode, onSelect, selectedID, selec
     // Mobile long-press → action sheet; same detector constants as the message stream.
     const isMobile = useIsMobile()
     const [sheetTarget, setSheetTarget] = useState<ReminderRow | null>(null)
+    // The card whose kebab or right-click menu is open. It gets the active row look so
+    // it is clear which reminder the menu belongs to.
+    const [menuFor, setMenuFor] = useState<string | null>(null)
     const pressRef = useRef<{ timer: number; x: number; y: number } | null>(null)
     /** Swallow the post-long-press synthetic click, else the chat also opens. */
     const suppressClicksUntilRef = useRef(0)
@@ -244,7 +265,7 @@ const RemindersList = ({ searchQuery, channel, mode, onSelect, selectedID, selec
             .catch(() => mutate())
     }
 
-    /** Opens the message; a delivered card also completes (open = complete). */
+    /** Opens the message; a due card also completes (open = complete). */
     const open = (reminder: ReminderRow) => {
         if (reminder.notified === 1) complete(reminder)
         const channelData = channelById.get(reminder.channel_id)
@@ -286,7 +307,7 @@ const RemindersList = ({ searchQuery, channel, mode, onSelect, selectedID, selec
                 ...(isUpcoming
                     ? [{
                         id: "edit",
-                        label: _("Edit reminder"),
+                        label: _("Edit"),
                         icon: Pencil,
                         danger: false,
                         onSelect: () => {
@@ -297,7 +318,7 @@ const RemindersList = ({ searchQuery, channel, mode, onSelect, selectedID, selec
                     : []),
                 {
                     id: "delete",
-                    label: _("Delete reminder"),
+                    label: _("Delete"),
                     icon: Trash2,
                     danger: true,
                     onSelect: () => {
@@ -320,7 +341,7 @@ const RemindersList = ({ searchQuery, channel, mode, onSelect, selectedID, selec
                         <EmptyTitle>{mode === 'completed' ? _('No completed reminders') : _('Nothing in progress')}</EmptyTitle>
                         <EmptyDescription>
                             {mode === 'completed'
-                                ? _("Reminders you've opened or checked off land here.")
+                                ? _("Reminders you've opened or checked off show here.")
                                 : _("Set a reminder from a message's actions — Remind me — or adjust your search.")}
                         </EmptyDescription>
                     </EmptyHeader>
@@ -331,234 +352,257 @@ const RemindersList = ({ searchQuery, channel, mode, onSelect, selectedID, selec
 
     return (
         <>
-        <Virtuoso
-            data={rows}
-            style={{ height: '100%' }}
-            initialItemCount={Math.min(rows.length, 10)}
-            computeItemKey={(idx, row) => (row?.kind === "header" ? row.label : row?.reminder.name) ?? idx}
-            itemContent={(_idx, row) => {
-                if (!row) return null
-                if (row.kind === "header") {
+            <Virtuoso
+                data={rows}
+                style={{ height: '100%' }}
+                initialItemCount={Math.min(rows.length, 10)}
+                computeItemKey={(idx, row) => (row?.kind === "header" ? row.label : row?.reminder.name) ?? idx}
+                itemContent={(_idx, row) => {
+                    if (!row) return null
+                    if (row.kind === "header") {
+                        return (
+                            <div className="px-4 pt-3 pb-1 text-xs font-medium uppercase tracking-wide text-ink-gray-5">
+                                {row.label}
+                            </div>
+                        )
+                    }
+                    const { reminder } = row
+                    const isUnread = reminder.notified === 1 && !reminder.is_read
+                    const menu = cardMenu(reminder)
+                    const channelData = channelById.get(reminder.channel_id)
+                    const dmChannel = dmById.get(reminder.channel_id)
+                    const peer = dmChannel ? usersById.get(dmChannel.peer_user_id) : undefined
                     return (
-                        <div className="px-4 pt-3 pb-1 text-xs font-medium uppercase tracking-wide text-ink-gray-5">
-                            {row.label}
-                        </div>
-                    )
-                }
-                const { reminder } = row
-                const isUnread = reminder.notified === 1 && !reminder.is_read
-                const menu = cardMenu(reminder)
-                const channelData = channelById.get(reminder.channel_id)
-                const dmChannel = dmById.get(reminder.channel_id)
-                const peer = dmChannel ? usersById.get(dmChannel.peer_user_id) : undefined
-                return (
-                    // Desktop: right-click mirrors the kebab. Mobile: long-press sheet
-                    // instead — Radix trigger disabled, OS context menu suppressed.
-                    <ContextMenu>
-                    <ContextMenuTrigger asChild disabled={isMobile}>
-                    <div
-                        className="relative"
-                        onPointerDown={startPress(reminder)}
-                        onPointerMove={movePress}
-                        onPointerUp={cancelPress}
-                        onPointerCancel={cancelPress}
-                        onClickCapture={onCardClickCapture}
-                        onContextMenu={(e) => { if (isMobile) e.preventDefault() }}
-                    >
-                        <MessageResultBlock
-                            message={reminderRowToMessage(reminder)}
-                            user={reminder.message_owner ? usersById.get(reminder.message_owner) : undefined}
-                            channel={channelData}
-                            dmChannel={dmChannel}
-                            peer={peer}
-                            workspace={channelData?.workspace ? workspaceById.get(channelData.workspace) : undefined}
-                            className={activeReminderID === reminder.name ? RESULT_ROW_ACTIVE_CLASS : undefined}
-                            unread={isUnread}
-                            footer={
-                                <div className="mt-1 flex items-center gap-1.5 text-xs text-ink-gray-5">
-                                    <AlarmClock className="h-3 w-3 shrink-0" />
-                                    {reminder.description && (
-                                        <>
-                                            <span className="truncate font-medium text-ink-gray-7">{reminder.description}</span>
-                                            <span className="shrink-0">·</span>
-                                        </>
-                                    )}
-                                    <span className="shrink-0">{formatDateTimeLabel(fromServerDatetime(reminder.remind_at), timeFormat)}</span>
-                                </div>
-                            }
-                            onClick={() => open(reminder)}
-                        />
-                        <div
-                            className="absolute right-4 top-2 hidden md:flex items-center gap-0.5"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="sm" isIconButton aria-label={_("More actions")} title={_("More actions")}>
-                                        <EllipsisVerticalIcon className="size-5 md:size-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    {menu.remindAgain && (
-                                        <DropdownMenuSub>
-                                            <DropdownMenuSubTrigger>
-                                                <Clock />
-                                                {_("Remind me again")}
-                                            </DropdownMenuSubTrigger>
-                                            <DropdownMenuSubContent>
-                                                {menu.remindAgain.map((preset) => (
-                                                    <DropdownMenuItem key={preset.id} onSelect={preset.onSelect}>
-                                                        {preset.label}
+                        // Desktop: right-click mirrors the kebab. Mobile: long-press sheet
+                        // instead — Radix trigger disabled, OS context menu suppressed.
+                        <ContextMenu onOpenChange={(next) => setMenuFor(next ? reminder.name : null)}>
+                            <ContextMenuTrigger asChild disabled={isMobile}>
+                                <div
+                                    // group: the kebab is a sibling of the card, not a child, so the card's own
+                                    // hover would drop while the pointer is on the button. The card follows the group.
+                                    className="group relative"
+                                    onPointerDown={startPress(reminder)}
+                                    onPointerMove={movePress}
+                                    onPointerUp={cancelPress}
+                                    onPointerCancel={cancelPress}
+                                    onClickCapture={onCardClickCapture}
+                                    onContextMenu={(e) => { if (isMobile) e.preventDefault() }}
+                                >
+                                    <MessageResultBlock
+                                        message={reminderRowToMessage(reminder)}
+                                        user={reminder.message_owner ? usersById.get(reminder.message_owner) : undefined}
+                                        channel={channelData}
+                                        dmChannel={dmChannel}
+                                        peer={peer}
+                                        workspace={channelData?.workspace ? workspaceById.get(channelData.workspace) : undefined}
+                                        // Two different marks. The card being acted on (menu, sheet, edit or delete
+                                        // dialog open) keeps the hover shade so it stays marked. The card whose chat
+                                        // is open on the right gets the raised active look, and that wins over the shade.
+                                        className={cn(
+                                            (menuFor === reminder.name
+                                                || sheetTarget?.name === reminder.name
+                                                || (editOpen && editTarget?.name === reminder.name)
+                                                || (confirmOpen && confirmTarget?.name === reminder.name))
+                                            && "bg-surface-gray-3",
+                                            activeReminderID === reminder.name
+                                                ? RESULT_ROW_ACTIVE_CLASS
+                                                : "group-hover:bg-surface-gray-3",
+                                        )}
+                                        unread={isUnread}
+                                        footer={
+                                            <div className="mt-2 flex items-center gap-1.5 text-xs text-ink-gray-5">
+                                                <AlarmClock className="h-3 w-3 shrink-0" />
+                                                {reminder.description && (
+                                                    <>
+                                                        <span className="truncate font-medium text-ink-gray-7">{reminder.description}</span>
+                                                        <span className="shrink-0">·</span>
+                                                    </>
+                                                )}
+                                                <span className="shrink-0">{formatDateTimeLabel(fromServerDatetime(reminder.remind_at), timeFormat)}</span>
+                                            </div>
+                                        }
+                                        onClick={() => open(reminder)}
+                                    />
+                                    <div
+                                        // Shown only while the card is hovered, while its menu is open, or while
+                                        // the button has keyboard focus. Opacity rather than display, so the
+                                        // button stays in the tab order and nothing shifts when it appears.
+                                        className="absolute right-4 top-2 hidden md:flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 has-[[data-state=open]]:opacity-100"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        <DropdownMenu onOpenChange={(next) => setMenuFor(next ? reminder.name : null)}>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="sm" isIconButton aria-label={_("More actions")} title={_("More actions")}>
+                                                    <EllipsisVerticalIcon className="size-5 md:size-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                {menu.remindAgain && (
+                                                    <DropdownMenuSub>
+                                                        <DropdownMenuSubTrigger>
+                                                            <Clock />
+                                                            {_("Remind me again")}
+                                                        </DropdownMenuSubTrigger>
+                                                        <DropdownMenuSubContent>
+                                                            {menu.remindAgain.map((preset) => (
+                                                                <DropdownMenuItem key={preset.id} onSelect={preset.onSelect}>
+                                                                    {preset.label}
+                                                                </DropdownMenuItem>
+                                                            ))}
+                                                        </DropdownMenuSubContent>
+                                                    </DropdownMenuSub>
+                                                )}
+                                                {menu.actions.map((action) => (
+                                                    <DropdownMenuItem
+                                                        key={action.id}
+                                                        variant={action.danger ? "destructive" : "default"}
+                                                        onSelect={action.onSelect}
+                                                    >
+                                                        <action.icon />
+                                                        {action.label}
                                                     </DropdownMenuItem>
                                                 ))}
-                                            </DropdownMenuSubContent>
-                                        </DropdownMenuSub>
-                                    )}
-                                    {menu.actions.map((action) => (
-                                        <DropdownMenuItem
-                                            key={action.id}
-                                            variant={action.danger ? "destructive" : "default"}
-                                            onSelect={action.onSelect}
-                                        >
-                                            <action.icon />
-                                            {action.label}
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
-                    </div>
-                    </ContextMenuTrigger>
-                    {/* Desktop right-click: same cardMenu spec as the kebab. */}
-                    <ContextMenuContent>
-                        {menu.remindAgain && (
-                            <ContextMenuSub>
-                                <ContextMenuSubTrigger>
-                                    <Clock />
-                                    {_("Remind me again")}
-                                </ContextMenuSubTrigger>
-                                <ContextMenuSubContent>
-                                    {menu.remindAgain.map((preset) => (
-                                        <ContextMenuItem key={preset.id} onSelect={preset.onSelect}>
-                                            {preset.label}
-                                        </ContextMenuItem>
-                                    ))}
-                                </ContextMenuSubContent>
-                            </ContextMenuSub>
-                        )}
-                        {menu.actions.map((action) => (
-                            <ContextMenuItem
-                                key={action.id}
-                                variant={action.danger ? "destructive" : "default"}
-                                onSelect={action.onSelect}
-                            >
-                                <action.icon />
-                                {action.label}
-                            </ContextMenuItem>
-                        ))}
-                    </ContextMenuContent>
-                    </ContextMenu>
-                )
-            }}
-        />
-
-        {/* Mobile action sheet — long-press target; flat rows from the same cardMenu spec. */}
-        <Drawer open={!!sheetTarget} onOpenChange={(next) => !next && setSheetTarget(null)}>
-            <DrawerContent>
-                <DrawerTitle className="sr-only">{_("Reminder actions")}</DrawerTitle>
-                <DrawerDescription className="sr-only">{_("Actions for this reminder")}</DrawerDescription>
-                <div className="flex flex-col gap-1 p-3 pb-6">
-                    {sheetTarget && (() => {
-                        const menu = cardMenu(sheetTarget)
-                        return (
-                            <>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+                                </div>
+                            </ContextMenuTrigger>
+                            {/* Desktop right-click: same cardMenu spec as the kebab. */}
+                            <ContextMenuContent>
                                 {menu.remindAgain && (
-                                    <>
-                                        <span className="px-3 pb-1 text-xs font-medium uppercase tracking-wide text-ink-gray-5">
+                                    <ContextMenuSub>
+                                        <ContextMenuSubTrigger>
+                                            <Clock />
                                             {_("Remind me again")}
-                                        </span>
-                                        {menu.remindAgain.map((preset) => (
-                                            <Button
-                                                key={preset.id}
-                                                variant="ghost"
-                                                size="lg"
-                                                className="w-full justify-start gap-3 active:bg-surface-gray-2"
-                                                onClick={fromSheet(preset.onSelect)}
-                                            >
-                                                <Clock />
-                                                {preset.label}
-                                            </Button>
-                                        ))}
-                                        <div className="my-1 border-t border-outline-gray-2" />
-                                    </>
+                                        </ContextMenuSubTrigger>
+                                        <ContextMenuSubContent>
+                                            {menu.remindAgain.map((preset) => (
+                                                <ContextMenuItem key={preset.id} onSelect={preset.onSelect}>
+                                                    {preset.label}
+                                                </ContextMenuItem>
+                                            ))}
+                                        </ContextMenuSubContent>
+                                    </ContextMenuSub>
                                 )}
                                 {menu.actions.map((action) => (
-                                    <Button
+                                    <ContextMenuItem
                                         key={action.id}
-                                        variant="ghost"
-                                        size="lg"
-                                        theme={action.danger ? "red" : "gray"}
-                                        className={cn("w-full justify-start gap-3", action.danger ? "active:bg-surface-red-2" : "active:bg-surface-gray-2")}
-                                        onClick={fromSheet(action.onSelect)}
+                                        variant={action.danger ? "destructive" : "default"}
+                                        onSelect={action.onSelect}
                                     >
                                         <action.icon />
                                         {action.label}
-                                    </Button>
+                                    </ContextMenuItem>
                                 ))}
-                            </>
-                        )
-                    })()}
-                </div>
-            </DrawerContent>
-        </Drawer>
+                            </ContextMenuContent>
+                        </ContextMenu>
+                    )
+                }}
+            />
 
-        <ReminderDialog
-            open={editOpen}
-            message={null}
-            editing={editTarget ?? undefined}
-            onClose={() => setEditOpen(false)}
-            onSaved={() => mutate()}
-        />
-
-        <AlertDialog open={confirmOpen} onOpenChange={(next) => !next && setConfirmOpen(false)}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>{_("Delete reminder?")}</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        {_("You won't be reminded about this message. This can't be undone.")}
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-
-                {confirmTarget && (
-                    <div className="rounded border border-outline-gray-2 px-2.5 py-2">
-                        <div className="truncate text-content text-ink-gray-8">
-                            {confirmTarget.description || _("Reminder")}
-                        </div>
-                        <div className="mt-0.5 flex items-center gap-1 text-xs text-ink-gray-5">
-                            <AlarmClock className="h-3 w-3 shrink-0" />
-                            <span className="shrink-0">{formatDateTimeLabel(fromServerDatetime(confirmTarget.remind_at), timeFormat)}</span>
-                            <span className="shrink-0">·</span>
-                            <span className="truncate">{channelLabel(confirmTarget)}</span>
-                        </div>
+            {/* Mobile action sheet — long-press target; flat rows from the same cardMenu spec. */}
+            <Drawer open={!!sheetTarget} onOpenChange={(next) => !next && setSheetTarget(null)}>
+                <DrawerContent>
+                    <DrawerTitle className="sr-only">{_("Reminder actions")}</DrawerTitle>
+                    <DrawerDescription className="sr-only">{_("Actions for this reminder")}</DrawerDescription>
+                    <div className="flex flex-col gap-1 p-3 pb-6">
+                        {sheetTarget && (() => {
+                            const menu = cardMenu(sheetTarget)
+                            return (
+                                <>
+                                    {menu.remindAgain && (
+                                        <>
+                                            <span className="px-3 pb-1 text-xs font-medium uppercase tracking-wide text-ink-gray-5">
+                                                {_("Remind me again")}
+                                            </span>
+                                            {menu.remindAgain.map((preset) => (
+                                                <Button
+                                                    key={preset.id}
+                                                    variant="ghost"
+                                                    size="lg"
+                                                    className="w-full justify-start gap-3 active:bg-surface-gray-2"
+                                                    onClick={fromSheet(preset.onSelect)}
+                                                >
+                                                    <Clock />
+                                                    {preset.label}
+                                                </Button>
+                                            ))}
+                                            <div className="my-1 border-t border-outline-gray-2" />
+                                        </>
+                                    )}
+                                    {menu.actions.map((action) => (
+                                        <Button
+                                            key={action.id}
+                                            variant="ghost"
+                                            size="lg"
+                                            theme={action.danger ? "red" : "gray"}
+                                            className={cn("w-full justify-start gap-3", action.danger ? "active:bg-surface-red-2" : "active:bg-surface-gray-2")}
+                                            onClick={fromSheet(action.onSelect)}
+                                        >
+                                            <action.icon />
+                                            {action.label}
+                                        </Button>
+                                    ))}
+                                </>
+                            )
+                        })()}
                     </div>
-                )}
+                </DrawerContent>
+            </Drawer>
 
-                <AlertDialogFooter>
-                    <AlertDialogCancel>{_("Cancel")}</AlertDialogCancel>
-                    <Button
-                        variant="solid"
-                        theme="red"
-                        size="md"
-                        onClick={() => {
-                            if (confirmTarget) remove(confirmTarget)
-                            setConfirmOpen(false)
-                        }}
-                    >
-                        {_("Delete")}
-                    </Button>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+            <ReminderDialog
+                open={editOpen}
+                message={null}
+                editing={editTarget ?? undefined}
+                onClose={() => setEditOpen(false)}
+                onSaved={() => mutate()}
+            />
+
+            <AlertDialog open={confirmOpen} onOpenChange={(next) => !next && setConfirmOpen(false)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>{_("Delete reminder?")}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {_("You won't be reminded about this message. This can't be undone.")}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+
+                    {confirmTarget && (
+                        <div className="rounded border border-outline-gray-2 px-2.5 py-2">
+                            {/* The message the reminder points at, then the note if there is one. */}
+                            <div className="truncate text-p-sm text-ink-gray-8">
+                                {messagePreview(confirmTarget)}
+                            </div>
+                            {confirmTarget.description && (
+                                <div className="mt-0.5 truncate text-p-sm text-ink-gray-7">
+                                    {confirmTarget.description}
+                                </div>
+                            )}
+                            <div className="mt-0.5 flex items-center gap-1 text-xs text-ink-gray-5">
+                                <AlarmClock className="h-3 w-3 shrink-0" />
+                                <span className="shrink-0">{formatDateTimeLabel(fromServerDatetime(confirmTarget.remind_at), timeFormat)}</span>
+                                <span className="shrink-0">·</span>
+                                <span className="truncate">{channelLabel(confirmTarget)}</span>
+                            </div>
+                        </div>
+                    )}
+
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>{_("Cancel")}</AlertDialogCancel>
+                        <Button
+                            variant="solid"
+                            theme="red"
+                            size="md"
+                            onClick={() => {
+                                if (confirmTarget) remove(confirmTarget)
+                                setConfirmOpen(false)
+                            }}
+                        >
+                            {_("Delete")}
+                        </Button>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     )
 }
