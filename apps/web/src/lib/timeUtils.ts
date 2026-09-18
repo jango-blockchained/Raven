@@ -3,9 +3,8 @@ import { SYSTEM_TIMEZONE, FRAPPE_DATETIME_FORMAT } from "@lib/date"
 import type { TimeFormat } from "@utils/preferences"
 import _ from "@lib/translate"
 
-// Future-time picking, shared by reminders and schedule-send. One file, kept
-// byte-identical on both feature branches so they merge cleanly and each
-// works standalone — every helper here is pure dayjs + i18n.
+// Future-time picking, shared by reminders and schedule-send. Every helper here is
+// pure dayjs + i18n, and every clock label takes the user's time format.
 
 /** The dayjs pattern for a clock time in the user's preferred format. */
 const clockFormat = (timeFormat: TimeFormat) => (timeFormat === "12-hour" ? "h:mm A" : "HH:mm")
@@ -92,37 +91,35 @@ export const getReminderPresets = (timeFormat: TimeFormat, now: Dayjs = dayjs())
 
 // --- Schedule send ---
 
-type ScheduleMenuSlot = { label: string; time: Dayjs }
-type ScheduleMenuSection = { label: string; slots: ScheduleMenuSlot[] }
+export type ScheduleSlotId = "morning" | "afternoon" | "evening"
+export type ScheduleMenuSlot = { id: ScheduleSlotId; label: string; time: Dayjs }
+export type ScheduleMenuSection = { label: string; slots: ScheduleMenuSlot[] }
 
 /** A confirmed custom pick: server-side naive datetime + human label for toasts. */
 export type SchedulePick = { serverTime: string; label: string }
 
 /** Preset slot times-of-day (local tz). Labels are thunks: _() at module scope
  *  would resolve before i18n loads. */
-const SLOT_TIMES = [
-    { label: () => _("Morning"), hour: 9 },
-    { label: () => _("Afternoon"), hour: 13 },
-    { label: () => _("Evening"), hour: 18 },
+const SLOT_TIMES: { id: ScheduleSlotId; label: () => string; hour: number }[] = [
+    { id: "morning", label: () => _("Morning"), hour: 9 },
+    { id: "afternoon", label: () => _("Afternoon"), hour: 13 },
+    { id: "evening", label: () => _("Evening"), hour: 18 },
 ]
 
-/** Today / Tomorrow preset sections for the schedule submenu. Past Today slots are dropped;
- *  an empty Today section is omitted entirely. On Friday/Saturday a Monday-Morning section is
- *  appended after Tomorrow (always future, so it survives the empty-section filter); Sunday
- *  needs no such section — Tomorrow IS Monday. */
-export const getScheduleMenuSections = (now: Dayjs = dayjs()): ScheduleMenuSection[] => {
+/** Today / Tomorrow / next-working-day preset sections for the schedule submenu.
+ *  Past Today slots are dropped (an empty Today is omitted). The next working day
+ *  comes from the server (Holiday List aware) and is skipped when it IS tomorrow. */
+export const getScheduleMenuSections = (now: Dayjs = dayjs(), nextWorkingDay?: Dayjs | null): ScheduleMenuSection[] => {
     const dayFor = (base: Dayjs) =>
-        SLOT_TIMES.map(({ label, hour }) => ({ label: label(), time: base.hour(hour).minute(0).second(0).millisecond(0) }))
+        SLOT_TIMES.map(({ id, label, hour }) => ({ id, label: label(), time: base.hour(hour).minute(0).second(0).millisecond(0) }))
+    const tomorrow = now.add(1, "day")
     const sections = [
         { label: _("Today"), slots: dayFor(now).filter((s) => s.time.isAfter(now)) },
-        { label: _("Tomorrow"), slots: dayFor(now.add(1, "day")) },
+        { label: _("Tomorrow"), slots: dayFor(tomorrow) },
     ]
-    // Weekend: the next useful delivery day is Monday morning — add it after Tomorrow.
-    if (now.day() === 5 || now.day() === 6) {
-        sections.push({
-            label: _("Monday"),
-            slots: [dayFor(now.add(now.day() === 5 ? 3 : 2, "day"))[0]],
-        })
+    if (nextWorkingDay && !nextWorkingDay.isSame(tomorrow, "day")) {
+        // Weekday plus date, "Monday, 3 Jan": the name alone is ambiguous after a long break.
+        sections.push({ label: nextWorkingDay.format("dddd, D MMM"), slots: dayFor(nextWorkingDay) })
     }
     return sections.filter((s) => s.slots.length > 0)
 }

@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { NavLink, Navigate } from "react-router"
 import { toast } from "sonner"
-import { Bookmark, Bell, LogOut, Sun, Moon, SunMoon, ChevronDown, Edit, SlidersHorizontal, ChevronRight } from "lucide-react"
+import { Bookmark, Bell, CalendarClock, LogOut, Sun, Moon, SunMoon, ChevronDown, Edit, SlidersHorizontal, ChevronRight } from "lucide-react"
 import useCurrentRavenUser from "@raven/lib/hooks/useCurrentRavenUser"
 import { useTheme } from "@components/theme-provider"
 import { useLogout } from "@hooks/useLogout"
@@ -11,6 +11,7 @@ import { ProfileRow } from "@components/features/profile/ProfileRow"
 import { useUnreadReminderCount } from "@components/features/reminders/useReminders"
 import { EditProfileDrawer } from "@components/features/profile/EditProfileDrawer"
 import { PreferencesDrawer } from "@components/features/profile/PreferencesDrawer"
+import { useScheduledMessagesCount } from "@components/features/schedule-send/useScheduledMessages"
 import { ProfileImageMenu } from "@components/features/profile/ProfileImageMenu"
 import { PageHeader } from "@components/layout/PageHeader"
 import AppMobileFooter from "@components/features/header/AppMobileFooter"
@@ -25,6 +26,7 @@ import { enablePush, disablePush, isPushEnabled } from "@lib/push"
 import { FrappeError } from "frappe-react-sdk"
 import _ from "@lib/translate"
 import { Separator } from "@components/ui/separator"
+import { Badge } from "@components/ui/badge"
 
 const Profile = () => {
     const { myProfile } = useCurrentRavenUser()
@@ -35,6 +37,7 @@ const Profile = () => {
     const unreadReminders = useUnreadReminderCount()
     const [editOpen, setEditOpen] = useState(false)
     const [prefsOpen, setPrefsOpen] = useState(false)
+    const scheduledCount = useScheduledMessagesCount()
     const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false)
 
     // Source of truth for "enabled on this device" is the stored FCM token (lib/push).
@@ -145,6 +148,24 @@ const Profile = () => {
                             }
                         />
                     </NavLink>
+
+                    {/* Scheduled messages — hidden when none, like the desktop icon */}
+                    {scheduledCount > 0 && (
+                        <NavLink to="/scheduled-messages">
+                            <ProfileRow
+                                icon={CalendarClock}
+                                label={_("Scheduled messages")}
+                                trailing={
+                                    <span className="flex items-center gap-2">
+                                        <Badge>
+                                            {scheduledCount}
+                                        </Badge>
+                                        <ChevronRight className="size-4" />
+                                    </span>
+                                }
+                            />
+                        </NavLink>
+                    )}
 
                     <ProfileRow icon={Edit} label={_("Edit profile")} onClick={() => setEditOpen(true)} className="rounded-b-lg" />
 

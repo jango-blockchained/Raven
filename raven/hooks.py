@@ -177,17 +177,20 @@ scheduler_events = {
 		"raven.raven_cloud_notifications.sync_users_tokens_to_raven_cloud",
 	],
 	"cron": {
-		# run every 5 minutes — remind_at is grid-aligned (validate), so reminders fire on time
+		# run every 5 minutes. Reminder and scheduled message times are aligned to this
+		# grid in their validate methods, so both fire on time.
 		"*/5 * * * *": [
 			"raven.scheduler.close_expired_polls.close_expired_polls",
 			"raven.scheduler.send_reminders.send_due_reminders",
+			"raven.scheduler.send_scheduled_messages.send_due_messages",
 		],
 	},
 }
 
-# Auto-registered in Log Settings; RavenReminder.clear_old_logs does the deletion.
+# Auto-registered in Log Settings; each doctype's clear_old_logs does the deletion.
 default_log_clearing_doctypes = {
 	"Raven Reminder": 30,
+	"Raven Scheduled Message": 30,
 }
 
 # Testing
@@ -216,7 +219,7 @@ default_log_clearing_doctypes = {
 # Ignore links to specified DocTypes when deleting documents
 # -----------------------------------------------------------
 
-ignore_links_on_delete = ["Raven Message", "Raven Reminder"]
+ignore_links_on_delete = ["Raven Message", "Raven Reminder", "Raven Scheduled Message"]
 
 
 # User Data Protection

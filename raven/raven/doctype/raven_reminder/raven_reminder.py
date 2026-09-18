@@ -67,7 +67,9 @@ class RavenReminder(Document):
 		self.channel_id = channel_id
 
 		# Direct inserts skip the create_reminder endpoint, so its access check lives here too.
-		if self.is_new() and not frappe.has_permission("Raven Channel", doc=self.channel_id, ptype="read"):
+		if self.is_new() and not frappe.has_permission(
+			"Raven Channel", doc=self.channel_id, ptype="read"
+		):
 			frappe.throw(_("You do not have access to this channel."), frappe.PermissionError)
 
 	def send_reminder(self):
