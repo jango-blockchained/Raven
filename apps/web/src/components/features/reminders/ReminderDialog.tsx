@@ -11,6 +11,8 @@ import { DialogFooter } from "@components/ui/dialog"
 import { ResponsiveDialog, ResponsiveDialogHeader } from "@components/features/message/actions/dialogs/ResponsiveDialog"
 import { errorResponseToast } from "@components/ui/error-banner"
 import { useIsMobile } from "@hooks/use-mobile"
+import { useAtomValue } from "jotai"
+import { timeFormatAtom } from "@utils/preferences"
 import _ from "@lib/translate"
 import type { Message } from "@raven/types/common/Message"
 import { DatePickerPopover } from "./DatePickerPopover"
@@ -36,6 +38,7 @@ export const ReminderDialog = ({
     onSaved?: () => void
 }) => {
     const isMobile = useIsMobile()
+    const timeFormat = useAtomValue(timeFormatAtom)
     const { call: createReminder, loading: creating } = useFrappePostCall("raven.api.reminders.create_reminder")
     const { call: updateReminder, loading: updating } = useFrappePostCall("raven.api.reminders.update_reminder")
     const loading = creating || updating
@@ -43,7 +46,7 @@ export const ReminderDialog = ({
     const [note, setNote] = useState("")
     const [date, setDate] = useState<Date>(() => new Date())
     // Next open quarter-hour slot today; "09:00" only when today has none left.
-    const [time, setTime] = useState(() => getAvailableTimeOptions(new Date())[0]?.value ?? "09:00")
+    const [time, setTime] = useState(() => getAvailableTimeOptions(new Date(), timeFormat)[0]?.value ?? "09:00")
 
     // Fresh state per open: create seeds now-ish, edit seeds the row.
     useEffect(() => {
@@ -58,12 +61,12 @@ export const ReminderDialog = ({
         } else {
             setNote("")
             setDate(new Date())
-            setTime(getAvailableTimeOptions(new Date())[0]?.value ?? "09:00")
+            setTime(getAvailableTimeOptions(new Date(), timeFormat)[0]?.value ?? "09:00")
         }
     }, [open, editing])
 
     // A date change can strand the picked time in the past — snap to the next slot.
-    const availableOptions = getAvailableTimeOptions(date)
+    const availableOptions = getAvailableTimeOptions(date, timeFormat)
     const effectiveTime = availableOptions.some((option) => option.value === time) ? time : availableOptions[0]?.value
     const effectiveOption = availableOptions.find((option) => option.value === effectiveTime)
 
@@ -85,7 +88,7 @@ export const ReminderDialog = ({
         if (!request) return
         request
             .then(() => {
-                toast.success(_("Reminder set for {0}", [formatDateTimeLabel(remindAt)]))
+                toast.success(_("Reminder set for {0}", [formatDateTimeLabel(remindAt, timeFormat)]))
                 onSaved?.()
                 onClose()
             })

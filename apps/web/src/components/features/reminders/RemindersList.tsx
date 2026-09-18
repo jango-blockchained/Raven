@@ -34,6 +34,8 @@ import {
 } from "@components/ui/context-menu"
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@components/ui/drawer"
 import { useIsMobile } from "@hooks/use-mobile"
+import { useAtomValue } from "jotai"
+import { timeFormatAtom } from "@utils/preferences"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@components/ui/empty"
 import ErrorBanner, { errorResponseToast } from "@components/ui/error-banner"
 import { MessageListSkeleton } from "@components/features/dm-channel/DirectMessagePageSkeleton"
@@ -103,6 +105,7 @@ const RemindersList = ({ searchQuery, channel, mode, onSelect, selectedID, selec
     const { mutate: globalMutate } = useSWRConfig()
     const { call } = useContext(FrappeContext) as FrappeConfig
     const { usersById, channelById, dmById, workspaceById } = useMessageRowLookups()
+    const timeFormat = useAtomValue(timeFormatAtom)
 
     // Cards completed this visit stay in Delivered (restyled as read) instead
     // of jumping to Completed mid-look; cleared on tab switch.
@@ -216,7 +219,7 @@ const RemindersList = ({ searchQuery, channel, mode, onSelect, selectedID, selec
             remind_at: toServerDatetime(remindAt),
         })
             .then(() => {
-                toast.success(_("Reminder set for {0}", [formatDateTimeLabel(remindAt)]))
+                toast.success(_("Reminder set for {0}", [formatDateTimeLabel(remindAt, timeFormat)]))
                 mutate()
                 globalMutate(UNREAD_REMINDER_COUNT_KEY)
             })
@@ -265,7 +268,7 @@ const RemindersList = ({ searchQuery, channel, mode, onSelect, selectedID, selec
     }
 
     // One preset list per render pass.
-    const presets = getReminderPresets()
+    const presets = getReminderPresets(timeFormat)
 
     /** One menu spec for kebab, right-click and mobile sheet. Remind-again is
      *  post-delivery only; Edit is upcoming-only (changing a future time is an edit). */
@@ -380,7 +383,7 @@ const RemindersList = ({ searchQuery, channel, mode, onSelect, selectedID, selec
                                             <span className="shrink-0">·</span>
                                         </>
                                     )}
-                                    <span className="shrink-0">{formatDateTimeLabel(fromServerDatetime(reminder.remind_at))}</span>
+                                    <span className="shrink-0">{formatDateTimeLabel(fromServerDatetime(reminder.remind_at), timeFormat)}</span>
                                 </div>
                             }
                             onClick={() => open(reminder)}
@@ -533,7 +536,7 @@ const RemindersList = ({ searchQuery, channel, mode, onSelect, selectedID, selec
                         </div>
                         <div className="mt-0.5 flex items-center gap-1 text-xs text-ink-gray-5">
                             <AlarmClock className="h-3 w-3 shrink-0" />
-                            <span className="shrink-0">{formatDateTimeLabel(fromServerDatetime(confirmTarget.remind_at))}</span>
+                            <span className="shrink-0">{formatDateTimeLabel(fromServerDatetime(confirmTarget.remind_at), timeFormat)}</span>
                             <span className="shrink-0">·</span>
                             <span className="truncate">{channelLabel(confirmTarget)}</span>
                         </div>

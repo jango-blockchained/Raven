@@ -36,7 +36,7 @@ import { seedThreadMeta } from "@stores/threads/useThreadMeta"
 import _ from "@lib/translate"
 import type { Message } from "@raven/types/common/Message"
 import { useUserCookieData } from "@hooks/useUserCookieData"
-import { hideReadReceiptsAtom } from "@utils/preferences"
+import { hideReadReceiptsAtom, timeFormatAtom } from "@utils/preferences"
 import { errorResponseToast } from "@components/ui/error-banner"
 import type { PollData } from "../renderers/PollMessageContent"
 import { useEnabledMessageActions } from "@hooks/useEnabledMessageActions"
@@ -150,6 +150,8 @@ export const useMessageActions = (
     // "Read by" action disappears entirely. Boot-seeded atom, not the
     // profile SWR cache — this hook is on the hot menu path.
     const hideReadReceipts = useAtomValue(hideReadReceiptsAtom)
+    // Reminder preset labels and the confirmation toast follow the user's clock format.
+    const timeFormat = useAtomValue(timeFormatAtom)
 
     return useMemo(() => {
         if (!message) return { groups: [], isOwner: false }
@@ -387,7 +389,7 @@ export const useMessageActions = (
                     message_id: message.name,
                     remind_at: toServerDatetime(time),
                 })
-                    .then(() => toast.success(_("Reminder set for {0}", [formatDateTimeLabel(time)])))
+                    .then(() => toast.success(_("Reminder set for {0}", [formatDateTimeLabel(time, timeFormat)])))
                     .catch((e) => errorResponseToast(_("Could not set the reminder"), e))
             }
             organize.push({
@@ -395,7 +397,7 @@ export const useMessageActions = (
                 label: _("Remind me"),
                 icon: AlarmClock,
                 children: [
-                    ...getReminderPresets().map((preset) => ({
+                    ...getReminderPresets(timeFormat).map((preset) => ({
                         id: `remind-${preset.id}`,
                         label: preset.label,
                         onSelect: () => setPresetReminder(preset.time),
@@ -487,5 +489,5 @@ export const useMessageActions = (
         }
 
         return { groups: [respond, pollActions, clipboard, fileActions, customActions, organize, owner].filter((group) => group.length > 0), isOwner }
-    }, [message, currentUser, setDialog, navigateFromDrawer, call, pinnedString, canInteract, isPoll, pollData, mutatePoll, includeFileActions, enabledActions, hideReadReceipts])
+    }, [message, currentUser, setDialog, navigateFromDrawer, call, pinnedString, canInteract, isPoll, pollData, mutatePoll, includeFileActions, enabledActions, hideReadReceipts, timeFormat])
 }

@@ -1,32 +1,36 @@
 import dayjs, { Dayjs } from "dayjs"
 import { SYSTEM_TIMEZONE, FRAPPE_DATETIME_FORMAT } from "@lib/date"
+import type { TimeFormat } from "@utils/preferences"
 import _ from "@lib/translate"
 
 // Future-time picking, shared by reminders and schedule-send. One file, kept
 // byte-identical on both feature branches so they merge cleanly and each
 // works standalone — every helper here is pure dayjs + i18n.
 
-/** Dropdown label for an arbitrary HH:mm — 24-hour clock (frappe-ui convention),
- *  so the label IS the value, e.g. "22:15". Kept as a function so off-grid times
- *  (an edited row not on the 15-min grid) get their label the same way. */
-export const formatTimeLabel = (hhmm: string) => hhmm
+/** The dayjs pattern for a clock time in the user's preferred format. */
+const clockFormat = (timeFormat: TimeFormat) => (timeFormat === "12-hour" ? "h:mm A" : "HH:mm")
 
-/** 96 quarter-hour Select options (24h, label = value). */
-export const TIME_OPTIONS = Array.from({ length: 96 }, (_v, i) => {
+/** Label for an HH:mm value in the user's time format: "9:15 PM" or "21:15". */
+export const formatTimeLabel = (hhmm: string, timeFormat: TimeFormat) =>
+    dayjs(`2000-01-01T${hhmm}`).format(clockFormat(timeFormat))
+
+/** The 96 quarter-hour slot values, "00:00" to "23:45". */
+export const TIME_VALUES = Array.from({ length: 96 }, (_v, i) => {
     const hour = Math.floor(i / 4)
     const minute = (i % 4) * 15
-    const value = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`
-    return { label: formatTimeLabel(value), value }
+    return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`
 })
 
-/** Options still in the future for the date — "today" never offers a past slot. */
-export const getAvailableTimeOptions = (date: Date | Dayjs, now: Dayjs = dayjs()) => {
+/** Select options still in the future for the date — "today" never offers a past slot. */
+export const getAvailableTimeOptions = (date: Date | Dayjs, timeFormat: TimeFormat, now: Dayjs = dayjs()) => {
     const day = dayjs(date)
-    if (!day.isSame(now, "day")) return TIME_OPTIONS
-    return TIME_OPTIONS.filter(({ value }) => {
-        const [hours, minutes] = value.split(":").map(Number)
-        return day.hour(hours).minute(minutes).isAfter(now)
-    })
+    const values = day.isSame(now, "day")
+        ? TIME_VALUES.filter((value) => {
+            const [hours, minutes] = value.split(":").map(Number)
+            return day.hour(hours).minute(minutes).isAfter(now)
+        })
+        : TIME_VALUES
+    return values.map((value) => ({ value, label: formatTimeLabel(value, timeFormat) }))
 }
 
 /** Local pick → the naive server-timezone datetime string the backend stores. */
@@ -35,10 +39,12 @@ export const toServerDatetime = (local: Dayjs) => local.tz(SYSTEM_TIMEZONE).form
 /** Stored naive server-tz datetime → local Dayjs, for rendering rows. */
 export { getDateObject as fromServerDatetime } from "@lib/date"
 
-/** Human label for toasts and list rows, e.g. "Mon, Aug 11 at 9:00 AM". */
-export const formatDateTimeLabel = (time: Dayjs) =>
+/** Human label for toasts and list rows, e.g. "Mon, Aug 11 at 9:00 AM" or "Mon, Aug 11 at 21:00". */
+export const formatDateTimeLabel = (time: Dayjs, timeFormat: TimeFormat) => {
     // The year only earns its place when it isn't this year.
-    time.format(time.year() === dayjs().year() ? "ddd, MMM D [at] h:mm A" : "ddd, MMM D, YYYY [at] h:mm A")
+    const day = time.year() === dayjs().year() ? "ddd, MMM D" : "ddd, MMM D, YYYY"
+    return time.format(`${day} [at] ${clockFormat(timeFormat)}`)
+}
 
 /** The delivery sweeps run every 5 minutes; times off that grid fire late.
  *  Ceil onto a grid so times fire exactly when they say — presets use the
@@ -54,18 +60,19 @@ export type ReminderPreset = { id: string; label: string; time: Dayjs }
 
 /** One-tap presets, sweep-grid aligned. Monday slot only on Fri/Sat —
  *  Sunday's Tomorrow IS Monday, and midweek it's noise. */
-export const getReminderPresets = (now: Dayjs = dayjs()): ReminderPreset[] => {
+export const getReminderPresets = (timeFormat: TimeFormat, now: Dayjs = dayjs()): ReminderPreset[] => {
     const at9 = (day: Dayjs) => day.hour(9).minute(0).second(0).millisecond(0)
+    const nine = formatTimeLabel("09:00", timeFormat)
     const presets: ReminderPreset[] = [
         { id: "20m", label: _("In 20 minutes"), time: ceilToStep(now.add(20, "minute"), 5) },
         { id: "1h", label: _("In 1 hour"), time: ceilToStep(now.add(1, "hour"), 5) },
         { id: "3h", label: _("In 3 hours"), time: ceilToStep(now.add(3, "hour"), 5) },
-        { id: "tomorrow", label: _("Tomorrow at 9:00"), time: at9(now.add(1, "day")) },
+        { id: "tomorrow", label: _("Tomorrow at {0}", [nine]), time: at9(now.add(1, "day")) },
     ]
     if (now.day() === 5 || now.day() === 6) {
         presets.push({
             id: "next-week",
-            label: _("Monday at 9:00"),
+            label: _("Monday at {0}", [nine]),
             time: at9(now.add(now.day() === 5 ? 3 : 2, "day")),
         })
     }
