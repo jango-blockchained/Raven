@@ -102,12 +102,11 @@ class RavenReminder(Document):
 			self.db_set("notified", 1, update_modified=False)
 			return
 
-		# Access re-check — don't deliver content the user can no longer read.
+		# Access re-check: never deliver content the user can no longer read. Losing
+		# access is a normal event, not an error, so it is a quiet skip. The sweep only
+		# reaches a row once it is due, so access regained before then still delivers.
+		# A row skipped here is marked notified and stays hidden until retention clears it.
 		if not frappe.has_permission("Raven Channel", doc=self.channel_id, ptype="read", user=user_id):
-			frappe.log_error(
-				title=f"Raven Reminder {self.name}: user lost channel access",
-				message=f"User {user_id} can no longer read channel {self.channel_id}",
-			)
 			self.db_set("notified", 1, update_modified=False)
 			return
 
