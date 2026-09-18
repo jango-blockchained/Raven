@@ -1,7 +1,7 @@
 import { useContext, useEffect, useMemo, useRef } from "react"
 import { Virtuoso } from "react-virtuoso"
 import {
-    FrappeConfig, FrappeContext, useFrappeGetCall, useFrappeEventListener,
+    FrappeConfig, FrappeContext, useFrappeGetCall,
     useFrappeDeleteDoc,
 } from "frappe-react-sdk"
 import dayjs, { Dayjs } from "dayjs"
@@ -14,6 +14,7 @@ import { useIsMobile } from "@hooks/use-mobile"
 import { fromServerDatetime } from "@lib/timeUtils"
 import { toast } from "sonner"
 import _ from "@lib/translate"
+import { subscribeToScheduledMessagesUpdated } from "./scheduledMessageEvents"
 import { EditScheduledMessageSheet } from "./EditScheduledMessageSheet"
 import { ScheduledMessageCard } from "./ScheduledMessageCard"
 
@@ -66,15 +67,20 @@ const ScheduledMessagesList = ({ editingRowId, onEditingChange, onRowSaved, refr
         `${SCHEDULED_MESSAGES_KEY}-list`,
     )
     // A refetch-driven reflow would unmount a mid-edit row (its unsaved state
-    // lives there) — defer realtime refetches until editing ends.
+    // lives there) — defer realtime refetches until editing ends. The signal comes
+    // from the app-level socket subscriber through the bus, not from the socket
+    // directly (see scheduledMessageEvents). The handler reads the latest editing
+    // state and refresh through a ref, so the subscription is made once.
     const pendingRefetchRef = useRef(false)
-    useFrappeEventListener("raven_scheduled_message_updated", () => {
+    const onUpdatedRef = useRef(() => {})
+    onUpdatedRef.current = () => {
         if (editingRowId !== null) {
             pendingRefetchRef.current = true
             return
         }
         refresh()
-    })
+    }
+    useEffect(() => subscribeToScheduledMessagesUpdated(() => onUpdatedRef.current()), [])
 
     // Flush the deferred refetch once editing ends.
     useEffect(() => {
