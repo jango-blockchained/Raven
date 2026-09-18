@@ -120,7 +120,9 @@ const WorkspaceDetailContent = ({
                 </SettingsPanelHeader>
                 <SettingsPanelContent className="min-h-0 gap-2">
                     {error && <ErrorBanner error={error} />}
-                    <Tabs defaultValue="details">
+                    {/* The tabs fill the panel and pass the height down, so the tab row stays
+                        fixed and the members table scrolls on its own. */}
+                    <Tabs defaultValue="details" className="flex flex-1 min-h-0 flex-col">
                         <TabsList>
                             <TabsTrigger value="details">
                                 <LayoutPanelTopIcon /> {_("Details")}
@@ -129,7 +131,7 @@ const WorkspaceDetailContent = ({
                                 <UsersIcon /> {_("Members")}
                             </TabsTrigger>
                         </TabsList>
-                        <TabsContent value="details" className="pt-4">
+                        <TabsContent value="details" className="pt-4 overflow-y-auto">
                             {/* The fieldset covers the plain form controls. It is NOT enough on
                                 its own: it suppresses `click`, but `pointerdown` still fires on a
                                 disabled control, so a Radix trigger (which opens on pointerdown)
@@ -140,7 +142,7 @@ const WorkspaceDetailContent = ({
                                 <WorkspaceEditForm disabled={!canEdit} />
                             </fieldset>
                         </TabsContent>
-                        <TabsContent value="members" className="pt-4 flex-1 min-h-0">
+                        <TabsContent value="members" className="pt-4 flex flex-1 min-h-0 flex-col">
                             <WorkspaceMembers workspaceID={data.name} />
                         </TabsContent>
                     </Tabs>
