@@ -30,7 +30,7 @@ import { TypingIndicator } from "./TypingIndicator"
 import { useIsMobile } from "@hooks/use-mobile"
 import { useIsKeyboardOpen } from "@hooks/useIsKeyboardOpen"
 import { enqueueSend } from "@stores/messages/messageSender"
-import { editingMessageAtom, replyToMessageAtom } from "@utils/channelAtoms"
+import { editingMessageAtom, linkedDocumentAtom, replyToMessageAtom } from "@utils/channelAtoms"
 import { getLastEditableMessage } from "@components/features/message/actions/editTarget"
 import { useChannelById } from "@stores/channels/useChannelList"
 import { isInReadOnlyMode } from "@lib/frappe"
@@ -42,7 +42,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@compo
 import { cn } from "@lib/utils"
 import { randomUUID } from "@lib/uuid"
 import { Separator } from "@components/ui/separator"
-import AttachFrappeDocumentDialog from "./AttachFrappeDocumentDialog"
+import AttachFrappeDocumentDialog, { LinkedDocumentBanner } from "./AttachFrappeDocumentDialog"
 
 interface ChatInputProps {
     channelID: string
@@ -77,6 +77,7 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
     const [files, setFiles] = useAtom(uploadedFilesAtom(channelID))
     const [pendingSend, setPendingSend] = useAtom(pendingSendAtom(channelID))
     const [replyTo, setReplyTo] = useAtom(replyToMessageAtom(channelID))
+    const [linkedDocument, setLinkedDocument] = useAtom(linkedDocumentAtom(channelID))
     const { name: currentUser } = useUserCookieData()
     const isMobile = useIsMobile()
     // The mention warning banner (on-leave / non-member) is channel-only — DMs and DM
@@ -209,7 +210,8 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
     const dispatchSend = useCallback((opts?: { sendSilently?: boolean }) => {
         if (!editor) return
         const isEmpty = editor.isEmpty
-        if (isEmpty && files.length === 0) return
+        // A staged document is sendable on its own — like a files-only send.
+        if (isEmpty && files.length === 0 && !linkedDocument) return
 
         // Catch URLs the live linkifiers missed (mobile IME paste fires no
         // ClipboardEvent; autolink waits for a delimiter that send never types).
@@ -235,12 +237,13 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
             : undefined
 
         // Shows the message on screen, saves it to the outbox, then sends it.
-        enqueueSend(call, { channelID, batchId, owner: currentUser, content, files: outgoingFiles, linkedMessage, repliedMessageDetails, sendSilently: opts?.sendSilently })
+        enqueueSend(call, { channelID, batchId, owner: currentUser, content, files: outgoingFiles, linkedMessage, repliedMessageDetails, sendSilently: opts?.sendSilently, linkedDocument: linkedDocument ?? undefined })
 
         // Clear the composer right away — the message is already on screen
         editor.commands.clearContent()
         setFiles([])
         if (replyTo) setReplyTo(null)
+        if (linkedDocument) setLinkedDocument(null)
         // Drop the saved draft (and any pending debounced write of the old text).
         persistDraft.cancel()
         saveDraft(channelID, "")
@@ -252,7 +255,7 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
         // and a file-only send with the keyboard closed — including a held send
         // dispatched later by the uploads-settled effect — must not pop it.
         if (!isMobile) editor.commands.focus()
-    }, [editor, files, channelID, currentUser, call, setFiles, replyTo, setReplyTo, persistDraft, stopTyping, isMobile])
+    }, [editor, files, channelID, currentUser, call, setFiles, replyTo, setReplyTo, linkedDocument, setLinkedDocument, persistDraft, stopTyping, isMobile])
 
     const [scheduleOpen, setScheduleOpen] = useState(false)
     const [scheduleBusy, setScheduleBusy] = useState(false)
@@ -293,7 +296,7 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
     const handleSend = useCallback((opts?: { sendSilently?: boolean }) => {
         if (!editor) return
         // Nothing to send — no meaningful text/content, no uploaded files, nothing staged.
-        if (!editorHasContent && files.length === 0 && !hasUploadsInFlight && !hasFailedUploads) return
+        if (!editorHasContent && files.length === 0 && !hasUploadsInFlight && !hasFailedUploads && !linkedDocument) return
 
         // ?? keeps explicit choices: {sendSilently: false} is the loud
         // override from the quiet-hours menu, and stays false.
@@ -318,10 +321,10 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
         }
 
         dispatchSend({ sendSilently })
-    }, [editor, editorHasContent, files, hasUploadsInFlight, hasFailedUploads, dispatchSend, setPendingSend, quietSendMode])
+    }, [editor, editorHasContent, files, hasUploadsInFlight, hasFailedUploads, linkedDocument, dispatchSend, setPendingSend, quietSendMode])
 
     // Disable send when there's genuinely nothing to send (mirrors the handleSend guard).
-    const nothingToSend = !editorHasContent && files.length === 0 && !hasUploadsInFlight && !hasFailedUploads
+    const nothingToSend = !editorHasContent && files.length === 0 && !hasUploadsInFlight && !hasFailedUploads && !linkedDocument
 
     // Scheduling needs text, no attachments and no reply context (v1) — mirrors the SendButton prop.
     const scheduleDisabled = disableSchedule || !editorHasContent || !!replyTo || files.length > 0 || hasUploadsInFlight || hasFailedUploads
@@ -450,6 +453,7 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                                 {replyDisplay && <ReplyPreviewBanner message={replyDisplay} onCancel={cancelReply} showFormatting={showFormatting} />}
                             </div>
                         </div>
+                        <LinkedDocumentBanner channelID={channelID} />
                         <InputFileList channelID={channelID} />
                         {/* Reserve the editor's min-height before it mounts (EditorContent is
                             empty until `editor` is ready) so the composer — and the stream's
@@ -519,7 +523,7 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                                     {editor && <EmojiPickerButton editor={editor} />}
                                     <Separator orientation="vertical" className="mx-1 h-4!" />
                                     <CreatePollDialog channelID={channelID} />
-                                    <AttachFrappeDocumentDialog />
+                                    <AttachFrappeDocumentDialog channelID={channelID} />
                                     <div className="flex-1" />
                                     <SendButton
                                         onSend={handleSend}

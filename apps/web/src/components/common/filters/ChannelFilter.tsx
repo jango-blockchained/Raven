@@ -30,7 +30,7 @@ interface ChannelFilterProps {
     triggerClassName?: string
     /** Root wrapper — width/shrink control so the filter can flex down in a shared row. */
     className?: string
-    /** See FilterCombobox's modal prop — set when this filter lives inside a modal dialog. */
+    /** Open the list in modal mode. Required inside a modal dialog, whose scroll lock would otherwise freeze the list. */
     modal?: boolean
 }
 
@@ -132,7 +132,7 @@ export function ChannelFilter({
     allLabel = _("Any Channel"),
     triggerClassName,
     className,
-    modal = false,
+    modal,
 }: ChannelFilterProps) {
     const selectedChannel = useMemo(() => {
         if (!value || value === ALL) return null

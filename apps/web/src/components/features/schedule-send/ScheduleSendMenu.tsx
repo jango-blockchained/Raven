@@ -7,7 +7,9 @@ import {
 } from "@components/ui/dropdown-menu"
 import { CalendarClockIcon } from "lucide-react"
 import _ from "@lib/translate"
-import { getScheduleMenuSections, toServerDatetime, formatDateTimeLabel } from "@lib/timeUtils"
+import { getScheduleMenuSections, toServerDatetime, formatDateTimeLabel, formatTimeLabel } from "@lib/timeUtils"
+import { useAtomValue } from "jotai"
+import { timeFormatAtom } from "@utils/preferences"
 import type { SchedulePick } from "@lib/timeUtils"
 
 type ScheduleSendMenuProps = {
@@ -66,6 +68,7 @@ export const ScheduleSendMenu = ({ onSchedulePick, onScheduleSend, scheduleDisab
  * fresh on open without per-keystroke cost.
  */
 const ScheduleMenuSections = ({ onSchedulePick }: { onSchedulePick: (pick: SchedulePick) => void }) => {
+    const timeFormat = useAtomValue(timeFormatAtom)
     // Server-computed (Holiday List aware); until it lands only Today / Tomorrow show.
     const { data } = useFrappeGetCall<{ message: string }>(
         "raven.api.scheduled_message.get_next_working_day",
@@ -89,11 +92,11 @@ const ScheduleMenuSections = ({ onSchedulePick }: { onSchedulePick: (pick: Sched
                                     // The menu may have sat open across the slot's boundary — re-check at click
                                     // time so we don't POST a time the server will reject as past.
                                     if (!slot.time.isAfter(dayjs())) return
-                                    onSchedulePick({ serverTime: toServerDatetime(slot.time), label: formatDateTimeLabel(slot.time) })
+                                    onSchedulePick({ serverTime: toServerDatetime(slot.time), label: formatDateTimeLabel(slot.time, timeFormat) })
                                 }}
                             >
                                 <span>{slot.label}</span>
-                                <span className="text-ink-gray-5">{slot.time.format("h:mm A")}</span>
+                                <span className="text-ink-gray-5">{formatTimeLabel(slot.time.format("HH:mm"), timeFormat)}</span>
                             </DropdownMenuItem>
                         ))}
                     </DropdownMenuSubContent>

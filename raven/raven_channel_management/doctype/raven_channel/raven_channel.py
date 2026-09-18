@@ -1,4 +1,4 @@
-# Copyright (c) 2023, The Commit Company and contributors
+# Copyright (c) 2026, Frappe Technologies Pvt. Ltd. and contributors
 # For license information, please see license.txt
 
 import frappe
@@ -61,6 +61,9 @@ class RavenChannel(Document):
 
 		# delete all reactions when channel is deleted
 		frappe.db.delete("Raven Message Reaction", {"channel_id": self.name})
+
+		# delete all reminders anchored in this channel
+		frappe.db.delete("Raven Reminder", {"channel_id": self.name})
 
 		# Delete the pinned channels
 		frappe.db.delete("Raven Pinned Channels", {"channel_id": self.name})

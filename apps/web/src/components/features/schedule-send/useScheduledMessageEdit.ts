@@ -5,8 +5,10 @@ import { linkifyBeforeSend } from "@components/features/editor/linkifyOnSend"
 import { useRavenEditor } from "@components/features/editor/useRavenEditor"
 import { errorResponseToast } from "@components/ui/error-banner"
 import { useIsMobile } from "@hooks/use-mobile"
+import { useAtomValue } from "jotai"
+import { timeFormatAtom } from "@utils/preferences"
 import _ from "@lib/translate"
-import { fromServerDatetime, toServerDatetime, formatTimeLabel, getAvailableTimeOptions } from "@lib/timeUtils"
+import { fromServerDatetime, toServerDatetime, getAvailableTimeOptions } from "@lib/timeUtils"
 import type { ScheduledMessageRow } from "./ScheduledMessagesList"
 
 type UseScheduledMessageEditOptions = {
@@ -23,6 +25,7 @@ type UseScheduledMessageEditOptions = {
  */
 export const useScheduledMessageEdit = (row: ScheduledMessageRow, { onDone, onCancel }: UseScheduledMessageEditOptions) => {
     const isMobile = useIsMobile()
+    const timeFormat = useAtomValue(timeFormatAtom)
     const { updateDoc, loading } = useFrappeUpdateDoc()
 
     // Seed from the row's scheduled time (local tz), date normalized to midnight
@@ -35,7 +38,7 @@ export const useScheduledMessageEdit = (row: ScheduledMessageRow, { onDone, onCa
     const [time, setTime] = useState(() => {
         const stored = fromServerDatetime(row.scheduled_time)
         if (stored.isAfter(dayjs())) return stored.format("HH:mm")
-        return getAvailableTimeOptions(new Date())[0]?.value ?? "09:00"
+        return getAvailableTimeOptions(new Date(), timeFormat)[0]?.value ?? "09:00"
     })
 
     // A date change back to today can strand the selected time in the past —
@@ -44,18 +47,15 @@ export const useScheduledMessageEdit = (row: ScheduledMessageRow, { onDone, onCa
         setDate(next)
         const [hours, minutes] = time.split(":").map(Number)
         if (!dayjs(next).hour(hours).minute(minutes).isAfter(dayjs())) {
-            const first = getAvailableTimeOptions(next)[0]
+            const first = getAvailableTimeOptions(next, timeFormat)[0]
             if (first) setTime(first.value)
         }
     }
 
     // Today hides already-passed slots; other days offer the full list. The row's
-    // time may also sit off the 15-min grid — prepend its exact HH:mm so the
-    // Select still displays it as the seeded value (even a past one: it's the row's
-    // CURRENT stored time, and saving still requires a future pick).
-    const availableOptions = getAvailableTimeOptions(date)
-    const offGridTime = availableOptions.some((option) => option.value === time) ? null : { value: time, label: formatTimeLabel(time) }
-    const allTimeOptions = offGridTime ? [offGridTime, ...availableOptions] : availableOptions
+    // time may sit off the 15-min grid, so it is included as its own option and the
+    // Select keeps showing the seeded value.
+    const allTimeOptions = getAvailableTimeOptions(date, timeFormat, dayjs(), time)
 
     // submit/cancel are read through refs by the editor's (build-once) keydown
     // closure, so reassigning them each render keeps Enter/Escape calling the
@@ -122,8 +122,8 @@ export const useScheduledMessageEdit = (row: ScheduledMessageRow, { onDone, onCa
         setDate: pickDate,
         time,
         setTime,
-        availableOptions,
         allTimeOptions,
+        timeFormat,
         picked,
         pastPick,
         canSave,

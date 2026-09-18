@@ -12,6 +12,8 @@ import { UserAvatar } from "@components/features/message/UserAvatar"
 import { useUsersById } from "@hooks/useMessageRowLookups"
 import { useUserCookieData } from "@hooks/useUserCookieData"
 import { useIsMobile } from "@hooks/use-mobile"
+import { useAtomValue } from "jotai"
+import { timeFormatAtom } from "@utils/preferences"
 import _ from "@lib/translate"
 import { ScheduleTimePicker } from "./ScheduleTimePicker"
 import { formatDateTimeLabel, type SchedulePick } from "@lib/timeUtils"
@@ -82,6 +84,7 @@ export const ScheduleSendDialog = ({ open, onOpenChange, onConfirm, text, busy }
 const SchedulePreview = ({ text, picked }: { text: string; picked: Dayjs | null }) => {
     const { name: currentUser } = useUserCookieData()
     const user = useUsersById().get(currentUser)
+    const timeFormat = useAtomValue(timeFormatAtom)
 
     return (
         <div className="flex w-full gap-3 py-1">
@@ -91,7 +94,7 @@ const SchedulePreview = ({ text, picked }: { text: string; picked: Dayjs | null 
                     {user && <span className="truncate font-medium text-ink-gray-8">{user.full_name}</span>}
                     <span className="flex shrink-0 items-baseline gap-1 text-xs text-ink-gray-4">
                         <CalendarClockIcon className="h-3 w-3 shrink-0 self-center" />
-                        {picked ? _("Scheduled for {0}", [formatDateTimeLabel(picked)]) : _("Pick a delivery time")}
+                        {picked ? _("Scheduled for {0}", [formatDateTimeLabel(picked, timeFormat)]) : _("Pick a delivery time")}
                     </span>
                 </div>
                 {/* Long messages scroll inside the pane — the picker row sets the dialog's height. */}

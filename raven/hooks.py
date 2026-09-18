@@ -2,11 +2,11 @@ from . import __version__ as app_version
 
 app_name = "raven"
 app_title = "Raven"
-app_publisher = "The Commit Company (Algocode Technologies Pvt. Ltd.)"
+app_publisher = "Frappe"
 app_description = "Messaging Application"
-app_email = "support@thecommit.company"
+app_email = "support@frappe.io"
 app_license = "AGPLv3"
-source_link = "https://github.com/The-Commit-Company/Raven"
+source_link = "https://github.com/frappe/Raven"
 app_logo = "/assets/raven/raven_logo.svg"
 app_logo_url = "/assets/raven/raven_logo.svg"
 
@@ -177,16 +177,19 @@ scheduler_events = {
 		"raven.raven_cloud_notifications.sync_users_tokens_to_raven_cloud",
 	],
 	"cron": {
-		# run every 5 minutes — scheduled_time is aligned to this grid (validate)
+		# run every 5 minutes. Reminder and scheduled message times are aligned to this
+		# grid in their validate methods, so both fire on time.
 		"*/5 * * * *": [
 			"raven.scheduler.close_expired_polls.close_expired_polls",
+			"raven.scheduler.send_reminders.send_due_reminders",
 			"raven.scheduler.send_scheduled_messages.send_due_messages",
 		],
 	},
 }
 
-# Auto-registered in Log Settings; RavenScheduledMessage.clear_old_logs does the deletion.
+# Auto-registered in Log Settings; each doctype's clear_old_logs does the deletion.
 default_log_clearing_doctypes = {
+	"Raven Reminder": 30,
 	"Raven Scheduled Message": 30,
 }
 
@@ -216,7 +219,7 @@ default_log_clearing_doctypes = {
 # Ignore links to specified DocTypes when deleting documents
 # -----------------------------------------------------------
 
-ignore_links_on_delete = ["Raven Message", "Raven Scheduled Message"]
+ignore_links_on_delete = ["Raven Message", "Raven Reminder", "Raven Scheduled Message"]
 
 
 # User Data Protection

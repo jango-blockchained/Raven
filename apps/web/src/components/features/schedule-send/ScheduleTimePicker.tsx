@@ -5,6 +5,8 @@ import { Button } from "@components/ui/button"
 import { Label } from "@components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@components/ui/select"
 import { useIsMobile } from "@hooks/use-mobile"
+import { useAtomValue } from "jotai"
+import { timeFormatAtom } from "@utils/preferences"
 import _ from "@lib/translate"
 import { getAvailableTimeOptions, toServerDatetime, formatDateTimeLabel, type SchedulePick } from "@lib/timeUtils"
 import { DatePickerPopover } from "@components/features/reminders/DatePickerPopover"
@@ -25,13 +27,14 @@ type ScheduleTimePickerProps = {
  */
 export const ScheduleTimePicker = ({ onConfirm, onCancel, onPickChange, busy }: ScheduleTimePickerProps) => {
     const isMobile = useIsMobile()
+    const timeFormat = useAtomValue(timeFormatAtom)
     const [date, setDate] = useState<Date>(() => new Date())
     // Next open slot today; "09:00" only when today has none left.
-    const [time, setTime] = useState(() => getAvailableTimeOptions(new Date())[0]?.value ?? "09:00")
+    const [time, setTime] = useState(() => getAvailableTimeOptions(new Date(), timeFormat)[0]?.value ?? "09:00")
 
     // A date change can strand the selected time in the past — snap forward to
     // the first still-available slot (derived, so the Select stays controlled).
-    const availableOptions = getAvailableTimeOptions(date)
+    const availableOptions = getAvailableTimeOptions(date, timeFormat)
     const effectiveTime = availableOptions.some((option) => option.value === time) ? time : availableOptions[0]?.value
     const effectiveOption = availableOptions.find((option) => option.value === effectiveTime)
 
@@ -86,7 +89,7 @@ export const ScheduleTimePicker = ({ onConfirm, onCancel, onPickChange, busy }: 
                     size={isMobile ? "lg" : "md"}
                     loading={busy}
                     disabled={!pick}
-                    onClick={() => pick && onConfirm({ serverTime: toServerDatetime(pick), label: formatDateTimeLabel(pick) })}
+                    onClick={() => pick && onConfirm({ serverTime: toServerDatetime(pick), label: formatDateTimeLabel(pick, timeFormat) })}
                 >
                     {_("Schedule")}
                 </Button>
