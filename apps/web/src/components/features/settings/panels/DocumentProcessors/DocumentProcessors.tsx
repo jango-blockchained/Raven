@@ -70,10 +70,9 @@ const DocumentProcessors = () => {
     const isAIEnabled = ravenSettings?.enable_ai_integration === 1
     const hasGoogleApis = ravenSettings?.enable_google_apis === 1
 
+
     const handleCreateProcessor = () => {
         if (!selectedProcessorType || !isAdmin) return
-
-    useCreateHotkey(handleCreateProcessor, Boolean(selectedProcessorType))
 
         createProcessor({ processor_type_key: selectedProcessorType })
             .then(() => {
@@ -87,6 +86,8 @@ const DocumentProcessors = () => {
                 toast.error(_("Failed to create processor"), { description: error.message }),
             )
     }
+
+    useCreateHotkey(handleCreateProcessor, Boolean(selectedProcessorType && isAdmin))
 
     const handleDeleteProcessor = (processorId: string, processorName: string) =>
         deleteProcessor({ processor_id: processorId }).then(() => {
