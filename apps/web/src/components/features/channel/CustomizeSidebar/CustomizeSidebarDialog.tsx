@@ -118,7 +118,7 @@ export const CustomizeSidebarDialog = () => {
                         {_("Customize your sidebar channels and groups")}
                     </SettingsPanelDescription>
                 </SettingsPanelHeader>
-                <SettingsPanelContent className="min-h-0 gap-4 pt-0.5">
+                <SettingsPanelContent className="min-h-0 gap-2">
                     {/* flex-1 min-h-0: fill the space between header and footer and DON'T grow
                     with content, so the table and preview columns get a bounded height and
                     scroll internally (otherwise the tall preview makes the whole panel scroll). */}
