@@ -6,5 +6,6 @@ export const SIDEBAR_LESS_ROUTES = new Set<string>([
     "/notifications",
     "/search",
     "/dm-channel",
-    "/later"
+    "/later",
+    "/scheduled-messages",
 ])
