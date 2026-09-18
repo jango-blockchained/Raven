@@ -40,7 +40,10 @@ class RavenReminder(Document):
 		frappe.db.delete(table, filters=(table.remind_at < (Now() - Interval(days=days))))
 
 	def validate(self):
-		self.user = get_raven_user(frappe.session.user)
+		# The creator owns the reminder. Later saves keep that owner: the API endpoints check
+		# ownership before saving, and an admin editing the row in desk must not take it over.
+		if self.is_new():
+			self.user = get_raven_user(frappe.session.user)
 
 		if get_datetime(self.remind_at) < now_datetime():
 			frappe.throw(_("Reminder cannot be set in the past."))
@@ -53,10 +56,19 @@ class RavenReminder(Document):
 		)
 		self.remind_at = floored if floored == remind_at else floored + timedelta(minutes=5)
 
-		if self.message and not self.channel_id:
-			self.channel_id = frappe.db.get_value("Raven Message", self.message, "channel_id")
-			if not self.channel_id:
-				frappe.throw(_("The reminder's message does not belong to any channel."))
+		# The channel always comes from the message. A client could otherwise pair a channel
+		# it can read with a message from one it cannot: delivery and the list authorise by
+		# channel, and the push body loads the message, so the mismatch would leak content.
+		channel_id = frappe.db.get_value("Raven Message", self.message, "channel_id")
+		if not channel_id:
+			frappe.throw(_("The reminder's message does not belong to any channel."))
+		if self.channel_id and self.channel_id != channel_id:
+			frappe.throw(_("The reminder's channel does not match its message."))
+		self.channel_id = channel_id
+
+		# Direct inserts skip the create_reminder endpoint, so its access check lives here too.
+		if self.is_new() and not frappe.has_permission("Raven Channel", doc=self.channel_id, ptype="read"):
+			frappe.throw(_("You do not have access to this channel."), frappe.PermissionError)
 
 	def send_reminder(self):
 		"""Deliver: flag fired + unread, ping open clients, push. Idempotent."""

@@ -86,6 +86,19 @@ class TestReminders(IntegrationTestCase):
 		self.assertEqual(reminder.notified, 0)
 		self.assertEqual(reminder.is_read, 0)
 
+	def test_validate_rejects_channel_that_does_not_match_message(self):
+		future = add_to_date(now_datetime(), hours=1, as_string=True, as_datetime=True)
+		other_channel, _other_message = _make_channel_and_message(self.raven_user)
+		with self.assertRaises(frappe.ValidationError):
+			frappe.get_doc(
+				{
+					"doctype": "Raven Reminder",
+					"message": self.message,
+					"channel_id": other_channel,
+					"remind_at": future,
+				}
+			).insert()
+
 	def test_validate_rejects_past(self):
 		past = add_to_date(now_datetime(), hours=-1, as_string=True, as_datetime=True)
 		with self.assertRaises(frappe.ValidationError):
