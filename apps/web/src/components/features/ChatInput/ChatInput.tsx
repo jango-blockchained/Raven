@@ -18,6 +18,7 @@ import { useQuietSendMode } from "@hooks/useQuietHours"
 import { linkifyBeforeSend } from "@components/features/editor/linkifyOnSend"
 import { EditorFormattingToolbar } from "@components/features/editor/EditorFormattingToolbar"
 import { ScheduleSendDialog } from "@components/features/schedule-send/ScheduleSendDialog"
+import { ScheduledMessagesBanner } from "@components/features/schedule-send/ScheduledMessagesBanner"
 import { SCHEDULED_MESSAGES_KEY } from "@components/features/schedule-send/ScheduledMessagesList"
 import type { SchedulePick } from "@lib/timeUtils"
 import { ReplyPreviewBanner } from "./ReplyPreviewBanner"
@@ -428,6 +429,8 @@ const ChatInput = forwardRef<HTMLFormElement, ChatInputProps>(({ channelID, isDi
                 />
             )}
             <QuietHoursBanner mode={quietSendMode} />
+            {/* Pending scheduled messages for this channel. Thread composers cannot schedule. */}
+            {!disableSchedule && <ScheduledMessagesBanner channelID={channelID} />}
             {/* Warning banner is only shown for primary channels, not DMs, threads in DMs. */}
             {!isDM && mentionedIds.length > 0 && <MentionWarningBanner channelID={parentChannelID ?? channelID} mentionedIds={mentionedIds} isThread={parentChannelID ? true : false} />}
             {/* Outer wrapper carries data-raven-editor and is the popup anchor: the

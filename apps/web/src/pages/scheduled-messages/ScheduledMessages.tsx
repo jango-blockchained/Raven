@@ -1,9 +1,10 @@
-import { useState } from "react"
+import { useAtom } from "jotai"
 import { useSWRConfig } from "frappe-react-sdk"
 
 import AppMobileFooter from "@components/features/header/AppMobileFooter"
 import { PageHeader } from "@components/layout/PageHeader"
 import ScheduledMessagesList, { SCHEDULED_MESSAGES_KEY } from "@components/features/schedule-send/ScheduledMessagesList"
+import { scheduledMessageEditingAtom } from "@components/features/schedule-send/useScheduledMessages"
 import _ from "@lib/translate"
 
 /**
@@ -14,10 +15,10 @@ import _ from "@lib/translate"
  * on the card (the editor's own Escape handling cancels just the edit).
  */
 const ScheduledMessages = () => {
-    const [editingRowId, setEditingRowId] = useState<string | null>(null)
+    const [editingRowId, setEditingRowId] = useAtom(scheduledMessageEditingAtom)
 
-    // Prefix matcher: revalidates the list key AND the profile badge's count key
-    // (`scheduled-messages-count`) in one go after the user's own mutations.
+    // Prefix mutate after the user's own actions. The list is the one fetch behind the
+    // badge and the composer banners too, so this refreshes all of them.
     const { mutate } = useSWRConfig()
     const refreshList = () => {
         mutate((key) => typeof key === "string" && key.startsWith(SCHEDULED_MESSAGES_KEY))
@@ -26,7 +27,7 @@ const ScheduledMessages = () => {
     return (
         <div className="flex flex-col h-dvh overflow-hidden">
             <PageHeader title={_("Scheduled Messages")} />
-            <div className="flex-1 min-h-0 px-1 pb-2">
+            <div className="flex-1 min-h-0 p-3">
                 <ScheduledMessagesList
                     refresh={refreshList}
                     editingRowId={editingRowId}

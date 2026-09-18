@@ -16,7 +16,8 @@ class TestRavenScheduledMessage(IntegrationTestCase):
 		self.workspace = frappe.get_doc(
 			{
 				"doctype": "Raven Workspace",
-				"workspace_name": "Sched Send Test Workspace",
+				# Generated names: the sweep commits per row, so fixtures outlive the test rollback.
+				"workspace_name": frappe.generate_hash("sched-send-ws", 8),
 				"type": "Public",
 			}
 		).insert()
@@ -25,7 +26,7 @@ class TestRavenScheduledMessage(IntegrationTestCase):
 		self.channel = frappe.get_doc(
 			{
 				"doctype": "Raven Channel",
-				"channel_name": "sched-send-test-channel",
+				"channel_name": frappe.generate_hash("sched-send", 8),
 				"type": "Private",
 				"workspace": self.workspace.name,
 			}
@@ -173,7 +174,7 @@ class TestRavenScheduledMessage(IntegrationTestCase):
 		other_channel = frappe.get_doc(
 			{
 				"doctype": "Raven Channel",
-				"channel_name": "sched-send-other-channel",
+				"channel_name": frappe.generate_hash("sched-send-other", 8),
 				"type": "Private",
 				"workspace": self.workspace.name,
 			}

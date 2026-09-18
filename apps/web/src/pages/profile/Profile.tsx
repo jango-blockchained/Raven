@@ -26,6 +26,7 @@ import { enablePush, disablePush, isPushEnabled } from "@lib/push"
 import { FrappeError } from "frappe-react-sdk"
 import _ from "@lib/translate"
 import { Separator } from "@components/ui/separator"
+import { Badge } from "@components/ui/badge"
 
 const Profile = () => {
     const { myProfile } = useCurrentRavenUser()
@@ -156,9 +157,9 @@ const Profile = () => {
                                 label={_("Scheduled messages")}
                                 trailing={
                                     <span className="flex items-center gap-2">
-                                        <span className="h-4 min-w-4 px-1 flex items-center justify-center rounded-full bg-surface-gray-6 text-ink-base text-[10px] leading-none">
-                                            {scheduledCount > 9 ? "9+" : scheduledCount}
-                                        </span>
+                                        <Badge>
+                                            {scheduledCount}
+                                        </Badge>
                                         <ChevronRight className="size-4" />
                                     </span>
                                 }

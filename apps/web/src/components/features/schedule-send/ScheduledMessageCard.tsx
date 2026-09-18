@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import {
-    Edit3Icon, EllipsisIcon, MessageSquareMore, MoonIcon, SendHorizontalIcon, SunIcon, Trash2Icon,
+    Edit3Icon, EllipsisIcon, MoonIcon, SendHorizontalIcon, SunIcon, Trash2Icon,
 } from "lucide-react"
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -18,6 +18,7 @@ import { Button } from "@components/ui/button"
 import { MessageBody } from "@components/features/message/renderers/MessageContent"
 import { useMessageTimes } from "@components/features/message/renderers/MessageRow"
 import { ChannelIcon } from "@components/common/ChannelIcon/ChannelIcon"
+import { UserAvatar } from "@components/features/message/UserAvatar"
 import { useIsMobile } from "@hooks/use-mobile"
 import { cn } from "@lib/utils"
 import _ from "@lib/translate"
@@ -77,6 +78,9 @@ export const ScheduledMessageCard = ({
     const [deleteOpen, setDeleteOpen] = useState(false)
     // Mobile-only action sheet (row tap); desktop keeps the dropdown.
     const [actionsOpen, setActionsOpen] = useState(false)
+    // Desktop: the kebab dropdown or the right-click menu is open. The card takes
+    // the active look while either is, so it is clear which row the menu belongs to.
+    const [menuOpen, setMenuOpen] = useState(false)
 
     // Edit-defer timeout — cleared on unmount so a Virtuoso-recycled row
     // can't resurrect the edit sheet.
@@ -89,10 +93,22 @@ export const ScheduledMessageCard = ({
     }, [])
 
     // Mobile: row tap opens the action sheet; long-press OS menu suppressed.
+    // Tapping outside the sheet to dismiss it fires a click that lands on this row
+    // once the overlay starts leaving, which reopened the sheet. Ignore row taps for
+    // a short window after a dismissal. Same guard the message action sheet uses.
+    const sheetDismissedAtRef = useRef(0)
+    const DISMISS_GUARD_MS = 300
     const rowTapHandlers = isMobile && !isEditing ? {
-        onClick: () => setActionsOpen(true),
+        onClick: () => {
+            if (performance.now() - sheetDismissedAtRef.current < DISMISS_GUARD_MS) return
+            setActionsOpen(true)
+        },
         onContextMenu: (event: React.MouseEvent<HTMLDivElement>) => event.preventDefault(),
     } : {}
+    const onActionsOpenChange = (next: boolean) => {
+        if (!next) sheetDismissedAtRef.current = performance.now()
+        setActionsOpen(next)
+    }
 
     // One source for the kebab dropdown AND the right-click menu.
     const actions = [
@@ -102,208 +118,209 @@ export const ScheduledMessageCard = ({
     ]
 
     return (
-        <div className="px-2 py-1">
-        <ContextMenu>
-            {/* Right-click opens the same actions at the cursor (chat-stream parity).
+        <div className="py-1">
+            <ContextMenu onOpenChange={setMenuOpen}>
+                {/* Right-click opens the same actions at the cursor (chat-stream parity).
                 Mobile keeps its tap sheet; disabled also while editing. */}
-            <ContextMenuTrigger asChild disabled={isMobile || isEditing}>
-            {/* ChatInput's reply-banner anatomy: bordered box, grey context band
+                <ContextMenuTrigger asChild disabled={isMobile || isEditing}>
+                    {/* ChatInput's reply-banner anatomy: bordered box, grey context band
                 on top (time · destination · kebab), message body below. */}
-            <div
-                className={cn(
-                    "overflow-hidden rounded-lg border border-outline-gray-2 bg-surface-base text-left select-none",
-                    // CSS :active, not state — a Virtuoso-recycled instance can't
-                    // highlight the wrong row.
-                    "active:border-outline-gray-3",
-                    actionsOpen && "border-outline-gray-3",
-                )}
-                {...rowTapHandlers}
-            >
-                <div className="flex items-center gap-1.5 bg-surface-gray-1 px-3 py-1.5 text-sm text-ink-gray-6">
-                    <DayNightIcon className="size-3.5 shrink-0 text-ink-gray-5" />
-                    <span className="shrink-0 tabular-nums">{shortTime}</span>
-                    {channel && (
-                        <>
-                            <span className="shrink-0 text-ink-gray-4">·</span>
-                            {workspace && <span className="truncate">{workspace.workspace_name}</span>}
-                            <ChannelIcon type={channel.type} className="size-3.5 shrink-0 text-ink-gray-5" />
-                            <span className="truncate min-w-0 -ml-0.5">{channel.channel_name}</span>
-                        </>
-                    )}
-                    {dmChannel && (
-                        <>
-                            <span className="shrink-0 text-ink-gray-4">·</span>
-                            <MessageSquareMore className="size-3.5 shrink-0 text-ink-gray-5" />
-                            <span className="truncate min-w-0 -ml-0.5">{peerName}</span>
-                        </>
-                    )}
-                    {!isEditing && !isMobile && (
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    isIconButton
-                                    aria-label={_("Scheduled message actions")}
-                                    className="ms-auto shrink-0 -me-1.5"
-                                >
-                                    <EllipsisIcon className="size-4" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                {actions.map(({ icon: Icon, label, onClick, destructive }) => (
-                                    <DropdownMenuItem
-                                        key={label}
-                                        variant={destructive ? "destructive" : undefined}
-                                        className="text-base md:text-sm py-2.5 md:py-1.5"
-                                        onClick={onClick}
-                                    >
-                                        <Icon />
-                                        {label}
-                                    </DropdownMenuItem>
-                                ))}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    )}
-                </div>
-                <div className="px-3 py-2">
-                    {isEditing && !isMobile ? (
-                        <InlineScheduledMessageEditor
-                            row={row}
-                            onDone={onRowSaved}
-                            onCancel={() => onEditingChange(null)}
-                        />
-                    ) : (
-                        <>
-                            {isFailed && (
-                                <div className="mb-1 flex flex-col gap-0.5">
-                                    <Badge variant="subtle" theme="red" className="self-start">{_("Failed")}</Badge>
-                                    {row.error && <p className="whitespace-pre-line text-sm text-ink-red-6">{row.error}</p>}
-                                </div>
+                    <div
+                        className={cn(
+                            "overflow-hidden rounded-md border border-outline-gray-2 bg-surface-base text-left select-none",
+                            // CSS :active, not state — a Virtuoso-recycled instance can't
+                            // highlight the wrong row.
+                            "active:border-outline-gray-3",
+                            (actionsOpen || menuOpen) && "border-outline-gray-3 bg-surface-gray-1",
+                        )}
+                        {...rowTapHandlers}
+                    >
+                        <div className="flex items-center gap-1.5 bg-surface-gray-1 px-3 py-2.5 md:py-1 text-sm text-ink-gray-6">
+                            <DayNightIcon className="size-3.5 shrink-0 text-ink-gray-6" />
+                            <span className="shrink-0 tabular-nums text-sm">{shortTime}</span>
+                            {channel && (
+                                <>
+                                    <span className="shrink-0 text-ink-gray-4">·</span>
+                                    <ChannelIcon type={channel.type} className="size-3.5 shrink-0 text-ink-gray-6" />
+                                    <span className="text-sm min-w-0 -ml-0.5">{channel.channel_name}</span>
+                                    <span className="shrink-0 text-ink-gray-4">·</span>
+                                    {workspace && <span className="truncate text-xs text-ink-gray-4">{workspace.workspace_name}</span>}
+                                </>
                             )}
-                            <div className="[&_p]:my-0">
-                                <MessageBody content={row.text} />
-                            </div>
-                        </>
-                    )}
-                </div>
-                {!isEditing && (
-                    <>
-                        {/* Mobile action sheet (row tap). Rows close the sheet first, then
+                            {dmChannel && (
+                                <>
+                                    <span className="shrink-0 text-ink-gray-4">·</span>
+                                    {/* The person's avatar, the way DMs are shown everywhere else. */}
+                                    {peer && <UserAvatar user={peer} size="xs" showStatusIndicator={false} />}
+                                    <span className="truncate min-w-0">{peerName}</span>
+                                </>
+                            )}
+                            {!isEditing && !isMobile && (
+                                <DropdownMenu onOpenChange={setMenuOpen}>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            isIconButton
+                                            aria-label={_("Scheduled message actions")}
+                                            className="ms-auto shrink-0 -me-1.5"
+                                        >
+                                            <EllipsisIcon className="size-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        {actions.map(({ icon: Icon, label, onClick, destructive }) => (
+                                            <DropdownMenuItem
+                                                key={label}
+                                                variant={destructive ? "destructive" : undefined}
+                                                onClick={onClick}
+                                            >
+                                                <Icon />
+                                                {label}
+                                            </DropdownMenuItem>
+                                        ))}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            )}
+                        </div>
+                        <div className="px-3 py-2.5">
+                            {isEditing && !isMobile ? (
+                                <InlineScheduledMessageEditor
+                                    row={row}
+                                    onDone={onRowSaved}
+                                    onCancel={() => onEditingChange(null)}
+                                />
+                            ) : (
+                                <>
+                                    {isFailed && (
+                                        <div className="mb-1 flex flex-col gap-0.5">
+                                            <Badge variant="subtle" theme="red" className="self-start">{_("Failed")}</Badge>
+                                            {row.error && <p className="whitespace-pre-line text-sm text-ink-red-6">{row.error}</p>}
+                                        </div>
+                                    )}
+                                    <div className="[&_p]:my-0">
+                                        <MessageBody content={row.text} />
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                        {!isEditing && (
+                            <>
+                                {/* Mobile action sheet (row tap). Rows close the sheet first, then
                             open their confirm — AlertDialog over a just-closed sheet is the
                             house pattern. */}
-                        <Drawer open={actionsOpen} onOpenChange={setActionsOpen}>
-                            <DrawerContent
-                                // No focus restore — it would yank focus off the
-                                // AlertDialog these rows open (same as MessageActionMenu).
-                                onCloseAutoFocus={(event) => event.preventDefault()}
-                            >
-                                <DrawerTitle className="sr-only">{_("Scheduled message actions")}</DrawerTitle>
-                                {/* MessageActionMenu's SheetActionRow anatomy. */}
-                                <div className="flex flex-col px-2 pb-6">
-                                    <Button
-                                        variant="ghost"
-                                        size="lg"
-                                        theme="gray"
-                                        className="w-full justify-start gap-3 active:bg-surface-gray-2"
-                                        onClick={() => {
-                                            setActionsOpen(false)
-                                            setSendNowOpen(true)
-                                        }}
+                                <Drawer open={actionsOpen} onOpenChange={onActionsOpenChange}>
+                                    <DrawerContent
+                                        // No focus restore — it would yank focus off the
+                                        // AlertDialog these rows open (same as MessageActionMenu).
+                                        onCloseAutoFocus={(event) => event.preventDefault()}
                                     >
-                                        <SendHorizontalIcon />
-                                        {_("Send now")}
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="lg"
-                                        theme="gray"
-                                        className="w-full justify-start gap-3 active:bg-surface-gray-2"
-                                        onClick={() => {
-                                            setActionsOpen(false)
-                                            // Wait out the sheet's exit animation — flipping
-                                            // isEditing in the same commit would unmount it
-                                            // mid-animation while the edit Drawer mounts.
-                                            if (editDeferRef.current !== null) {
-                                                window.clearTimeout(editDeferRef.current)
-                                            }
-                                            editDeferRef.current = window.setTimeout(() => {
-                                                editDeferRef.current = null
-                                                onEditingChange(row.name)
-                                            }, DRAWER_EXIT_MS)
-                                        }}
-                                    >
-                                        <Edit3Icon />
-                                        {_("Edit")}
-                                    </Button>
-                                    <div className="my-1 border-t border-outline-gray-2" />
-                                    <Button
-                                        variant="ghost"
-                                        size="lg"
-                                        theme="red"
-                                        className="w-full justify-start gap-3 active:bg-surface-red-2"
-                                        onClick={() => {
-                                            setActionsOpen(false)
-                                            setDeleteOpen(true)
-                                        }}
-                                    >
-                                        <Trash2Icon />
-                                        {_("Delete")}
-                                    </Button>
-                                </div>
-                            </DrawerContent>
-                        </Drawer>
-                        {/* Confirmations — AlertDialogAction closes the dialog on click
+                                        <DrawerTitle className="sr-only">{_("Scheduled message actions")}</DrawerTitle>
+                                        {/* MessageActionMenu's SheetActionRow anatomy. */}
+                                        <div className="flex flex-col px-2 pb-6">
+                                            <Button
+                                                variant="ghost"
+                                                size="lg"
+                                                theme="gray"
+                                                className="w-full justify-start gap-3 active:bg-surface-gray-2"
+                                                onClick={() => {
+                                                    setActionsOpen(false)
+                                                    setSendNowOpen(true)
+                                                }}
+                                            >
+                                                <SendHorizontalIcon />
+                                                {_("Send now")}
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="lg"
+                                                theme="gray"
+                                                className="w-full justify-start gap-3 active:bg-surface-gray-2"
+                                                onClick={() => {
+                                                    setActionsOpen(false)
+                                                    // Wait out the sheet's exit animation — flipping
+                                                    // isEditing in the same commit would unmount it
+                                                    // mid-animation while the edit Drawer mounts.
+                                                    if (editDeferRef.current !== null) {
+                                                        window.clearTimeout(editDeferRef.current)
+                                                    }
+                                                    editDeferRef.current = window.setTimeout(() => {
+                                                        editDeferRef.current = null
+                                                        onEditingChange(row.name)
+                                                    }, DRAWER_EXIT_MS)
+                                                }}
+                                            >
+                                                <Edit3Icon />
+                                                {_("Edit")}
+                                            </Button>
+                                            <div className="my-1 border-t border-outline-gray-2" />
+                                            <Button
+                                                variant="ghost"
+                                                size="lg"
+                                                theme="red"
+                                                className="w-full justify-start gap-3 active:bg-surface-red-2"
+                                                onClick={() => {
+                                                    setActionsOpen(false)
+                                                    setDeleteOpen(true)
+                                                }}
+                                            >
+                                                <Trash2Icon />
+                                                {_("Delete")}
+                                            </Button>
+                                        </div>
+                                    </DrawerContent>
+                                </Drawer>
+                                {/* Confirmations — AlertDialogAction closes the dialog on click
                             (Radix), then the parent's send/delete handler runs. */}
-                        <AlertDialog open={sendNowOpen} onOpenChange={setSendNowOpen}>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>{_("Send message now?")}</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        {_("This message will be sent to {0} immediately.", [channelLabel])}
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>{_("Cancel")}</AlertDialogCancel>
-                                    <AlertDialogAction theme="gray" onClick={() => onSendNow(row)}>
-                                        {_("Send now")}
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                        <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>{_("Delete scheduled message?")}</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        {_("This scheduled message will be permanently deleted.")}
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>{_("Cancel")}</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => onDelete(row)}>
-                                        {_("Delete")}
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                    </>
-                )}
-            </div>
-            </ContextMenuTrigger>
-            <ContextMenuContent>
-                {actions.map(({ icon: Icon, label, onClick, destructive }) => (
-                    <ContextMenuItem
-                        key={label}
-                        variant={destructive ? "destructive" : undefined}
-                        onClick={onClick}
-                    >
-                        <Icon />
-                        {label}
-                    </ContextMenuItem>
-                ))}
-            </ContextMenuContent>
-        </ContextMenu>
+                                <AlertDialog open={sendNowOpen} onOpenChange={setSendNowOpen}>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>{_("Send message now?")}</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                {_("This message will be sent to {0} immediately.", [channelLabel])}
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>{_("Cancel")}</AlertDialogCancel>
+                                            <AlertDialogAction theme="gray" onClick={() => onSendNow(row)}>
+                                                {_("Send now")}
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                                <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>{_("Delete scheduled message?")}</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                {_("This scheduled message will be permanently deleted.")}
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>{_("Cancel")}</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => onDelete(row)}>
+                                                {_("Delete")}
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </>
+                        )}
+                    </div>
+                </ContextMenuTrigger>
+                <ContextMenuContent>
+                    {actions.map(({ icon: Icon, label, onClick, destructive }) => (
+                        <ContextMenuItem
+                            key={label}
+                            variant={destructive ? "destructive" : undefined}
+                            onClick={onClick}
+                        >
+                            <Icon />
+                            {label}
+                        </ContextMenuItem>
+                    ))}
+                </ContextMenuContent>
+            </ContextMenu>
         </div>
     )
 }

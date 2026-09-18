@@ -1,7 +1,8 @@
-import { useContext, useEffect, useMemo, useRef } from "react"
+import { useContext, useEffect, useMemo } from "react"
 import { Virtuoso } from "react-virtuoso"
+import { useSetAtom } from "jotai"
 import {
-    FrappeConfig, FrappeContext, useFrappeGetCall,
+    FrappeConfig, FrappeContext,
     useFrappeDeleteDoc,
 } from "frappe-react-sdk"
 import dayjs, { Dayjs } from "dayjs"
@@ -14,7 +15,6 @@ import { useIsMobile } from "@hooks/use-mobile"
 import { fromServerDatetime } from "@lib/timeUtils"
 import { toast } from "sonner"
 import _ from "@lib/translate"
-import { subscribeToScheduledMessagesUpdated } from "./scheduledMessageEvents"
 import { EditScheduledMessageSheet } from "./EditScheduledMessageSheet"
 import { ScheduledMessageCard } from "./ScheduledMessageCard"
 
@@ -28,8 +28,9 @@ export type ScheduledMessageRow = {
     error?: string
 }
 
-/** SWR key prefix shared by the list and the count badge. */
-export const SCHEDULED_MESSAGES_KEY = "scheduled-messages"
+import { SCHEDULED_MESSAGES_KEY, scheduledMessageEditingAtom, useScheduledMessages } from "./useScheduledMessages"
+import { cn } from "@lib/utils"
+export { SCHEDULED_MESSAGES_KEY }
 
 /** Day-group header for a delivery time; the card itself shows only the time. */
 const groupLabel = (time: Dayjs, now: Dayjs) => {
@@ -61,34 +62,14 @@ type ScheduledMessagesListProps = {
  * recycling can't unmount a mid-edit editor.
  */
 const ScheduledMessagesList = ({ editingRowId, onEditingChange, onRowSaved, refresh }: ScheduledMessagesListProps) => {
-    const { data, error, isLoading } = useFrappeGetCall<{ message: ScheduledMessageRow[] }>(
-        "raven.api.scheduled_message.get_scheduled_messages",
-        undefined,
-        `${SCHEDULED_MESSAGES_KEY}-list`,
-    )
-    // A refetch-driven reflow would unmount a mid-edit row (its unsaved state
-    // lives there) — defer realtime refetches until editing ends. The signal comes
-    // from the app-level socket subscriber through the bus, not from the socket
-    // directly (see scheduledMessageEvents). The handler reads the latest editing
-    // state and refresh through a ref, so the subscription is made once.
-    const pendingRefetchRef = useRef(false)
-    const onUpdatedRef = useRef(() => {})
-    onUpdatedRef.current = () => {
-        if (editingRowId !== null) {
-            pendingRefetchRef.current = true
-            return
-        }
-        refresh()
-    }
-    useEffect(() => subscribeToScheduledMessagesUpdated(() => onUpdatedRef.current()), [])
+    // One shared fetch with the badge and the banners. Realtime refetches, and the
+    // hold on them while a row is being edited, live in useScheduledMessagesRealtime.
+    const { rows, error, isLoading } = useScheduledMessages()
 
-    // Flush the deferred refetch once editing ends.
-    useEffect(() => {
-        if (editingRowId === null && pendingRefetchRef.current) {
-            pendingRefetchRef.current = false
-            refresh()
-        }
-    }, [editingRowId, refresh])
+    // Leaving the list mid-edit (closing the dialog, navigating off the page) must
+    // not leave the shared editing flag set, or realtime refetches would stay held.
+    const setEditing = useSetAtom(scheduledMessageEditingAtom)
+    useEffect(() => () => setEditing(null), [setEditing])
 
     const { call } = useContext(FrappeContext) as FrappeConfig
     const { deleteDoc } = useFrappeDeleteDoc()
@@ -98,7 +79,6 @@ const ScheduledMessagesList = ({ editingRowId, onEditingChange, onRowSaved, refr
 
     // API returns Scheduled + Failed only, ordered by scheduled_time — so a
     // single pass emits a header wherever the day changes.
-    const rows = data?.message ?? []
     const items = useMemo(() => {
         const now = dayjs()
         const out: ListItem[] = []
@@ -112,7 +92,7 @@ const ScheduledMessagesList = ({ editingRowId, onEditingChange, onRowSaved, refr
             out.push({ type: "row", row })
         }
         return out
-    }, [data])
+    }, [rows])
 
     // Can vanish via realtime while the sheet is open — the sheet then unmounts.
     const editingRow = rows.find((row) => row.name === editingRowId)
@@ -154,52 +134,52 @@ const ScheduledMessagesList = ({ editingRowId, onEditingChange, onRowSaved, refr
 
     return (
         <>
-        <Virtuoso
-            data={items}
-            style={{ height: '100%' }}
-            initialItemCount={Math.min(items.length, 10)}
-            increaseViewportBy={{ top: 600, bottom: 600 }}
-            computeItemKey={(_idx, item) =>
-                item ? (item.type === "header" ? `header-${item.label}` : item.row.name) : _idx}
-            itemContent={(_idx, item) => {
-                if (!item) return null
-                if (item.type === "header") {
-                    // px-5 lines the label up with card content (px-2 wrapper + border + px-3).
+            <Virtuoso
+                data={items}
+                style={{ height: '100%' }}
+                initialItemCount={Math.min(items.length, 10)}
+                increaseViewportBy={{ top: 600, bottom: 600 }}
+                computeItemKey={(_idx, item) =>
+                    item ? (item.type === "header" ? `header-${item.label}` : item.row.name) : _idx}
+                itemContent={(_idx, item) => {
+                    if (!item) return null
+                    if (item.type === "header") {
+                        // px-5 lines the label up with card content (px-2 wrapper + border + px-3).
+                        return (
+                            <div className={cn("pb-1 text-sm-medium text-ink-gray-6", _idx === 0 ? "pt-0" : "pt-3")}>
+                                {item.label}
+                            </div>
+                        )
+                    }
+                    const { row } = item
+                    const channelData = channelById.get(row.channel_id)
+                    const dmChannel = dmById.get(row.channel_id)
+                    const peer = dmChannel ? usersById.get(dmChannel.peer_user_id) : undefined
                     return (
-                        <div className="px-5 pt-3 pb-1 text-sm font-medium text-ink-gray-5">
-                            {item.label}
-                        </div>
+                        <ScheduledMessageCard
+                            row={row}
+                            channel={channelData}
+                            workspace={channelData?.workspace ? workspaceById.get(channelData.workspace) : undefined}
+                            dmChannel={dmChannel}
+                            peer={peer}
+                            onSendNow={sendNow}
+                            editingRowId={editingRowId}
+                            onEditingChange={onEditingChange}
+                            onRowSaved={onRowSaved}
+                            onDelete={deleteMessage}
+                        />
                     )
-                }
-                const { row } = item
-                const channelData = channelById.get(row.channel_id)
-                const dmChannel = dmById.get(row.channel_id)
-                const peer = dmChannel ? usersById.get(dmChannel.peer_user_id) : undefined
-                return (
-                    <ScheduledMessageCard
-                        row={row}
-                        channel={channelData}
-                        workspace={channelData?.workspace ? workspaceById.get(channelData.workspace) : undefined}
-                        dmChannel={dmChannel}
-                        peer={peer}
-                        onSendNow={sendNow}
-                        editingRowId={editingRowId}
-                        onEditingChange={onEditingChange}
-                        onRowSaved={onRowSaved}
-                        onDelete={deleteMessage}
-                    />
-                )
-            }}
-        />
-        {/* Outside the virtualizer so row recycling can't unmount a mid-edit editor. */}
-        {isMobile && editingRow && (
-            <EditScheduledMessageSheet
-                row={editingRow}
-                open
-                onOpenChange={(open) => { if (!open) onEditingChange(null) }}
-                onDone={onRowSaved}
+                }}
             />
-        )}
+            {/* Outside the virtualizer so row recycling can't unmount a mid-edit editor. */}
+            {isMobile && editingRow && (
+                <EditScheduledMessageSheet
+                    row={editingRow}
+                    open
+                    onOpenChange={(open) => { if (!open) onEditingChange(null) }}
+                    onDone={onRowSaved}
+                />
+            )}
         </>
     )
 }

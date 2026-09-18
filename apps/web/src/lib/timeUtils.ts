@@ -91,18 +91,19 @@ export const getReminderPresets = (timeFormat: TimeFormat, now: Dayjs = dayjs())
 
 // --- Schedule send ---
 
-type ScheduleMenuSlot = { label: string; time: Dayjs }
-type ScheduleMenuSection = { label: string; slots: ScheduleMenuSlot[] }
+export type ScheduleSlotId = "morning" | "afternoon" | "evening"
+export type ScheduleMenuSlot = { id: ScheduleSlotId; label: string; time: Dayjs }
+export type ScheduleMenuSection = { label: string; slots: ScheduleMenuSlot[] }
 
 /** A confirmed custom pick: server-side naive datetime + human label for toasts. */
 export type SchedulePick = { serverTime: string; label: string }
 
 /** Preset slot times-of-day (local tz). Labels are thunks: _() at module scope
  *  would resolve before i18n loads. */
-const SLOT_TIMES = [
-    { label: () => _("Morning"), hour: 9 },
-    { label: () => _("Afternoon"), hour: 13 },
-    { label: () => _("Evening"), hour: 18 },
+const SLOT_TIMES: { id: ScheduleSlotId; label: () => string; hour: number }[] = [
+    { id: "morning", label: () => _("Morning"), hour: 9 },
+    { id: "afternoon", label: () => _("Afternoon"), hour: 13 },
+    { id: "evening", label: () => _("Evening"), hour: 18 },
 ]
 
 /** Today / Tomorrow / next-working-day preset sections for the schedule submenu.
@@ -110,16 +111,15 @@ const SLOT_TIMES = [
  *  comes from the server (Holiday List aware) and is skipped when it IS tomorrow. */
 export const getScheduleMenuSections = (now: Dayjs = dayjs(), nextWorkingDay?: Dayjs | null): ScheduleMenuSection[] => {
     const dayFor = (base: Dayjs) =>
-        SLOT_TIMES.map(({ label, hour }) => ({ label: label(), time: base.hour(hour).minute(0).second(0).millisecond(0) }))
+        SLOT_TIMES.map(({ id, label, hour }) => ({ id, label: label(), time: base.hour(hour).minute(0).second(0).millisecond(0) }))
     const tomorrow = now.add(1, "day")
     const sections = [
         { label: _("Today"), slots: dayFor(now).filter((s) => s.time.isAfter(now)) },
         { label: _("Tomorrow"), slots: dayFor(tomorrow) },
     ]
     if (nextWorkingDay && !nextWorkingDay.isSame(tomorrow, "day")) {
-        // Weekday name reads naturally within a week; a long break needs the date.
-        const label = nextWorkingDay.diff(now.startOf("day"), "day") < 7 ? nextWorkingDay.format("dddd") : nextWorkingDay.format("ddd, MMM D")
-        sections.push({ label, slots: dayFor(nextWorkingDay) })
+        // Weekday plus date, "Monday, 3 Jan": the name alone is ambiguous after a long break.
+        sections.push({ label: nextWorkingDay.format("dddd, D MMM"), slots: dayFor(nextWorkingDay) })
     }
     return sections.filter((s) => s.slots.length > 0)
 }

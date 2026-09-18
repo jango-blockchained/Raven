@@ -1,16 +1,45 @@
 import { useRef, useState } from "react"
 import dayjs from "dayjs"
 import { useFrappeGetCall } from "frappe-react-sdk"
+import { useAtomValue } from "jotai"
 import {
-    DropdownMenuItem, DropdownMenuSeparator,
+    DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
     DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger,
 } from "@components/ui/dropdown-menu"
-import { CalendarClockIcon } from "lucide-react"
+import { CalendarClockIcon, SunIcon, SunriseIcon, SunsetIcon, type LucideIcon } from "lucide-react"
+import { timeFormatAtom } from "@utils/preferences"
 import _ from "@lib/translate"
 import { getScheduleMenuSections, toServerDatetime, formatDateTimeLabel, formatTimeLabel } from "@lib/timeUtils"
-import { useAtomValue } from "jotai"
-import { timeFormatAtom } from "@utils/preferences"
-import type { SchedulePick } from "@lib/timeUtils"
+import type { SchedulePick, ScheduleMenuSlot, ScheduleSlotId } from "@lib/timeUtils"
+
+/** One icon per preset slot, shared by the desktop submenu and the mobile sheet. */
+export const SLOT_ICONS: Record<ScheduleSlotId, LucideIcon> = {
+    morning: SunriseIcon,
+    afternoon: SunIcon,
+    evening: SunsetIcon,
+}
+
+/**
+ * The preset day sections for the schedule pickers. The next working day comes from
+ * the server (Holiday List aware); until it lands only Today and Tomorrow show.
+ * Computed on each call so the slot times are fresh whenever a menu opens.
+ */
+export const useScheduleMenuSections = () => {
+    const { data } = useFrappeGetCall<{ message: string }>(
+        "raven.api.scheduled_message.get_next_working_day",
+        undefined,
+        "next-working-day",
+    )
+    return getScheduleMenuSections(dayjs(), data?.message ? dayjs(data.message) : null)
+}
+
+/** Turn a picked slot into the payload the composer posts. Null if the slot has passed. */
+export const pickFromSlot = (slot: ScheduleMenuSlot, timeFormat: "12-hour" | "24-hour"): SchedulePick | null => {
+    // The menu may have sat open across the slot's boundary. Re-check at click time
+    // so we never post a time the server will reject as past.
+    if (!slot.time.isAfter(dayjs())) return null
+    return { serverTime: toServerDatetime(slot.time), label: formatDateTimeLabel(slot.time, timeFormat) }
+}
 
 type ScheduleSendMenuProps = {
     /** A preset slot was picked from the submenu — schedule immediately. */
@@ -22,8 +51,9 @@ type ScheduleSendMenuProps = {
 }
 
 /**
- * "Schedule message" submenu in the send-options menu: Today / Tomorrow /
- * next-working-day submenus of preset slots, plus a custom date & time entry.
+ * Desktop "Schedule message" submenu in the send-options menu: the preset slots
+ * grouped by day (Today / Tomorrow / next working day), plus a custom date & time
+ * entry. Mobile uses ScheduleSendSheet instead.
  */
 export const ScheduleSendMenu = ({ onSchedulePick, onScheduleSend, scheduleDisabled }: ScheduleSendMenuProps) => {
     // Bottom-align the schedule submenu to its trigger row: Radix hardcodes
@@ -37,7 +67,7 @@ export const ScheduleSendMenu = ({ onSchedulePick, onScheduleSend, scheduleDisab
 
     return (
         <DropdownMenuSub>
-            <DropdownMenuSubTrigger ref={subTriggerRef} disabled={scheduleDisabled} className="text-base md:text-sm py-2.5 md:py-1.5">
+            <DropdownMenuSubTrigger ref={subTriggerRef} disabled={scheduleDisabled}>
                 <CalendarClockIcon />
                 {_("Schedule message")}
             </DropdownMenuSubTrigger>
@@ -55,7 +85,7 @@ export const ScheduleSendMenu = ({ onSchedulePick, onScheduleSend, scheduleDisab
             >
                 <ScheduleMenuSections onSchedulePick={onSchedulePick} />
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={onScheduleSend} className="text-base md:text-sm py-2.5 md:py-1.5">
+                <DropdownMenuItem onSelect={onScheduleSend}>
                     {_("Custom date & time…")}
                 </DropdownMenuItem>
             </DropdownMenuSubContent>
@@ -64,43 +94,40 @@ export const ScheduleSendMenu = ({ onSchedulePick, onScheduleSend, scheduleDisab
 }
 
 /**
- * Preset day submenus, computed inside DropdownMenuSubContent so slot times are
- * fresh on open without per-keystroke cost.
+ * Preset slots as labelled groups, one per day, inside the schedule submenu. Groups
+ * rather than nested submenus: there are at most three days with three slots each,
+ * so one flat list reads faster than another level of menus. Computed inside
+ * DropdownMenuSubContent so slot times are fresh on open without per-keystroke cost.
  */
 const ScheduleMenuSections = ({ onSchedulePick }: { onSchedulePick: (pick: SchedulePick) => void }) => {
     const timeFormat = useAtomValue(timeFormatAtom)
-    // Server-computed (Holiday List aware); until it lands only Today / Tomorrow show.
-    const { data } = useFrappeGetCall<{ message: string }>(
-        "raven.api.scheduled_message.get_next_working_day",
-        undefined,
-        "next-working-day",
-    )
-    const sections = getScheduleMenuSections(dayjs(), data?.message ? dayjs(data.message) : null)
+    const sections = useScheduleMenuSections()
     return (
         <>
-            {sections.map((section) => (
-                <DropdownMenuSub key={section.label}>
-                    <DropdownMenuSubTrigger className="text-base md:text-sm py-2.5 md:py-1.5">
-                        {section.label}
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
-                        {section.slots.map((slot) => (
+            {sections.map((section, index) => (
+                <DropdownMenuGroup key={section.label}>
+                    {index > 0 && <DropdownMenuSeparator />}
+                    <DropdownMenuLabel>{section.label}</DropdownMenuLabel>
+                    {section.slots.map((slot) => {
+                        const Icon = SLOT_ICONS[slot.id]
+                        return (
                             <DropdownMenuItem
-                                key={slot.label}
-                                className="text-base md:text-sm py-2.5 md:py-1.5 justify-between gap-4"
+                                key={slot.id}
+                                className="justify-between gap-4"
                                 onSelect={() => {
-                                    // The menu may have sat open across the slot's boundary — re-check at click
-                                    // time so we don't POST a time the server will reject as past.
-                                    if (!slot.time.isAfter(dayjs())) return
-                                    onSchedulePick({ serverTime: toServerDatetime(slot.time), label: formatDateTimeLabel(slot.time, timeFormat) })
+                                    const pick = pickFromSlot(slot, timeFormat)
+                                    if (pick) onSchedulePick(pick)
                                 }}
                             >
-                                <span>{slot.label}</span>
-                                <span className="text-ink-gray-5">{formatTimeLabel(slot.time.format("HH:mm"), timeFormat)}</span>
+                                <span className="flex items-center gap-2">
+                                    <Icon />
+                                    {slot.label}
+                                </span>
+                                <span className="tabular-nums text-ink-gray-5">{formatTimeLabel(slot.time.format("HH:mm"), timeFormat)}</span>
                             </DropdownMenuItem>
-                        ))}
-                    </DropdownMenuSubContent>
-                </DropdownMenuSub>
+                        )
+                    })}
+                </DropdownMenuGroup>
             ))}
         </>
     )

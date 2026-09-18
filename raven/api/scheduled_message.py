@@ -1,13 +1,6 @@
-from typing import TYPE_CHECKING
-
 import frappe
 from frappe import _
 from frappe.utils import add_days, getdate
-
-if TYPE_CHECKING:
-	from raven.raven_messaging.doctype.raven_scheduled_message.raven_scheduled_message import (
-		RavenScheduledMessage,
-	)
 
 from raven.raven_messaging.doctype.raven_scheduled_message.raven_scheduled_message import (
 	notify_owner_updated,
@@ -48,75 +41,36 @@ def get_scheduled_messages(channel_id: str | None = None):
 	)
 
 
-@frappe.whitelist()
-def get_scheduled_message_count():
-	"""Count of the session user's pending (Scheduled + Failed) rows — drives the sidebar badge."""
-	return frappe.db.count(
-		"Raven Scheduled Message",
-		{"owner": frappe.session.user, "status": ["in", ["Scheduled", "Failed"]]},
-	)
-
-
 @frappe.whitelist(methods=["POST"])
 def send_now(name: str):
-	"""Deliver a scheduled message immediately. Raises on failure so the caller
-	sees why (unlike the cron path, which records the failure on the row)."""
+	"""Deliver one of the session user's scheduled messages right away. Runs as the
+	user themself, so a failure raises back to them like any other send."""
 	doc = frappe.get_doc("Raven Scheduled Message", name)
 	if doc.owner != frappe.session.user:
 		frappe.throw(_("You can only send your own scheduled messages."), frappe.PermissionError)
 	if doc.status == "Sent":
 		frappe.throw(_("This message has already been sent."))
-	_dispatch(doc, raise_on_failure=True)
+	deliver(doc)
 
 
-def _dispatch(doc: "RavenScheduledMessage", raise_on_failure: bool = False):
-	"""Insert the real Raven Message as the row's owner. Success -> Sent (+link);
-	failure -> Failed (+reason), with the partial message insert rolled back."""
-	# Re-read under lock: cron tick and a concurrent Send Now must not both dispatch this row.
-	current_status = frappe.db.get_value(
-		"Raven Scheduled Message", doc.name, "status", for_update=True
-	)
-	if current_status not in ("Scheduled", "Failed"):
-		if raise_on_failure:
-			frappe.throw(_("This message has already been sent."))
-		return
-	original_user = frappe.session.user
-	# Impersonation guard: only the scheduler (Administrator) or the owner
-	# themself may reach the set_user below — never a switch to someone else.
-	if original_user not in ("Administrator", doc.owner):
-		frappe.throw(_("Not permitted."), frappe.PermissionError)
-	frappe.db.savepoint("raven_scheduled_send")
-	try:
-		# Act as the owner: the message's permission checks and `owner` must be
-		# theirs, and the full insert path (broadcast, unread counts, mentions,
-		# notifications) fires exactly like a live send. Scoped by the finally
-		# below, which always restores the original session user.
-		frappe.set_user(doc.owner)  # nosemgrep: frappe-semgrep-rules.rules.security.frappe-setuser
-		message = frappe.get_doc(
-			{
-				"doctype": "Raven Message",
-				"channel_id": doc.channel_id,
-				"text": doc.text,
-				"message_type": "Text",
-			}
-		)
-		message.insert()
-	except Exception as e:
-		frappe.db.rollback(save_point="raven_scheduled_send")
-		# frappe.PermissionError carries its reason in flags, not the exception
-		# message (which is empty), so fall back to that for a truthy reason.
-		error = str(e) or frappe.flags.get("error_message") or type(e).__name__
-		doc.db_set({"status": "Failed", "error": error})
-		# db_set skips controller hooks, so publish the revalidate signal manually.
-		notify_owner_updated(doc)
-		if raise_on_failure:
-			raise
-	else:
-		doc.db_set({"status": "Sent", "sent_message": message.name})
-		# db_set skips controller hooks, so publish the revalidate signal manually.
-		notify_owner_updated(doc)
-	finally:
-		frappe.set_user(original_user)  # nosemgrep: frappe-semgrep-rules.rules.security.frappe-setuser
+def deliver(doc):
+	"""Post the chat message for a scheduled row and mark the row Sent.
+
+	Must run as the row's owner: Frappe stamps the message owner from the session
+	user, and the insert hooks (realtime payload, unread counts, push) fire with it.
+	Send Now already runs as the owner. The cron sweep switches user first.
+	"""
+	message = frappe.get_doc(
+		{
+			"doctype": "Raven Message",
+			"channel_id": doc.channel_id,
+			"text": doc.text,
+			"message_type": "Text",
+		}
+	).insert()
+	doc.db_set({"status": "Sent", "sent_message": message.name})
+	# db_set skips controller hooks, so publish the revalidate signal by hand.
+	notify_owner_updated(doc)
 
 
 @frappe.whitelist()

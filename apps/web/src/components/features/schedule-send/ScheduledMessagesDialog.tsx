@@ -1,10 +1,9 @@
-import { useState } from "react"
+import { useAtom } from "jotai"
 import { useSWRConfig } from "frappe-react-sdk"
-import { XIcon } from "lucide-react"
 
-import { Dialog, DialogContent, DialogTitle } from "@components/ui/dialog"
-import { Button } from "@components/ui/button"
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@components/ui/dialog"
 import ScheduledMessagesList, { SCHEDULED_MESSAGES_KEY } from "./ScheduledMessagesList"
+import { scheduledMessageEditingAtom } from "./useScheduledMessages"
 import _ from "@lib/translate"
 
 type ScheduledMessagesDialogProps = {
@@ -13,77 +12,49 @@ type ScheduledMessagesDialogProps = {
 }
 
 /**
- * Settings-dialog-sized popup for managing scheduled messages. While a row is
- * editing, Esc / outside click / X cancel the edit instead of closing.
+ * Desktop dialog for managing scheduled messages, opened from the sidebar icon and
+ * the composer banner. Mobile uses the scheduled messages page instead. While a row
+ * is being edited, any close request (Esc, outside click, the X) cancels the edit
+ * and keeps the dialog open, so unsaved text is never lost to a stray key.
  */
 const ScheduledMessagesDialog = ({ open, onOpenChange }: ScheduledMessagesDialogProps) => {
-    const [editingRowId, setEditingRowId] = useState<string | null>(null)
+    const [editingRowId, setEditingRowId] = useAtom(scheduledMessageEditingAtom)
 
-    // Prefix matcher: revalidates the list key AND the sidebar badge's count key
-    // (`scheduled-messages-count`) in one go after the user's own mutations.
+    // Prefix mutate after the user's own actions. The list is the one fetch behind the
+    // badge and the composer banners too, so this refreshes all of them.
     const { mutate } = useSWRConfig()
     const refreshList = () => {
         mutate((key) => typeof key === "string" && key.startsWith(SCHEDULED_MESSAGES_KEY))
     }
 
-    const cancelEditing = () => setEditingRowId(null)
-    const isEditing = editingRowId !== null
+    // One guard for every way of closing. Radix routes Esc, outside clicks and the
+    // built-in X through this callback, so no per-event overrides are needed.
+    const handleOpenChange = (next: boolean) => {
+        if (!next && editingRowId !== null) {
+            setEditingRowId(null)
+            return
+        }
+        onOpenChange(next)
+    }
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent
-                // Desktop: settings-dialog dimensions. Mobile: a full-screen page —
-                // the dialog covered nearly the whole viewport anyway, so take it all
-                // (undo the base Content's centering, radius and size caps).
-                className="min-w-5xl p-0 overflow-y-hidden max-lg:min-w-0 max-lg:w-dvw max-lg:max-w-none max-lg:h-dvh max-lg:max-h-none max-lg:rounded-none max-lg:top-0 max-lg:left-0 max-lg:translate-x-0 max-lg:translate-y-0"
-                // The default close X calls onOpenChange(false) directly, bypassing the
-                // editing guard below — so it is swapped for a controlled button.
-                showCloseButton={false}
-                // Esc may close the dialog ONLY when nothing is being edited — while a
-                // row is editing it cancels the edit instead (the inline editor's own
-                // Escape handling also stops propagation for the same reason).
-                onEscapeKeyDown={(e) => {
-                    if (isEditing) {
-                        e.preventDefault()
-                        cancelEditing()
-                    }
-                }}
-                onPointerDownOutside={(e) => {
-                    if (isEditing) e.preventDefault()
-                }}
-            >
-                <div className="flex flex-col h-[calc(100vh-8rem)] max-lg:h-dvh">
-                    {/* Header band: title only. The close X sits in the dialog's corner
-                        (absolute top-4 right-4) exactly like dialog.tsx's built-in close
-                        button — ours is controlled because it cancels an active inline
-                        edit instead of closing. */}
-                    <div className="px-8 pt-6 pb-4 shrink-0">
-                        <DialogTitle>{_("Scheduled Messages")}</DialogTitle>
-                    </div>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        isIconButton
-                        aria-label={_("Close")}
-                        className="absolute top-4 ltr:right-4 rtl:left-4"
-                        onClick={() => {
-                            if (isEditing) { cancelEditing() } else { onOpenChange(false) }
-                        }}
-                    >
-                        <XIcon />
-                    </Button>
-                    {/* px-6 + the cards' own px-2 wrapper puts the hover pill at 32px,
-                        flush with the px-8 header band. */}
-                    <div className="flex-1 min-h-0 px-6 pb-6">
-                        <ScheduledMessagesList
-                            editingRowId={editingRowId}
-                            onEditingChange={setEditingRowId}
-                            onRowSaved={() => { refreshList(); setEditingRowId(null) }}
-                            refresh={refreshList}
-                        />
-                    </div>
-                </div>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
+            {/* Fixed height: the list is virtualized and needs a definite height to scroll
+                inside. Same height as the settings dialog. */}
+            <DialogContent className="sm:max-w-3xl h-[calc(100vh-8rem)]">
+                <DialogHeader>
+                    <DialogTitle>{_("Scheduled Messages")}</DialogTitle>
+                    <DialogDescription>{_("Messages you've scheduled to send later.")}</DialogDescription>
+                </DialogHeader>
+                {/* relative: the list's empty state is an absolute overlay centred on the body. */}
+                <DialogBody className="relative">
+                    <ScheduledMessagesList
+                        editingRowId={editingRowId}
+                        onEditingChange={setEditingRowId}
+                        onRowSaved={() => { refreshList(); setEditingRowId(null) }}
+                        refresh={refreshList}
+                    />
+                </DialogBody>
             </DialogContent>
         </Dialog>
     )

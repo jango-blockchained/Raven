@@ -12,18 +12,18 @@ import { useDMUnread, useWorkspaceUnread } from "@stores/unread/useChannelUnread
 import { useUnreadThreadsCount } from "@stores/threads/useUnreadThreads"
 import _ from "@lib/translate"
 import { cn } from "@lib/utils"
-import { useSetAtom } from "jotai"
+import { useAtom, useSetAtom } from "jotai"
 import { BellIcon, BookmarkIcon, CalendarClockIcon, MessageSquareTextIcon, MoreHorizontalIcon, SearchIcon, UsersIcon } from "lucide-react"
 import { NavLink } from "react-router"
 import { settingsDialogOpenTab } from "@components/features/settings/settingsDialogAtom"
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
 import { DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core"
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { useFrappeUpdateDoc } from "frappe-react-sdk"
 import useCurrentRavenUser from "@raven/lib/hooks/useCurrentRavenUser"
 import ScheduledMessagesDialog from "@components/features/schedule-send/ScheduledMessagesDialog"
-import { useScheduledMessagesCount } from "@components/features/schedule-send/useScheduledMessages"
+import { scheduledMessagesDialogOpenAtom, useScheduledMessagesCount } from "@components/features/schedule-send/useScheduledMessages"
 
 /**
  * Dropping a drag makes the browser fire ONE click on whatever ends up under
@@ -63,7 +63,6 @@ const PrimarySidebar = () => {
                         <Separator />
                     </div>
                     <SearchButton />
-                    <ScheduledMessagesButton />
                     <NotificationsLink />
                     <DirectMessagesLink />
                     <ThreadsLink />
@@ -76,6 +75,7 @@ const PrimarySidebar = () => {
                     <div className="px-3.5 w-full">
                         <Separator />
                     </div>
+                    <ScheduledMessagesButton />
                     <LaterLink />
                     <NavUserMenu />
                 </div>
@@ -110,7 +110,8 @@ const SearchButton = () => {
 
 const ScheduledMessagesButton = () => {
     const count = useScheduledMessagesCount()
-    const [open, setOpen] = useState(false)
+    // Shared with the composer banner's View action, which opens this same dialog.
+    const [open, setOpen] = useAtom(scheduledMessagesDialogOpenAtom)
     // The icon may hide when the count hits 0, but a mounted open dialog stays
     // mounted until the user closes it — sending/deleting the last row (or a
     // background dispatch) must not yank it away mid-use.
