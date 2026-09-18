@@ -52,7 +52,7 @@ import { ReminderDialog } from "./ReminderDialog"
 import { UNREAD_REMINDER_COUNT_KEY, useRemindersList, type ReminderRow } from "./useReminders"
 
 interface RemindersListProps {
-    /** Page-level search (shared across tabs) — matches note + message text. */
+    /** Page-level search (shared across tabs) — matches the note, the message body and its plain content. */
     searchQuery: string
     /** Page-level channel filter ('*all' = no filter). */
     channel: string
@@ -134,10 +134,13 @@ const RemindersList = ({ searchQuery, channel, mode, onSelect, selectedID, selec
         const query = searchQuery.trim().toLowerCase()
         const visible = reminders
             .filter((r) => !channelParam || r.channel_id === channelParam)
+            // Plain content covers what the HTML body does not: a poll's question and
+            // options, and a file's caption.
             .filter((r) =>
                 !query ||
                 (r.description ?? '').toLowerCase().includes(query) ||
-                (r.message_text ?? '').toLowerCase().includes(query))
+                (r.message_text ?? '').toLowerCase().includes(query) ||
+                (r.message_content ?? '').toLowerCase().includes(query))
         if (mode === 'completed') {
             return visible
                 .filter((r) => r.notified === 1 && r.is_read === 1)
