@@ -2,11 +2,12 @@ import { useFormContext, useWatch } from "react-hook-form"
 import { Separator } from "@components/ui/separator"
 import { SelectItem } from "@components/ui/select"
 import {
-    DataField, SelectFormField, SmallTextField, SwitchFormField, LinkFormField,
+    DataField, SelectFormField, SwitchFormField, LinkFormField,
 } from "@components/ui/form-elements"
 import type { RavenDocumentNotification } from "@raven/types/RavenIntegrations/RavenDocumentNotification"
 import _ from "@lib/translate"
 import { DoctypeVariables } from "./DoctypeVariables"
+import RichTextFormField from "@components/features/editor/RichTextFormField"
 
 /** Details tab — name, trigger, target doctype, sender bot, flags and the message body. */
 export const DocumentNotificationDetailsTab = ({ isEdit }: { isEdit: boolean }) => {
@@ -66,10 +67,10 @@ export const DocumentNotificationDetailsTab = ({ isEdit }: { isEdit: boolean }) 
             <Separator />
 
             <div className="flex flex-col gap-1.5">
-                <SmallTextField
+                <RichTextFormField
                     name="message"
                     label={_("Message Content")}
-                    inputProps={{ className: "min-h-[100px]", placeholder: "Hi {{ doc.employee_name }}, your salary slip is ready." }}
+                    placeholder="Hi {{ doc.employee_name }}, your salary slip is ready."
                     formDescription={_("The message to send. Use Jinja tags to embed document data, e.g. {{ doc.employee_name }}")}
                 />
                 <p className="text-p-sm text-ink-gray-5">

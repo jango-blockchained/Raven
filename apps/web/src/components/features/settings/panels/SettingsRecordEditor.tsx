@@ -51,6 +51,13 @@ type Props<T extends FieldValues> = {
     badge?: (doc: T) => ReactNode
     /** Toast after a successful delete. Defaults to "Deleted". */
     deleteSuccessMessage?: string
+    /**
+     * Optional transforms between the saved doc and the form's values, for forms that
+     * edit derived fields (e.g. cron parts). `toForm` runs on every load and reset,
+     * `fromForm` on every create and save.
+     */
+    toForm?: (doc: T) => T
+    fromForm?: (values: T) => T
     onBack: () => void
     onSaved?: (id: string) => void
     onDeleted?: () => void
@@ -69,7 +76,7 @@ const BackButton = ({ onBack, label }: { onBack: () => void; label: string }) =>
 )
 
 const Create = <T extends FieldValues>({
-    doctype, listKey, createDefaults, createTitle, backLabel, form, onBack, onSaved,
+    doctype, listKey, createDefaults, createTitle, backLabel, form, fromForm, onBack, onSaved,
 }: Props<T>) => {
     const { createDoc, loading, error } = useFrappeCreateDoc<T>()
     const { mutate: globalMutate } = useSWRConfig()
@@ -77,7 +84,7 @@ const Create = <T extends FieldValues>({
     const { handleSubmit } = methods
 
     const onSubmit = async (data: T) => {
-        const doc = await createDoc(doctype, data)
+        const doc = await createDoc(doctype, fromForm ? fromForm(data) : data)
         await globalMutate((key) => typeof key === "string" && key.startsWith(listKey))
         onSaved?.(doc.name)
     }
@@ -131,19 +138,23 @@ const Detail = <T extends FieldValues>(props: Props<T> & { id: string }) => {
 
 const DetailContent = <T extends FieldValues>({
     id, doctype, listKey, createDefaults, backLabel, deleteTitle, deleteDescription, deleteSuccessMessage,
-    title, form, actions, menu, badge, onBack, onDeleted, data, mutate,
+    title, form, actions, menu, badge, toForm, fromForm, onBack, onDeleted, data, mutate,
 }: Props<T> & { id: string; data: T; mutate: SWRResponse<FrappeDoc<T>>["mutate"] }) => {
     const { updateDoc, loading, error } = useFrappeUpdateDoc<T>()
     const { mutate: globalMutate } = useSWRConfig()
     // Seed missing (unset) fields from createDefaults so a toggle round-trip is not reported dirty.
-    const methods = useForm<T>({ defaultValues: { ...createDefaults, ...data } as DefaultValues<T> })
+    const formValues = (doc: T) => {
+        const merged = { ...createDefaults, ...doc } as T
+        return toForm ? toForm(merged) : merged
+    }
+    const methods = useForm<T>({ defaultValues: formValues(data) as DefaultValues<T> })
     const { handleSubmit, formState: { dirtyFields } } = methods
     const hasChanges = hasDirtyFields(dirtyFields)
 
     const onSubmit = async (formData: T) => {
-        const doc = await updateDoc(doctype, id, formData)
+        const doc = await updateDoc(doctype, id, fromForm ? fromForm(formData) : formData)
         toast.success(_("Saved"), { id: SAVE_TOAST_ID })
-        methods.reset({ ...createDefaults, ...doc } as T)
+        methods.reset(formValues(doc))
         mutate(doc, { revalidate: false })
         await globalMutate((key) => typeof key === "string" && key.startsWith(listKey))
     }
@@ -155,7 +166,7 @@ const DetailContent = <T extends FieldValues>({
         updateDoc(doctype, id, values)
             .then(async (doc) => {
                 toast.success(successMessage, { id: SAVE_TOAST_ID })
-                methods.reset({ ...createDefaults, ...doc } as T, { keepDirtyValues: true })
+                methods.reset(formValues(doc), { keepDirtyValues: true })
                 mutate(doc, { revalidate: false })
                 await globalMutate((key) => typeof key === "string" && key.startsWith(listKey))
             })
