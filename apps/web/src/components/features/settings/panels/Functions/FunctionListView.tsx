@@ -15,6 +15,7 @@ import {
 import { Spinner } from "@components/ui/spinner"
 import { TablePagination } from "@components/ui/table-pagination"
 import usePaginatedList from "@hooks/usePaginatedList"
+import useCreateHotkey from "@hooks/useCreateHotkey"
 import { CheckIcon, SquareFunctionIcon } from "lucide-react"
 import { isRavenSettingsAdmin } from "../AdminSettingsForm"
 import type { RavenAIFunction } from "@raven/types/RavenAI/RavenAIFunction"
@@ -27,6 +28,7 @@ export const FUNCTIONS_LIST_KEY = "raven-ai-functions"
 const FunctionListView = ({ onOpen, onCreate }: { onOpen: (id: string) => void; onCreate: () => void }) => {
     const isAdmin = isRavenSettingsAdmin()
     const pagination = usePaginatedList(FUNCTIONS_LIST_KEY, "Raven AI Function", isAdmin)
+    useCreateHotkey(onCreate, isAdmin)
 
     const { data, error } = useFrappeGetDocList<RavenAIFunction>(
         "Raven AI Function",

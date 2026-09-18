@@ -1,4 +1,5 @@
 import { useState } from "react"
+import useCreateHotkey from "@hooks/useCreateHotkey"
 import { useFrappeGetCall, useFrappePostCall } from "frappe-react-sdk"
 import { toast } from "sonner"
 import { CircleAlertIcon, PlusIcon, Trash2Icon } from "lucide-react"
@@ -71,6 +72,8 @@ const DocumentProcessors = () => {
 
     const handleCreateProcessor = () => {
         if (!selectedProcessorType || !isAdmin) return
+
+    useCreateHotkey(handleCreateProcessor, Boolean(selectedProcessorType))
 
         createProcessor({ processor_type_key: selectedProcessorType })
             .then(() => {

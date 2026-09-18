@@ -32,6 +32,7 @@ import { usersStore } from "@stores/usersStore"
 import { useUserCookieData } from "@hooks/useUserCookieData"
 import _ from "@lib/translate"
 import { useWorkspaces } from "@hooks/useWorkspaces"
+import useCreateHotkey from "@hooks/useCreateHotkey"
 import WorkspaceAccessPicker from "./WorkspaceAccessPicker"
 import useChannelsByWorkspace from "./useChannelsByWorkspace"
 
@@ -46,6 +47,7 @@ interface UserFormFields {
 /** Invite a user to Raven — or add an existing Frappe user as a Raven User. */
 const AddUserDialog = () => {
     const [open, setOpen] = useState(false)
+    useCreateHotkey(() => setOpen(true))
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>

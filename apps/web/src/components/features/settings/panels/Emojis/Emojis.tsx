@@ -4,6 +4,7 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { TablePagination } from '@components/ui/table-pagination'
 import { useFetchCustomEmojis } from '@hooks/fetchers/useFetchCustomEmojis'
 import usePaginatedList, { type ListQuery } from '@hooks/usePaginatedList'
+import useCreateHotkey from '@hooks/useCreateHotkey'
 import { useSWRConfig } from 'frappe-react-sdk'
 import { useDebounceValue } from 'usehooks-ts'
 import { Input } from '@components/ui/input'
@@ -54,6 +55,7 @@ export const Emojis = () => {
 
     const [sorting, setSorting] = useState<SortingState>([])
     const [open, setOpen] = useState(false)
+    useCreateHotkey(() => setOpen(true))
 
     // Search runs on the server since the list is paginated there. Debounced so typing
     // does not fire a request per keystroke.

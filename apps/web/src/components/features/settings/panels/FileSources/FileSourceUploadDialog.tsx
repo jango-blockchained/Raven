@@ -9,11 +9,16 @@ type FileSourceUploadDialogProps = {
     onUpload: (id: string) => void | Promise<void>
     /** Custom dialog trigger. Defaults to a primary "Upload" button. */
     trigger?: React.ReactNode
+    /** Control the dialog from outside, e.g. to open it from a keyboard shortcut. */
+    open?: boolean
+    onOpenChange?: (open: boolean) => void
 }
 
 /** Upload a file as a Raven AI File Source. Also reused by the Agents panel to attach files to an agent. */
-export const FileSourceUploadDialog = ({ onUpload, trigger }: FileSourceUploadDialogProps) => (
+export const FileSourceUploadDialog = ({ onUpload, trigger, open, onOpenChange }: FileSourceUploadDialogProps) => (
     <UploadDocDialog<RavenAIFileSource>
+        open={open}
+        onOpenChange={onOpenChange}
         doctype="Raven AI File Source"
         fileField="file"
         isPrivate

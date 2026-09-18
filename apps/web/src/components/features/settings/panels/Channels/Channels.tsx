@@ -1,4 +1,5 @@
 import { ChannelIcon } from "@components/common/ChannelIcon/ChannelIcon"
+import useCreateHotkey from "@hooks/useCreateHotkey"
 import { ListView, type ListViewColumnMeta, type SortingState } from "@components/ui/list-view"
 import type { ColumnDef } from "@tanstack/react-table"
 import { Button } from "@components/ui/button"
@@ -309,6 +310,7 @@ const ChannelNotificationsButton = ({ channel }: { channel: ChannelListItem }) =
 
 const CreateChannelButton = ({ selectedWorkspace }: { selectedWorkspace: string }) => {
     const [isOpen, setIsOpen] = useState(false)
+    useCreateHotkey(() => setIsOpen(true))
     return (
         <>
             <Button type="button" size="sm" onClick={() => setIsOpen(true)}>

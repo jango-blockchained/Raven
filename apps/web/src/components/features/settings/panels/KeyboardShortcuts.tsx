@@ -3,7 +3,7 @@ import { useAtomValue } from "jotai"
 import {
     ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BellOffIcon, BoldIcon, CodeIcon, CornerDownLeftIcon,
     EyeOffIcon, HighlighterIcon, ImageIcon, ItalicIcon, LinkIcon, ListIcon, ListOrderedIcon, MailCheckIcon,
-    PencilIcon, QuoteIcon, SaveIcon, SearchIcon, SendIcon, SettingsIcon, SquareCodeIcon, StrikethroughIcon,
+    PencilIcon, PlusIcon, QuoteIcon, SaveIcon, SearchIcon, SendIcon, SettingsIcon, SquareCodeIcon, StrikethroughIcon,
     TerminalIcon, UnderlineIcon, UndoIcon, RedoIcon, WrapTextIcon, XIcon,
 } from "lucide-react"
 import { Badge } from "@components/ui/badge"
@@ -154,8 +154,13 @@ export const KeyboardShortcuts = () => {
             ],
         },
         {
-            title: _("Forms"),
+            title: _("Settings"),
             shortcuts: [
+                {
+                    keys: <KbdGroup><Mod /><Key>B</Key></KbdGroup>,
+                    icon: <PlusIcon />, label: _("New"),
+                    description: _("In a settings list, create a new record."),
+                },
                 {
                     keys: <KbdGroup><Mod /><Key>S</Key></KbdGroup>,
                     icon: <SaveIcon />, label: _("Save"),

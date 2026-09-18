@@ -24,6 +24,7 @@ import {
 import { Spinner } from "@components/ui/spinner"
 import { TablePagination } from "@components/ui/table-pagination"
 import usePaginatedList from "@hooks/usePaginatedList"
+import useCreateHotkey from "@hooks/useCreateHotkey"
 import { FileIcon, Trash2Icon } from "lucide-react"
 import { isRavenSettingsAdmin } from "../AdminSettingsForm"
 import { getTimePassed } from "@raven/lib/utils/dateConversions"
@@ -39,6 +40,8 @@ export const FileSources = () => {
     const { mutate: globalMutate } = useSWRConfig()
     const isAdmin = isRavenSettingsAdmin()
     const pagination = usePaginatedList(FILE_SOURCES_KEY, "Raven AI File Source", isAdmin)
+    const [uploadOpen, setUploadOpen] = useState(false)
+    useCreateHotkey(() => setUploadOpen(true), isAdmin)
 
     const { data, error } = useFrappeGetDocList<RavenAIFileSource>(
         "Raven AI File Source",
@@ -135,7 +138,7 @@ export const FileSources = () => {
         <>
             <SettingsPanelHeader
                 actions={
-                    isAdmin ? <FileSourceUploadDialog onUpload={refresh} /> : null
+                    isAdmin ? <FileSourceUploadDialog onUpload={refresh} open={uploadOpen} onOpenChange={setUploadOpen} /> : null
                 }
             >
                 <SettingsPanelTitle>{_("File Sources")}</SettingsPanelTitle>

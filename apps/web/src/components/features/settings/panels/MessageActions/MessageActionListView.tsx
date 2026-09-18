@@ -11,6 +11,7 @@ import { SettingsPanelContent, SettingsPanelDescription, SettingsPanelHeader, Se
 import { Spinner } from "@components/ui/spinner"
 import { TablePagination } from "@components/ui/table-pagination"
 import usePaginatedList from "@hooks/usePaginatedList"
+import useCreateHotkey from "@hooks/useCreateHotkey"
 import type { RavenMessageAction } from "@raven/types/RavenIntegrations/RavenMessageAction"
 import { isRavenSettingsAdmin } from "../AdminSettingsForm"
 import _ from "@lib/translate"
@@ -21,6 +22,7 @@ export const MESSAGE_ACTIONS_LIST_KEY = "raven-message-actions"
 const MessageActionListView = ({ onOpen, onCreate }: { onOpen: (id: string) => void; onCreate: () => void }) => {
     const isAdmin = isRavenSettingsAdmin()
     const pagination = usePaginatedList(MESSAGE_ACTIONS_LIST_KEY, "Raven Message Action", isAdmin)
+    useCreateHotkey(onCreate, isAdmin)
 
     const { data, error, mutate } = useFrappeGetDocList<RavenMessageAction>(
         "Raven Message Action",

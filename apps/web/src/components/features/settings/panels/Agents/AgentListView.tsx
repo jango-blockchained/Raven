@@ -17,6 +17,7 @@ import {
 import { Spinner } from "@components/ui/spinner"
 import { TablePagination } from "@components/ui/table-pagination"
 import usePaginatedList from "@hooks/usePaginatedList"
+import useCreateHotkey from "@hooks/useCreateHotkey"
 import { BotIcon, CircleCheckIcon, CircleXIcon, SparklesIcon } from "lucide-react"
 import { isRavenSettingsAdmin } from "../AdminSettingsForm"
 import type { RavenBot } from "@raven/types/RavenBot/RavenBot"
@@ -28,6 +29,7 @@ export const AGENTS_LIST_KEY = "raven-bots"
 const AgentListView = ({ onOpen, onCreate }: { onOpen: (id: string) => void; onCreate: () => void }) => {
     const isAdmin = isRavenSettingsAdmin()
     const pagination = usePaginatedList(AGENTS_LIST_KEY, "Raven Bot", isAdmin)
+    useCreateHotkey(onCreate, isAdmin)
 
     const { data, error } = useFrappeGetDocList<RavenBot>(
         "Raven Bot",

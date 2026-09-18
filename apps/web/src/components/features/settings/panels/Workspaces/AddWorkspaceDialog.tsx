@@ -1,4 +1,5 @@
 import { useState } from "react"
+import useCreateHotkey from "@hooks/useCreateHotkey"
 import { Controller, useForm } from "react-hook-form"
 import { useFrappeCreateDoc, useFrappeFileUpload, useFrappeUpdateDoc, useSWRConfig } from "frappe-react-sdk"
 import { toast } from "sonner"
@@ -32,6 +33,7 @@ type WorkspaceFormData = RavenWorkspace & {
 /** "Create" in the Workspaces panel header; jumps to the new workspace's detail view on success. */
 const CreateWorkspaceButton = ({ onCreated }: { onCreated: (workspaceID: string) => void }) => {
     const [open, setOpen] = useState(false)
+    useCreateHotkey(() => setOpen(true))
     const isRavenAdmin = hasRole("Raven Admin")
 
     return (

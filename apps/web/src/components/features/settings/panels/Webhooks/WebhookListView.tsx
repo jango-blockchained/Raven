@@ -11,6 +11,7 @@ import { SettingsPanelContent, SettingsPanelDescription, SettingsPanelHeader, Se
 import { Spinner } from "@components/ui/spinner"
 import { TablePagination } from "@components/ui/table-pagination"
 import usePaginatedList from "@hooks/usePaginatedList"
+import useCreateHotkey from "@hooks/useCreateHotkey"
 import type { RavenWebhook } from "@raven/types/RavenIntegrations/RavenWebhook"
 import { getDateObject } from "@lib/date"
 import { isRavenSettingsAdmin } from "../AdminSettingsForm"
@@ -22,6 +23,7 @@ export const WEBHOOKS_LIST_KEY = "raven-webhooks"
 const WebhookListView = ({ onOpen, onCreate }: { onOpen: (id: string) => void; onCreate: () => void }) => {
     const isAdmin = isRavenSettingsAdmin()
     const pagination = usePaginatedList(WEBHOOKS_LIST_KEY, "Raven Webhook", isAdmin)
+    useCreateHotkey(onCreate, isAdmin)
 
     const { data, error, mutate } = useFrappeGetDocList<RavenWebhook>(
         "Raven Webhook",
